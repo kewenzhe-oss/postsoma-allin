@@ -258,7 +258,8 @@ const handleTestConnection = async () => {
     }
     if (aiBaseUrl.value) body.base_url = aiBaseUrl.value
 
-    const res = await fetch('/api/ai/test-connection', {
+    const baseUrl = import.meta.env.VITE_API_URL || ''
+    const res = await fetch(`${baseUrl}/api/ai/test-connection`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)

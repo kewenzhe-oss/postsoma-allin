@@ -71,7 +71,8 @@ export const useOnlineStore = defineStore('online', () => {
       if (aiConfig) {
         payload.ai_config = aiConfig
       }
-      const res = await fetch('/api/rooms', {
+      const baseUrl = import.meta.env.VITE_API_URL || ''
+      const res = await fetch(`${baseUrl}/api/rooms`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -97,7 +98,8 @@ export const useOnlineStore = defineStore('online', () => {
 
   async function joinRoom(rId, displayName) {
     try {
-      const res = await fetch(`/api/rooms/${rId}/join`, {
+      const baseUrl = import.meta.env.VITE_API_URL || ''
+      const res = await fetch(`${baseUrl}/api/rooms/${rId}/join`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ display_name: displayName })
@@ -127,9 +129,16 @@ export const useOnlineStore = defineStore('online', () => {
 
     connectionStatus.value = 'connecting'
 
-    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const wsHost = import.meta.env.DEV ? 'localhost:8000' : window.location.host
-    const wsUrl = `${wsProtocol}//${wsHost}/ws/rooms/${roomId.value}?token=${playerToken.value}`
+    const baseUrl = import.meta.env.VITE_API_URL || ''
+    let wsUrl
+    if (baseUrl) {
+      const wsBaseUrl = baseUrl.replace(/^http/, 'ws')
+      wsUrl = `${wsBaseUrl}/ws/rooms/${roomId.value}?token=${playerToken.value}`
+    } else {
+      const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+      const wsHost = import.meta.env.DEV ? 'localhost:8000' : window.location.host
+      wsUrl = `${wsProtocol}//${wsHost}/ws/rooms/${roomId.value}?token=${playerToken.value}`
+    }
 
     socket = new WebSocket(wsUrl)
 
