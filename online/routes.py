@@ -23,8 +23,19 @@ def _resolve_endpoint(provider_info: dict, req_model: str, custom_base_url: str 
     if custom_base_url:
         # Third-party compatible endpoint provided by user
         endpoint = custom_base_url.rstrip("/")
-        # If it doesn't already end with the completions path, leave it as-is
-        # (users supply the full completions URL)
+        if protocol == "openai" and not endpoint.endswith("/chat/completions"):
+            if endpoint.endswith("/v1"):
+                endpoint += "/chat/completions"
+            else:
+                endpoint += "/v1/chat/completions"
+        elif protocol == "gemini" and ":generateContent" not in endpoint:
+            if endpoint.endswith("/v1beta"):
+                endpoint += f"/models/{req_model}:generateContent"
+            else:
+                endpoint += f"/v1beta/models/{req_model}:generateContent"
+        
+        if "{model}" in endpoint:
+            endpoint = endpoint.format(model=req_model)
     else:
         raw = provider_info["base_url"]
         if raw is None:
@@ -50,7 +61,8 @@ async def _call_openai_compat(endpoint: str, api_key: str, model: str) -> tuple[
             response = await client.post(endpoint, headers=headers, json=payload)
         if response.status_code == 200:
             return True, "Connection verified", None
-        return False, f"Provider returned status {response.status_code}", f"HTTP_{response.status_code}"
+        err_msg = response.text[:100].strip() if response.text else "No details"
+        return False, f"Provider returned {response.status_code}: {err_msg}", f"HTTP_{response.status_code}"
     except httpx.TimeoutException:
         return False, "Connection timed out after 10 seconds", "TIMEOUT"
     except Exception:
@@ -69,7 +81,8 @@ async def _call_gemini(endpoint: str, api_key: str) -> tuple[bool, str, str | No
             response = await client.post(url, json=payload)
         if response.status_code == 200:
             return True, "Connection verified", None
-        return False, f"Provider returned status {response.status_code}", f"HTTP_{response.status_code}"
+        err_msg = response.text[:100].strip() if response.text else "No details"
+        return False, f"Provider returned {response.status_code}: {err_msg}", f"HTTP_{response.status_code}"
     except httpx.TimeoutException:
         return False, "Connection timed out after 10 seconds", "TIMEOUT"
     except Exception:

@@ -39,6 +39,12 @@ class PokerAIEngine:
         protocol = provider_info.get("protocol", "openai")
 
         endpoint = custom_url.rstrip("/") if custom_url else provider_info.get("base_url", "").format(model=model)
+        if custom_url and protocol == "openai" and not endpoint.endswith("/chat/completions"):
+            if endpoint.endswith("/v1"):
+                endpoint += "/chat/completions"
+            else:
+                endpoint += "/v1/chat/completions"
+                
         if not endpoint:
             return self._fallback(available, "no endpoint")
 

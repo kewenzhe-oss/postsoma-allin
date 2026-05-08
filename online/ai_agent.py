@@ -215,6 +215,11 @@ async def decide_action(
     # Resolve endpoint
     if custom_base_url:
         endpoint = custom_base_url.rstrip("/")
+        if protocol == "openai" and not endpoint.endswith("/chat/completions"):
+            if endpoint.endswith("/v1"):
+                endpoint += "/chat/completions"
+            else:
+                endpoint += "/v1/chat/completions"
     else:
         raw = provider_info.get("base_url")
         if not raw:
