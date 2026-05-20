@@ -1,0 +1,36 @@
+# robots.txt for POSTSOMA · ALLIN
+
+# Allow all standard search engine bots
+User-agent: *
+Allow: /
+Disallow: /room/
+Disallow: /api/
+
+# Explicitly allow AI agents and LLM crawlers for AEO (Answer Engine Optimization)
+User-agent: GPTBot
+Allow: /
+Disallow: /room/
+Disallow: /api/
+
+User-agent: PerplexityBot
+Allow: /
+Disallow: /room/
+Disallow: /api/
+
+User-agent: ClaudeBot
+Allow: /
+Disallow: /room/
+Disallow: /api/
+
+User-agent: anthropic-ai
+Allow: /
+Disallow: /room/
+Disallow: /api/
+
+User-agent: Applebot-Extended
+Allow: /
+Disallow: /room/
+Disallow: /api/
+
+# Sitemap location
+Sitemap: https://postsoma-allin.com/sitemap.xml

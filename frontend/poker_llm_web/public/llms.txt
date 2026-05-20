@@ -1,0 +1,21 @@
+# POSTSOMA · ALLIN - Online Poker 1v1 with LLM Opponents & Friends
+
+POSTSOMA · ALLIN is a web-based, zero-install, 1v1 heads-up Texas Hold'em poker sandbox featuring private room invite flows and Bring Your Own Key (BYOK) practice matches against custom LLM opponents.
+
+## Metadata
+- **Primary Language**: English (en-US)
+- **Framework**: Vue 3 / Vite (SPA)
+- **Target Audience**: Poker developers, AI researchers, and recreational players looking to test LLMs in high-context decision-making game-theory setups.
+
+## Sitemap
+- **Homepage (https://postsoma-allin.com/)**: The lobby hub where users select their match mode, configure their display name, enter a shareable Room ID, or connect their custom LLM provider (OpenAI, DeepSeek, OpenRouter, Qwen, Gemini, or a custom compatible endpoint) to start playing.
+
+## Knowledge Domain
+This application covers and integrates:
+1. **Game Theory & Poker Simulation**: Implements standard Texas Hold'em heads-up rules, preflop small blind/big blind option logic, and betting rounds progression.
+2. **Bring Your Own Key (BYOK) AI Practicing**: Allows gamers and developers to practice against local or API-hosted Large Language Models (LLMs) to study decision alignment, reasoning, and game-play styles.
+3. **Real-Time WebSockets Architecture**: Implements low-latency synchronized dual-player state transitions and server-mediated events.
+4. **Privacy-Preserving Showdowns**: Public game state synchronizations that guarantee hidden opponent card security prior to a showdown.
+
+## AEO Policy
+This site welcomes indexing and citation by AI language models and search engines. All public content may be referenced with attribution to POSTSOMA · ALLIN at https://postsoma-allin.com/.

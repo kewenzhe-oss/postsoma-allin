@@ -203,6 +203,8 @@ export const useOnlineStore = defineStore('online', () => {
           const winners = p.winners || []
           const endedBy = p.ended_by || (publicState.value?.stage === 'showdown' ? 'showdown' : 'fold')
           
+          const finalStage = publicState.value?.stage || 'river'
+          
           let showdownResult = null
           if (endedBy === 'showdown') {
             // Determine hero/villain IDs
@@ -227,6 +229,7 @@ export const useOnlineStore = defineStore('online', () => {
             winners,
             awarded_pot: p.awarded_pot ?? 0,
             ended_by: endedBy,
+            stage: finalStage,
             showdown_info: showdownResult
           }
         }

@@ -1,6 +1,6 @@
 from typing import List, Optional, Dict, Any
-from engine_info import Action, Player, GameStage
-from poker_engine import PokerTable
+from engine_info import Action, Player, GameStage, Suit
+from poker_engine import PokerTable, HandRank
 from online.schemas import (
     Seat, PublicPlayerState, PrivatePlayerState, PublicGameState,
     PrivateGameState, AvailableAction, EngineEvent, ActionRequest, ActionResult
@@ -69,9 +69,14 @@ class OnlinePokerEngineAdapter:
         
         events = []
         events.append(self._add_event("hand_started", {"hand_number": self.table.hand_number}))
+        sb_player = self.table.players[self.table.dealer_position]
+        bb_player = self.table.players[(self.table.dealer_position + 1) % len(self.table.players)]
+        
         events.append(self._add_event("blinds_posted", {
             "small_blind": self.table.small_blind,
             "big_blind": self.table.big_blind,
+            "small_blind_player_id": sb_player.name,
+            "big_blind_player_id": bb_player.name,
             "pot": self.table.pot
         }))
         
@@ -270,6 +275,13 @@ class OnlinePokerEngineAdapter:
         if not success:
             return ActionResult(accepted=False, error_message="Action rejected by engine.")
 
+        # Get actual incremental bet amount placed
+        actual_amount = engine_amount
+        if self.table.action_history:
+            last_action = self.table.action_history[-1]
+            if last_action.player_name == player_id:
+                actual_amount = last_action.amount
+
         events = []
         events.append(self._add_event("player_action_applied", {
             "player_id": player_id,
@@ -278,7 +290,9 @@ class OnlinePokerEngineAdapter:
                 player_id
             ),
             "action": action.upper(),
-            "amount": engine_amount,
+            "amount": actual_amount,
+            "bet_in_round": player.bet_in_round,
+            "chips": player.chips,
             "pot_after": self.table.pot
         }))
 
@@ -340,18 +354,86 @@ class OnlinePokerEngineAdapter:
             # Determine ended_by
             ended_by = "showdown" if self.table.stage == GameStage.SHOWDOWN else "fold"
 
+            # Build showdown_info if ended by showdown
+            showdown_info = None
+            if ended_by == "showdown":
+                players_list = []
+                hand_rank_names = {
+                    HandRank.HIGH_CARD: "High Card",
+                    HandRank.ONE_PAIR: "Pair",
+                    HandRank.TWO_PAIR: "Two Pair",
+                    HandRank.THREE_OF_A_KIND: "Three of a Kind",
+                    HandRank.STRAIGHT: "Straight",
+                    HandRank.FLUSH: "Flush",
+                    HandRank.FULL_HOUSE: "Full House",
+                    HandRank.FOUR_OF_A_KIND: "Four of a Kind",
+                    HandRank.STRAIGHT_FLUSH: "Straight Flush",
+                    HandRank.ROYAL_FLUSH: "Royal Flush",
+                }
+
+                def card_to_code(card):
+                    suit_char = {
+                        Suit.SPADE: "S",
+                        Suit.HEART: "H",
+                        Suit.CLUB: "C",
+                        Suit.DIAMOND: "D"
+                    }[card.suit]
+                    rank_map = {11: 'J', 12: 'Q', 13: 'K', 14: 'A'}
+                    rank_char = rank_map.get(card.value, str(card.value))
+                    return f"{rank_char}{suit_char}"
+
+                for p in self.table.players:
+                    if not p.folded:
+                        display_name = next(
+                            (s.display_name for s in self.seats if s.player_id == p.name),
+                            p.name
+                        )
+                        # Evaluate hand rank
+                        hand_rank_enum, _ = self.table.evaluate_hand(p)
+                        hand_name = hand_rank_names.get(hand_rank_enum, hand_rank_enum.name)
+                        
+                        players_list.append({
+                            "player_id": p.name,
+                            "display_name": display_name,
+                            "hole_cards": [card_to_code(c) for c in p.hand],
+                            "hand_name": hand_name
+                        })
+
+                # Compute winning reason
+                winner_names = [w["display_name"] for w in winners_payload]
+                winners_str = " and ".join(winner_names)
+                
+                # Get the hand of the first winner
+                first_winner_id = winners_payload[0]["player_id"] if winners_payload else None
+                winning_hand_name = ""
+                for p_info in players_list:
+                    if p_info["player_id"] == first_winner_id:
+                        winning_hand_name = p_info["hand_name"]
+                        break
+                
+                if winning_hand_name:
+                    winning_reason = f"{winners_str} wins with {winning_hand_name}."
+                else:
+                    winning_reason = f"{winners_str} wins."
+
+                showdown_info = {
+                    "players": players_list,
+                    "winning_reason": winning_reason
+                }
+
             events.append(self._add_event("hand_finished", {
                 "hand_number": hand_number,
                 "awarded_pot": pot_to_award,
                 "winners": winners_payload,
-                "ended_by": ended_by
+                "ended_by": ended_by,
+                "showdown_info": showdown_info
             }))
             hand_finished = True
 
         events.append(self._add_event("state_updated", {"trigger": "player_action"}))
 
         # Advance turn pointer if hand is still in progress
-        if not hand_finished and not self.table.is_round_complete():
+        if not hand_finished and not self.table.is_round_complete() and old_stage == self.table.stage:
             self.table.next_player()
 
         return ActionResult(accepted=True, events=events)

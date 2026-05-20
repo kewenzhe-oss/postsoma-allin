@@ -233,7 +233,8 @@ class PokerTable:
 
         # 检查是否所有未弃牌且未全押的玩家都已经行动过
         current_hand_actions = [action for action in self.action_history if
-                                action.hand_number == self.hand_number and action.stage == self.stage]
+                                action.hand_number == self.hand_number and action.stage == self.stage
+                                and action.action not in (Action.SMALL_BLIND, Action.BIG_BLIND)]
         acted_players = set(action.player_name for action in current_hand_actions)
         
         for player in non_all_in_players:

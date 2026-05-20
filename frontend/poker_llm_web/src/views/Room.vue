@@ -84,6 +84,13 @@ onMounted(() => {
   onlineStore.initFromSession()
   onlineStore.connectWebSocket()
   
+  // Dynamic SEO exclusion: mark transient room page as noindex
+  const meta = document.createElement('meta')
+  meta.name = 'robots'
+  meta.content = 'noindex, nofollow'
+  meta.id = 'room-noindex-meta'
+  document.head.appendChild(meta)
+  
   // Example: Hotkey to toggle debug view (Ctrl+Shift+D)
   window.addEventListener('keydown', handleKeydown)
 })
@@ -91,6 +98,12 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeydown)
   cleanupRoomState()
+  
+  // Clean up the dynamic noindex meta tag
+  const meta = document.getElementById('room-noindex-meta')
+  if (meta) {
+    meta.remove()
+  }
 })
 
 onBeforeRouteLeave(() => {
