@@ -1,6 +1,10 @@
 <template>
   <div class="home-container">
-    <LobbyHeader :currentMode="currentMode" @back="currentMode = 'select'" />
+    <LobbyHeader 
+      :currentMode="currentMode" 
+      @back="currentMode = 'select'" 
+      @open-ranges="showRangeViewer = true"
+    />
 
     <div class="lobby-main">
       <transition name="fade-slide" mode="out-in">
@@ -21,16 +25,22 @@
         />
       </transition>
     </div>
+
+    <!-- Teleportable Tactical Tool Modal -->
+    <RangeViewerModal v-model="showRangeViewer" />
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import LobbyHeader from '@/components/lobby/LobbyHeader.vue'
 import ModeSelector from '@/components/lobby/ModeSelector.vue'
 import HumanMatchPanel from '@/components/lobby/HumanMatchPanel.vue'
 import AIMatchPanel from '@/components/lobby/AIMatchPanel.vue'
+import RangeViewerModal from '@/components/tools/RangeViewerModal.vue'
+
+const showRangeViewer = ref(false)
 
 const route = useRoute()
 const router = useRouter()
