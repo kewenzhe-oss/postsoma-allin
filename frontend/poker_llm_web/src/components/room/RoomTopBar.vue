@@ -12,6 +12,9 @@
     </div>
     
     <div class="right">
+      <el-button @click="$emit('open-handbook')" plain size="small" class="handbook-btn">
+        <el-icon><Reading /></el-icon> Handbook
+      </el-button>
       <el-button @click="copyLink" plain size="small" class="copy-btn" :class="{ 'is-copied': isCopied }">
         <el-icon>
           <Check v-if="isCopied" />
@@ -33,11 +36,11 @@
 import { computed, ref } from 'vue'
 import { useOnlineStore } from '@/stores/online'
 import { ElMessage } from 'element-plus'
-import { DocumentCopy, SwitchButton, Check } from '@element-plus/icons-vue'
+import { DocumentCopy, SwitchButton, Check, Reading } from '@element-plus/icons-vue'
 
 const onlineStore = useOnlineStore()
 
-defineEmits(['leave'])
+defineEmits(['leave', 'open-handbook'])
 
 const connectionClass = computed(() => {
   if (onlineStore.connectionStatus === 'connected') return 'is-connected'
@@ -174,6 +177,19 @@ function stageLabel(value) {
   font-weight: 750;
   color: var(--text-secondary);
   border: none;
+}
+
+.handbook-btn {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+  border-color: var(--border-subtle) !important;
+  color: var(--accent-primary-strong) !important;
+  border-radius: var(--radius-pill);
+  font-weight: 800;
+}
+.handbook-btn:hover {
+  background-color: rgba(217, 173, 88, 0.13) !important;
+  color: var(--text-primary) !important;
+  border-color: rgba(217, 173, 88, 0.32) !important;
 }
 
 .copy-btn {

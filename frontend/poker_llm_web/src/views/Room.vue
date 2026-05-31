@@ -1,6 +1,6 @@
 <template>
   <div class="room-shell">
-    <RoomTopBar @leave="handleBackToLobby" />
+    <RoomTopBar @leave="handleBackToLobby" @open-handbook="showDecisionGuide = true" />
 
     <div class="main-viewport">
       <!-- ── Core Table Area ── -->
@@ -36,6 +36,9 @@
       @rematch="handleRematch"
       @back-to-lobby="handleBackToLobby"
     />
+
+    <!-- Teleportable Tactical Tool Modal -->
+    <RangeViewerModal v-model="showDecisionGuide" />
   </div>
 </template>
 
@@ -53,12 +56,14 @@ import ActionPanel from '@/components/room/ActionPanel.vue'
 import SidePanel from '@/components/room/SidePanel.vue'
 import RoomStateOverlay from '@/components/room/RoomStateOverlay.vue'
 import DebugPanel from '@/components/online/DebugPanel.vue'
+import RangeViewerModal from '@/components/tools/RangeViewerModal.vue'
 
 const router = useRouter()
 const onlineStore = useOnlineStore()
 const { perceptualState, latestAIAction, submitHeroAction } = useAIInteraction(onlineStore)
 
 const showDebug = ref(false) // Toggleable via hotkey or settings later
+const showDecisionGuide = ref(false)
 let isCreatingRematch = false
 
 // The text that pops up briefly to explain the AI's action
