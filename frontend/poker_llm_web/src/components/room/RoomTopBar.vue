@@ -13,7 +13,7 @@
     
     <div class="right">
       <el-button @click="$emit('open-handbook')" plain size="small" class="handbook-btn">
-        <el-icon><Reading /></el-icon> Handbook
+        <el-icon><Reading /></el-icon> Decision Guide · 决策指南
       </el-button>
       <el-button @click="copyLink" plain size="small" class="copy-btn" :class="{ 'is-copied': isCopied }">
         <el-icon>

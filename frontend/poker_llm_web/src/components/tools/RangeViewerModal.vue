@@ -2,17 +2,48 @@
   <Teleport to="body">
     <Transition name="modal-fade">
       <div v-if="modelValue" class="gto-modal-overlay" @click.self="closeModal">
-        <div class="gto-modal-content animate-scaleIn">
+        <div
+          ref="modalContentRef"
+          class="gto-modal-content animate-scaleIn"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="decision-guide-title"
+          tabindex="-1"
+          @keydown="handleModalKeydown"
+        >
           <!-- Close Button -->
-          <button class="gto-close-btn" @click="closeModal" aria-label="Close modal">
+          <button
+            ref="closeButtonRef"
+            class="gto-close-btn"
+            type="button"
+            @click="closeModal"
+            :aria-label="t('closeGuideLabel')"
+          >
             <span class="close-icon">&times;</span>
           </button>
 
           <!-- Header -->
           <div class="gto-modal-header">
-            <div class="header-top-row">
-              <div class="gto-title-badge">{{ t('badge') }}</div>
-              <!-- Language Switcher -->
+            <div class="header-identity">
+              <div class="header-top-row">
+                <div class="gto-title-badge">{{ t('badge') }}</div>
+              </div>
+              <div class="gto-title-row">
+                <h2 id="decision-guide-title" class="gto-modal-title">{{ t('title') }}</h2>
+                <button
+                  class="gto-guide-badge"
+                  type="button"
+                  @click="selectPrimarySection('start')"
+                >
+                  {{ t('guide') }}
+                </button>
+              </div>
+              <p class="gto-modal-desc motto">
+                {{ t('motto') }}
+              </p>
+            </div>
+
+            <div class="header-language-row">
               <div class="lang-switcher">
                 <button 
                   class="lang-btn" 
@@ -31,170 +62,115 @@
                 </button>
               </div>
             </div>
-            <div class="gto-title-row">
-              <h2 class="gto-modal-title">{{ t('title') }}</h2>
-              <!-- Collapsible Guide Microcopy Badge -->
-              <button 
-                class="gto-guide-badge" 
-                @click="showGuide = !showGuide"
-                :class="{ active: showGuide }"
-              >
-                <span class="badge-icon">❓</span> {{ t('guide') }}
+          </div>
+
+          <div
+            class="guide-primary-tabs"
+            role="tablist"
+            :aria-label="t('primaryNavLabel')"
+            @keydown="handlePrimaryTabKeydown"
+          >
+            <button
+              v-for="section in primarySections"
+              :id="`decision-guide-tab-${section.id}`"
+              :key="section.id"
+              :ref="(el) => setPrimaryTabRef(el, section.id)"
+              class="guide-primary-tab"
+              :class="{ active: primarySection === section.id }"
+              type="button"
+              role="tab"
+              :aria-selected="primarySection === section.id"
+              :aria-controls="`decision-guide-panel-${section.id}`"
+              :tabindex="primarySection === section.id ? 0 : -1"
+              @click="selectPrimarySection(section.id)"
+            >
+              <span class="primary-tab-kicker">{{ section.kicker }}</span>
+              <span>{{ section.label }}</span>
+            </button>
+          </div>
+
+          <section
+            v-if="primarySection === 'start'"
+            id="decision-guide-panel-start"
+            class="guide-landing animate-fadeIn"
+            role="tabpanel"
+            aria-labelledby="decision-guide-tab-start"
+            tabindex="0"
+          >
+            <div class="guide-landing-hero">
+              <p class="guide-eyebrow">{{ t('startEyebrow') }}</p>
+              <h3>{{ t('startTitle') }}</h3>
+              <p>{{ t('startDesc') }}</p>
+            </div>
+
+            <ol class="decision-flow" :aria-label="t('fiveQuestionsLabel')">
+              <li v-for="(step, index) in guideSteps" :key="step.id" class="decision-flow-step">
+                <span class="flow-number" aria-hidden="true">{{ index + 1 }}</span>
+                <div>
+                  <strong>{{ step.title }}</strong>
+                  <span>{{ step.question }}</span>
+                </div>
+              </li>
+            </ol>
+
+            <div class="guide-landing-actions">
+              <button type="button" class="guide-action primary" @click="handleTrainingCta('preflop')">
+                {{ t('trainPreflopCta') }}
+              </button>
+              <button type="button" class="guide-action" @click="handleTrainingCta('pot-odds')">
+                {{ t('trainPotOddsCta') }}
+              </button>
+              <button type="button" class="guide-action" @click="selectPrimarySection('reference')">
+                {{ t('viewRangeCta') }}
+              </button>
+              <button type="button" class="guide-action secondary" @click="selectPrimarySection('explorer')">
+                {{ t('openExplorerCta') }}
               </button>
             </div>
-            <p class="gto-modal-desc motto">
-              {{ t('motto') }}
-            </p>
 
-            <!-- Guide Popover Dropdown -->
-            <Transition name="fade-slide-fast">
-              <div v-if="showGuide" class="gto-guide-dropdown">
-                <span class="guide-title">{{ t('guideTitle') }}</span>
-                <div class="guide-grid">
-                  <div class="guide-column">
-                    <p>{{ t('guidePoint1') }}</p>
-                    <p>{{ t('guidePoint2') }}</p>
-                    <p>{{ t('guidePoint3') }}</p>
-                  </div>
-                  <div class="guide-column">
-                    <p>• <span class="guide-color raise-dot"></span> <strong>{{ t('guideRaise') }}</strong></p>
-                    <p>• <span class="guide-color call-dot"></span> <strong>{{ t('guideCall') }}</strong></p>
-                    <p>• <span class="guide-color fold-dot"></span> <strong>{{ t('guideFold') }}</strong></p>
-                  </div>
-                </div>
-              </div>
-            </Transition>
-          </div>
+            <p class="guide-truth-boundary">{{ t('guideTruthBoundary') }}</p>
+          </section>
 
-          <!-- Secondary Tab Selector -->
-          <div class="gto-tabs">
-            <button 
-              class="gto-tab-btn" 
-              :class="{ active: activeTab === 'preflop' }" 
-              @click="activeTab = 'preflop'"
-            >
-              🎯 {{ t('tabPreflop') }}
-            </button>
-            <button 
-              class="gto-tab-btn" 
-              :class="{ active: activeTab === 'math' }" 
-              @click="activeTab = 'math'"
-            >
-              📊 {{ t('tabMath') }}
-              <span v-if="mathBadgeText" class="tab-badge-status">{{ mathBadgeText }}</span>
-            </button>
-            <button 
-              class="gto-tab-btn" 
-              :class="{ active: activeTab === 'draws' }" 
-              @click="activeTab = 'draws'"
-            >
-              🎯 {{ t('tabDraws') }}
-              <span v-if="drawsBadgeText" class="tab-badge-status">{{ drawsBadgeText }}</span>
-            </button>
-            <button 
-              class="gto-tab-btn" 
-              :class="{ active: activeTab === 'board' }" 
-              @click="activeTab = 'board'"
-            >
-              🃏 {{ t('tabBoard') }}
-              <span v-if="boardBadgeText" class="tab-badge-status">{{ boardBadgeText }}</span>
-            </button>
-          </div>
-
-          <!-- Postflop Card Inputs (visible in Math, Draws, and Board tabs) -->
-          <div v-if="activeTab !== 'preflop'" class="postflop-input-bar">
-            <!-- Hero Hand Input -->
-            <div class="input-group hero-hand-input-group">
-              <div class="input-group-label-stack">
-                <span class="group-label">{{ t('heroHandLabel') }}</span>
-                <span class="hand-input-helper-note">
-                  {{ t('handbook.heroHandHelperNote') }}
-                </span>
-              </div>
-              <div class="card-slots-and-notice">
-                <div 
-                  ref="heroHandInputRef"
-                  class="card-slots hero-card-slots"
-                  :class="{ 'glow-pulse-highlight': highlightOddsInput }"
-                >
-                  <div 
-                    v-for="(card, idx) in 2" 
-                    :key="'hero-' + idx"
-                    class="card-slot-wrapper"
-                  >
-                    <div 
-                      class="interactive-card-slot"
-                      :class="{ empty: !coachState.heroCards[idx] }"
-                      @click="openCardPicker('hero', idx)"
-                    >
-                      <CardView v-if="coachState.heroCards[idx]" :cardStr="coachState.heroCards[idx]" :visible="true" />
-                      <div v-else class="empty-slot-content">
-                        <span class="plus-icon">+</span>
-                      </div>
-                    </div>
-                    <button 
-                      v-if="coachState.heroCards[idx]" 
-                      class="clear-slot-btn" 
-                      @click.stop="clearCard('hero', idx)"
-                      aria-label="Clear card"
-                    >
-                      &times;
-                    </button>
-                  </div>
-                </div>
-                <!-- Light notice text displayed in case of load notification -->
-                <transition name="fade-fast">
-                  <span v-if="loadNoticeText" class="load-notice-text">
-                    {{ loadNoticeText }}
-                  </span>
-                </transition>
-              </div>
+          <section
+            v-else-if="primarySection === 'concepts'"
+            id="decision-guide-panel-concepts"
+            class="concepts-panel animate-fadeIn"
+            role="tabpanel"
+            aria-labelledby="decision-guide-tab-concepts"
+            tabindex="0"
+          >
+            <div class="section-intro">
+              <p class="guide-eyebrow">{{ t('conceptsEyebrow') }}</p>
+              <h3>{{ t('conceptsTitle') }}</h3>
+              <p>{{ t('conceptsDesc') }}</p>
             </div>
 
-            <!-- Board Flop Input -->
-            <div class="input-group">
-              <span class="group-label">{{ t('boardFlopLabel') }}</span>
-              <div class="card-slots">
-                <div 
-                  v-for="(card, idx) in 3" 
-                  :key="'board-' + idx"
-                  class="card-slot-wrapper"
-                >
-                  <div 
-                    class="interactive-card-slot"
-                    :class="{ empty: !coachState.boardCards[idx] }"
-                    @click="openCardPicker('board', idx)"
-                  >
-                    <CardView v-if="coachState.boardCards[idx]" :cardStr="coachState.boardCards[idx]" :visible="true" />
-                    <div v-else class="empty-slot-content">
-                      <span class="plus-icon">+</span>
-                    </div>
-                  </div>
-                  <button 
-                    v-if="coachState.boardCards[idx]" 
-                    class="clear-slot-btn" 
-                    @click.stop="clearCard('board', idx)"
-                    aria-label="Clear card"
-                  >
-                    &times;
-                  </button>
+            <div class="concept-card-grid">
+              <article v-for="(card, index) in conceptCards" :key="card.id" class="concept-card">
+                <div class="concept-card-heading">
+                  <span class="concept-index" aria-hidden="true">0{{ index + 1 }}</span>
+                  <h4>{{ card.title }}</h4>
                 </div>
-              </div>
+                <p class="concept-question">{{ card.question }}</p>
+                <p class="concept-principle">{{ card.principle }}</p>
+                <p class="concept-reminder">{{ card.reminder }}</p>
+                <button type="button" class="concept-cta" @click="handleConceptCta(card.cta)">
+                  {{ card.ctaLabel }}
+                </button>
+              </article>
             </div>
-
-            <!-- Reset to Live Game button -->
-            <button 
-              v-if="isLiveGameDiff" 
-              class="sync-live-btn" 
-              @click="syncFromLiveGame"
-            >
-              🔄 {{ t('syncLive') }}
-            </button>
-          </div>
+          </section>
 
 
-          <!-- TAB 1: PREFLOP MATRIX -->
-          <div v-if="activeTab === 'preflop'" class="gto-tab-content animate-fadeIn">
+          <!-- REFERENCE: PREFLOP MATRIX -->
+          <section
+            v-else-if="primarySection === 'reference'"
+            id="decision-guide-panel-reference"
+            class="gto-tab-content animate-fadeIn"
+            role="tabpanel"
+            aria-labelledby="decision-guide-tab-reference"
+            tabindex="0"
+          >
             <!-- Deciding tagline -->
             <div class="tab-decide-banner">
               <span class="decide-icon">💡</span>
@@ -228,21 +204,63 @@
               </button>
             </div>
 
+            <div v-if="currentSpot === 'sb_open'" class="reference-source-card baseline-source-card">
+              <div class="reference-source-header">
+                <div>
+                  <span class="reference-source-kicker">{{ t('referenceVerifiedBaseline') }}</span>
+                  <div class="reference-source-ids">
+                    <strong>{{ HU_BTN_RFI_RANGE_ID }}</strong>
+                    <span>{{ HU_BTN_RFI_RANGE_VERSION }}</span>
+                  </div>
+                </div>
+                <span v-if="!HU_BTN_RFI_ASSUMPTIONS.solverOutput" class="reference-boundary-badge">
+                  {{ t('referenceNotSolver') }}
+                </span>
+              </div>
+              <p class="reference-scenario">{{ baselineScenarioLabel }}</p>
+              <div class="reference-facts">
+                <span>{{ t('referenceOpenSize') }}: {{ HU_BTN_RFI_ASSUMPTIONS.openSizeBb }} BB</span>
+                <span>{{ t('referenceSourceLabel') }}: {{ baselineSourceLabel }}</span>
+              </div>
+              <p class="reference-boundary-copy">{{ baselineBoundaryNote }}</p>
+            </div>
+
+            <div v-else class="reference-source-card bb-source-card">
+              <span class="reference-source-kicker">{{ t('referenceBbTitle') }}</span>
+              <p class="reference-boundary-copy">{{ t('referenceBbBoundary') }}</p>
+            </div>
+
+            <div class="reference-actions">
+              <button type="button" class="guide-action primary" @click="handleTrainingCta('preflop')">
+                {{ t('trainPreflopCta') }}
+              </button>
+              <button type="button" class="guide-action secondary" @click="selectPrimarySection('start')">
+                {{ t('backToGuideCta') }}
+              </button>
+            </div>
+
             <!-- Single-Core layout (Matrix居中独占，Legend移至底部横向排布) -->
             <div class="gto-main-layout">
               <div class="gto-matrix-container">
-                <div class="gto-hand-matrix">
-                  <div 
-                    v-for="combo in combos" 
+                <div class="gto-hand-matrix" role="group" :aria-label="t('rangeGridLabel')">
+                  <button
+                    v-for="combo in combos"
                     :key="combo"
+                    :ref="(el) => setMatrixCellRef(el, combo)"
+                    type="button"
                     class="gto-matrix-cell"
                     :class="[getComboTypeClass(combo), { active: hoveredCombo === combo }]"
                     :style="{ background: getCellBg(combo) }"
+                    :aria-label="getComboAriaLabel(combo)"
+                    :aria-pressed="hoveredCombo === combo"
+                    :tabindex="focusedCombo === combo ? 0 : -1"
                     @pointerenter="hoveredCombo = combo"
+                    @focus="handleComboFocus(combo)"
                     @click="onComboClick(combo)"
+                    @keydown="handleComboKeydown($event, combo)"
                   >
                     <span class="combo-label">{{ combo }}</span>
-                  </div>
+                  </button>
                 </div>
               </div>
 
@@ -254,7 +272,7 @@
                 </div>
                 <div class="legend-item">
                   <span class="legend-color call"></span>
-                  <span class="legend-label">{{ t('legendCall') }}: <strong>{{ getActionStats.call }}%</strong></span>
+                  <span class="legend-label">{{ getSecondaryActionLabel() }}: <strong>{{ getActionStats.secondary }}%</strong></span>
                 </div>
                 <div class="legend-item">
                   <span class="legend-color fold"></span>
@@ -274,12 +292,24 @@
                     </div>
                     <div class="details-weights">
                       <div class="weight-pill raise">{{ t('legendRaise') }}: {{ getComboWeights(hoveredCombo)[0] }}%</div>
-                      <div class="weight-pill call" v-if="getComboWeights(hoveredCombo)[1] > 0">{{ t('legendCall') }}: {{ getComboWeights(hoveredCombo)[1] }}%</div>
+                      <div class="weight-pill call" v-if="getComboWeights(hoveredCombo)[1] > 0">{{ getSecondaryActionLabel() }}: {{ getComboWeights(hoveredCombo)[1] }}%</div>
                       <div class="weight-pill fold" v-if="getComboWeights(hoveredCombo)[2] > 0">{{ t('legendFold') }}: {{ getComboWeights(hoveredCombo)[2] }}%</div>
+                    </div>
+                    <div class="details-reference-meta">
+                      <span><strong>{{ t('currentSpotLabel') }}:</strong> {{ getCurrentSpotLabel() }}</span>
+                      <span><strong>{{ t('primaryTendencyLabel') }}:</strong> {{ getPrimaryActionLabel(hoveredCombo) }}</span>
+                      <template v-if="selectedSnapshotEntry">
+                        <span><strong>{{ t('referenceFamilyLabel') }}:</strong> {{ selectedSnapshotEntry.handFamily }}</span>
+                        <span><strong>{{ t('referenceClassificationLabel') }}:</strong> {{ selectedSnapshotEntry.classification }}</span>
+                        <span><strong>{{ t('referenceVersionLabel') }}:</strong> {{ selectedSnapshotEntry.rangeVersion }}</span>
+                      </template>
                     </div>
                     <div class="details-tip">
                       <span class="tip-label">{{ t('coachInsight') }}:</span> {{ getComboAdvice(hoveredCombo) }}
                     </div>
+                    <button type="button" class="details-explorer-btn" @click="loadComboIntoExplorer(hoveredCombo)">
+                      {{ t('useHandInExplorerCta') }}
+                    </button>
                   </template>
                   <template v-else>
                     <div class="details-empty-placeholder">
@@ -297,183 +327,326 @@
               </h4>
               <p class="card-body">{{ t('handbook.preflop.positionBody') }}</p>
             </div>
-          </div>
+          </section>
 
-          <!-- TAB 2: MATH -->
-          <div v-else-if="activeTab === 'math'" class="math-cheat-sheet animate-fadeIn">
-            <!-- Deciding tagline -->
-            <div class="tab-decide-banner">
-              <span class="decide-icon">💡</span>
-              <div class="decide-text-container">
-                <span class="decide-banner-title">{{ t('thinkingFrameworkTitle') }}</span>
-                <ul class="decide-questions-list">
-                  <li>• {{ t('mathQ1') }}</li>
-                  <li>• {{ t('mathQ2') }}</li>
-                  <li>• {{ t('mathQ3') }}</li>
-                </ul>
+          <section
+            v-else
+            id="decision-guide-panel-explorer"
+            class="explorer-shell animate-fadeIn"
+            role="tabpanel"
+            aria-labelledby="decision-guide-tab-explorer"
+            tabindex="0"
+          >
+            <div class="section-intro explorer-intro">
+              <p class="guide-eyebrow">{{ t('explorerEyebrow') }}</p>
+              <h3>{{ t('explorerTitle') }}</h3>
+              <p>{{ t('explorerDesc') }}</p>
+            </div>
+
+            <p class="explorer-boundary-note">{{ t('explorerBoundary') }}</p>
+
+            <div
+              class="explorer-tabs"
+              role="tablist"
+              :aria-label="t('explorerNavLabel')"
+              @keydown="handleExplorerTabKeydown"
+            >
+              <button
+                v-for="tab in explorerTabs"
+                :id="`explorer-tab-${tab.id}`"
+                :key="tab.id"
+                :ref="(el) => setExplorerTabRef(el, tab.id)"
+                class="explorer-tab"
+                :class="{ active: activeTab === tab.id }"
+                type="button"
+                role="tab"
+                :aria-selected="activeTab === tab.id"
+                :aria-controls="`explorer-panel-${tab.id}`"
+                :tabindex="activeTab === tab.id ? 0 : -1"
+                @click="selectExplorerTab(tab.id)"
+              >
+                {{ tab.label }}
+                <span v-if="tab.id === 'price' && priceBadgeText" class="tab-badge-status">{{ priceBadgeText }}</span>
+                <span v-if="tab.id === 'draws' && drawsBadgeText" class="tab-badge-status">{{ drawsBadgeText }}</span>
+                <span v-if="tab.id === 'board' && boardBadgeText" class="tab-badge-status">{{ boardBadgeText }}</span>
+              </button>
+            </div>
+
+            <div
+              v-if="activeTab === 'spot'"
+              id="explorer-panel-spot"
+              class="math-cheat-sheet animate-fadeIn"
+              role="tabpanel"
+              aria-labelledby="explorer-tab-spot"
+              tabindex="0"
+            >
+              <div class="tab-decide-banner">
+                <span class="decide-icon" aria-hidden="true">01</span>
+                <div class="decide-text-container">
+                  <span class="decide-banner-title">{{ t('spotSetupTitle') }}</span>
+                  <ul class="decide-questions-list">
+                    <li>• {{ t('spotSetupQ1') }}</li>
+                    <li>• {{ t('spotSetupQ2') }}</li>
+                    <li>• {{ t('spotSetupQ3') }}</li>
+                  </ul>
+                </div>
+              </div>
+
+              <div class="spot-setup-layout">
+                <div class="spot-card-panel">
+                  <div class="spot-panel-heading">
+                    <div>
+                      <h3>{{ t('spotCardsTitle') }}</h3>
+                      <p>{{ t('spotCardsDesc') }}</p>
+                    </div>
+                    <button
+                      v-if="hasLiveGameState"
+                      class="sync-live-btn"
+                      type="button"
+                      @click="syncFromLiveGame"
+                    >
+                      {{ t('syncLive') }}
+                    </button>
+                  </div>
+
+                  <div class="postflop-input-bar spot-input-bar">
+                    <div class="input-group hero-hand-input-group">
+                      <div class="input-group-label-stack">
+                        <span class="group-label">{{ t('heroHandLabel') }}</span>
+                        <span class="hand-input-helper-note">{{ t('handbook.heroHandHelperNote') }}</span>
+                      </div>
+                      <div class="card-slots-and-notice">
+                        <div
+                          ref="heroHandInputRef"
+                          class="card-slots hero-card-slots"
+                          :class="{ 'glow-pulse-highlight': highlightOddsInput }"
+                        >
+                          <div v-for="(card, idx) in 2" :key="'hero-' + idx" class="card-slot-wrapper">
+                            <button
+                              type="button"
+                              class="interactive-card-slot"
+                              :class="{ empty: !coachState.heroCards[idx] }"
+                              :aria-label="getCardSlotLabel('hero', idx, coachState.heroCards[idx])"
+                              @click="openCardPicker('hero', idx)"
+                            >
+                              <CardView v-if="coachState.heroCards[idx]" :cardStr="coachState.heroCards[idx]" :visible="true" />
+                              <span v-else class="empty-slot-content" aria-hidden="true"><span class="plus-icon">+</span></span>
+                            </button>
+                            <button
+                              v-if="coachState.heroCards[idx]"
+                              class="clear-slot-btn"
+                              type="button"
+                              @click.stop="clearCard('hero', idx)"
+                              :aria-label="t('clearCard')"
+                            >
+                              &times;
+                            </button>
+                          </div>
+                        </div>
+                        <transition name="fade-fast">
+                          <span v-if="loadNoticeText" class="load-notice-text">{{ loadNoticeText }}</span>
+                        </transition>
+                      </div>
+                    </div>
+
+                    <div class="input-group">
+                      <span class="group-label">{{ t('boardFlopLabel') }}</span>
+                      <div class="card-slots">
+                        <div v-for="(card, idx) in 3" :key="'board-' + idx" class="card-slot-wrapper">
+                          <button
+                            type="button"
+                            class="interactive-card-slot"
+                            :class="{ empty: !coachState.boardCards[idx] }"
+                            :aria-label="getCardSlotLabel('board', idx, coachState.boardCards[idx])"
+                            @click="openCardPicker('board', idx)"
+                          >
+                            <CardView v-if="coachState.boardCards[idx]" :cardStr="coachState.boardCards[idx]" :visible="true" />
+                            <span v-else class="empty-slot-content" aria-hidden="true"><span class="plus-icon">+</span></span>
+                          </button>
+                          <button
+                            v-if="coachState.boardCards[idx]"
+                            class="clear-slot-btn"
+                            type="button"
+                            @click.stop="clearCard('board', idx)"
+                            :aria-label="t('clearCard')"
+                          >
+                            &times;
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div v-if="evaluatedHand" class="spot-made-hand-readout" aria-live="polite">
+                    <span>{{ t('currentMadeHandLabel') }}</span>
+                    <strong>{{ evaluatedHandLabel }}</strong>
+                  </div>
+                  <div v-else class="explorer-question-state">
+                    <p>{{ t('spotEmptyIntro') }}</p>
+                    <ul>
+                      <li>{{ t('emptyGuideMadeHand') }}</li>
+                      <li>{{ t('emptyGuideValue') }}</li>
+                      <li>{{ t('emptyGuideDirtyOuts') }}</li>
+                    </ul>
+                  </div>
+                </div>
+
+                <aside class="live-snapshot-card" :aria-label="t('liveSnapshotTitle')">
+                  <div class="snapshot-heading">
+                    <span class="snapshot-kicker">{{ t('snapshotContextLabel') }}</span>
+                    <h3>{{ t('liveSnapshotTitle') }}</h3>
+                  </div>
+                  <dl v-if="hasLiveSnapshot" class="snapshot-values">
+                    <div>
+                      <dt>{{ t('liveStreetLabel') }}</dt>
+                      <dd>{{ liveStageLabel }}</dd>
+                    </div>
+                    <div>
+                      <dt>{{ t('currentPotSnapshotLabel') }}</dt>
+                      <dd>{{ formatSnapshotValue(liveSnapshot.currentPot) }}</dd>
+                    </div>
+                    <div>
+                      <dt>{{ t('currentToCallSnapshotLabel') }}</dt>
+                      <dd>{{ formatSnapshotValue(liveSnapshot.toCall) }}</dd>
+                    </div>
+                  </dl>
+                  <p v-else class="snapshot-empty">{{ t('liveSnapshotEmpty') }}</p>
+                  <p class="snapshot-boundary">{{ t('liveSnapshotBoundary') }}</p>
+                </aside>
               </div>
             </div>
 
-            <div v-if="!isPostflopReady" class="postflop-empty-state">
-              <div class="empty-state-content">
-                <span class="empty-state-icon">🔒</span>
-                <h3>{{ t('postflopLockedTitle') }}</h3>
-                <p class="desc">{{ t('postflopLockedDesc') }}</p>
-              </div>
-            </div>
-
-            <div v-else class="math-card-grid">
-              <!-- Left Column: Decision Console -->
-              <div class="math-card console-card">
-                <div class="math-card-header">
-                  <span class="math-card-icon">🎛️</span>
-                  <div class="math-card-header-text">
-                    <h3>{{ t('mathTitle') }}</h3>
-                    <p class="math-card-desc">{{ t('mathDesc') }}</p>
-                  </div>
-                </div>
-
-                <!-- Postflop Math Assistant Inputs -->
-                <div class="math-inputs-container">
-                  <div class="math-input-row">
-                    <div class="math-input-field">
-                      <label>{{ t('potSizeInputLabel') }}</label>
-                      <input 
-                        type="number" 
-                        v-model.number="coachState.pot" 
-                        placeholder="e.g. 100"
-                        class="premium-math-input"
-                      />
-                    </div>
-                    <div class="math-input-field">
-                      <label>{{ t('callAmountInputLabel') }}</label>
-                      <input 
-                        type="number" 
-                        v-model.number="coachState.callAmount" 
-                        placeholder="e.g. 30"
-                        class="premium-math-input"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Dynamic Results Readout -->
-                <div class="math-dynamic-results">
-                  <div class="result-item-row">
-                    <span class="result-label">{{ t('highestDrawLabel') }}:</span>
-                    <span v-if="highestDraw" class="result-value text-accent">
-                      {{ t(highestDraw.labelKey) }} ({{ highestDraw.outs }} Outs)
-                    </span>
-                    <span v-else class="result-value text-muted">{{ t('noMajorDraw') }}</span>
-                  </div>
-
-                  <div class="result-item-row">
-                    <span class="result-label">{{ t('drawEquityLabel') }}:</span>
-                    <span class="result-value font-mono">
-                      {{ highestDraw ? highestDraw.toRiverProbability + '%' : '0.0%' }}
-                    </span>
-                  </div>
-
-                  <div class="result-item-row">
-                    <span class="result-label">{{ t('requiredEquityLabel') }}:</span>
-                    <span class="result-value font-mono">
-                      {{ requiredEquity !== null ? requiredEquity.toFixed(1) + '%' : '—' }}
-                    </span>
-                  </div>
-                </div>
-
-                <!-- Coach Guidance / Advice Alert Box -->
-                <div class="math-coach-guidance-box" :class="guidanceClass">
-                  <span class="guidance-title">{{ t('coachAdviceTitle') }}</span>
-                  <p class="guidance-text">{{ mathCoachAdviceText }}</p>
-                </div>
-
-                <div class="math-console-inner">
-                  <!-- Formula -->
-                  <div class="math-formula-box">
-                    <div class="formula-line">
-                      {{ t('potOddsFormula') }}
-                    </div>
-                    <div class="formula-terms">
-                      <p><span class="term-color-dot risk"></span> <strong>{{ t('riskLabel') }}</strong> {{ t('riskDesc') }}</p>
-                      <p><span class="term-color-dot reward"></span> <strong>{{ t('rewardLabel') }}</strong> {{ t('rewardDesc') }}</p>
-                      <p><span class="term-color-dot risk" style="background-color: var(--accent-primary)"></span> <strong>{{ t('requiredEquityLabel') }}</strong> {{ t('requiredEquityDesc') }}</p>
-                    </div>
-                  </div>
-
-                  <!-- Worked Example -->
-                  <div class="math-example-box">
-                    <span class="example-title">{{ t('exampleTitle') }}</span>
-                    <div class="example-body">
-                      • <strong>{{ t('examplePot') }}</strong> $90 | <strong>{{ t('exampleOppBet') }}</strong> $45 <br/>
-                      • <strong>{{ t('exampleRisk') }}</strong> $45 | <strong>{{ t('exampleReward') }}</strong> $135 <br/>
-                      • <strong>{{ t('exampleMath') }}</strong> $45 / ($45 + $135) = $45 / $180 = <strong>25.0% Pot Odds = Required Equity</strong>
-                    </div>
-                  </div>
-
-                  <!-- The Rules -->
-                  <div class="decision-rules-box">
-                    <div class="rule-item call">
-                      <span class="rule-formula">{{ t('actualEqGteReq') }}</span>
-                      <span class="rule-decision text-success">{{ t('profitableCall') }}</span>
-                    </div>
-                    <div class="rule-item fold">
-                      <span class="rule-formula">{{ t('actualEqLtReq') }}</span>
-                      <span class="rule-decision text-danger">{{ t('profitableFold') }}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="math-coach-tip">
-                  <span class="tip-title">{{ t('mathGoldenRuleTitle') }}</span>
-                  {{ t('mathGoldenRuleText') }}
+            <div
+              v-else-if="activeTab === 'price'"
+              id="explorer-panel-price"
+              class="math-cheat-sheet animate-fadeIn"
+              role="tabpanel"
+              aria-labelledby="explorer-tab-price"
+              tabindex="0"
+            >
+              <div class="tab-decide-banner">
+                <span class="decide-icon" aria-hidden="true">02</span>
+                <div class="decide-text-container">
+                  <span class="decide-banner-title">{{ t('thinkingFrameworkTitle') }}</span>
+                  <ul class="decide-questions-list">
+                    <li>• {{ t('mathQ1') }}</li>
+                    <li>• {{ t('mathQ2') }}</li>
+                    <li>• {{ t('mathQ3') }}</li>
+                  </ul>
                 </div>
               </div>
 
-              <!-- Right Column Wrapper Stack -->
-              <div class="math-right-col-stack">
-                <!-- Concept Explanation Card -->
-                <div class="math-card odds-card">
+              <div class="price-lab-layout">
+                <div class="math-card console-card price-lab-card">
                   <div class="math-card-header">
-                    <span class="math-card-icon">🧠</span>
+                    <span class="math-card-icon" aria-hidden="true">%</span>
                     <div class="math-card-header-text">
-                      <h3>{{ t('uncertaintyTitle') }}</h3>
-                      <p class="math-card-desc">{{ t('uncertaintyDesc') }}</p>
+                      <h3>{{ t('mathTitle') }}</h3>
+                      <p class="math-card-desc">{{ t('mathDesc') }}</p>
                     </div>
                   </div>
 
-                  <div class="concept-explanation">
-                    <p class="concept-p">
-                      {{ t('uncertaintyP1') }}
-                    </p>
+                  <div class="math-inputs-container">
+                    <div class="math-input-row price-input-row">
+                      <div class="math-input-field">
+                        <label for="explorer-pot-before-bet">{{ t('potBeforeBetInputLabel') }}</label>
+                        <input
+                          id="explorer-pot-before-bet"
+                          v-model.number="manualPrice.potBeforeBet"
+                          type="number"
+                          min="0"
+                          step="any"
+                          inputmode="decimal"
+                          placeholder="100"
+                          class="premium-math-input"
+                        />
+                        <span class="input-helper">{{ t('potBeforeBetHelper') }}</span>
+                      </div>
+                      <div class="math-input-field">
+                        <label for="explorer-villain-bet">{{ t('villainBetInputLabel') }}</label>
+                        <input
+                          id="explorer-villain-bet"
+                          v-model.number="manualPrice.villainBet"
+                          type="number"
+                          min="0"
+                          step="any"
+                          inputmode="decimal"
+                          placeholder="50"
+                          class="premium-math-input"
+                        />
+                        <span class="input-helper">{{ t('villainBetHelper') }}</span>
+                      </div>
+                      <div class="math-input-field">
+                        <label for="explorer-your-call">{{ t('yourCallInputLabel') }}</label>
+                        <input
+                          id="explorer-your-call"
+                          v-model.number="manualPrice.yourCall"
+                          type="number"
+                          min="0"
+                          step="any"
+                          inputmode="decimal"
+                          placeholder="50"
+                          class="premium-math-input"
+                        />
+                        <span class="input-helper">{{ t('yourCallHelper') }}</span>
+                      </div>
+                    </div>
                   </div>
 
-                  <div class="odds-legend-tip font-bold text-center" style="font-size: 0.8rem; line-height: 1.4; border-top: 1px solid var(--border-subtle); padding-top: 1rem; margin-top: auto;">
-                    <span class="accent-link" @click="activeTab = 'draws'">{{ t('goDrawsLink') }}</span>
+                  <div class="math-formula-box">
+                    <div class="formula-line">{{ t('requiredEquityFormula') }}</div>
+                    <p class="price-formula-note">{{ t('priceFormulaBoundary') }}</p>
+                  </div>
+
+                  <div v-if="hasValidManualPrice" class="price-results" aria-live="polite">
+                    <div class="result-item-row">
+                      <span class="result-label">{{ t('finalPotLabel') }}</span>
+                      <strong class="result-value font-mono">{{ formatPriceValue(finalPotIfCall) }}</strong>
+                    </div>
+                    <div class="result-item-row">
+                      <span class="result-label">{{ t('requiredEquityLabel') }}</span>
+                      <strong class="result-value font-mono">{{ manualRequiredEquity.toFixed(2) }}%</strong>
+                    </div>
+                  </div>
+                  <div v-else class="price-empty-state">
+                    {{ t('priceInputsPrompt') }}
+                  </div>
+
+                  <div class="price-truth-boundary">
+                    <strong>{{ t('priceThresholdTitle') }}</strong>
+                    <p>{{ t('priceThresholdDesc') }}</p>
                   </div>
                 </div>
 
-                <!-- Bet Size Card -->
-                <div class="educational-card">
-                  <h4 class="card-title">
-                    <span>📏</span> {{ t('handbook.math.betSizeTitle') }}
-                  </h4>
-                  <p class="card-body">{{ t('handbook.math.betSizeBody') }}</p>
-                </div>
-
-                <!-- Implied Odds Card -->
-                <div class="educational-card">
-                  <h4 class="card-title">
-                    <span>💰</span> {{ t('handbook.math.impliedOddsTitle') }}
-                  </h4>
-                  <p class="card-body">{{ t('handbook.math.impliedOddsBody') }}</p>
+                <div class="price-side-stack">
+                  <div class="educational-card">
+                    <h4 class="card-title">{{ t('uncertaintyTitle') }}</h4>
+                    <p class="card-body">{{ t('uncertaintyP1') }}</p>
+                  </div>
+                  <div class="educational-card">
+                    <h4 class="card-title">{{ t('handbook.math.betSizeTitle') }}</h4>
+                    <p class="card-body">{{ t('handbook.math.betSizeBody') }}</p>
+                  </div>
+                  <div class="educational-card">
+                    <h4 class="card-title">{{ t('handbook.math.impliedOddsTitle') }}</h4>
+                    <p class="card-body">{{ t('handbook.math.impliedOddsBody') }}</p>
+                  </div>
+                  <button type="button" class="guide-action" @click="handleTrainingCta('pot-odds')">
+                    {{ t('trainPotOddsCta') }}
+                  </button>
                 </div>
               </div>
             </div>
-          </div>
 
           <!-- TAB 3: DRAWS -->
-          <div v-else-if="activeTab === 'draws'" class="math-cheat-sheet animate-fadeIn">
+          <div
+            v-else-if="activeTab === 'draws'"
+            id="explorer-panel-draws"
+            class="math-cheat-sheet animate-fadeIn"
+            role="tabpanel"
+            aria-labelledby="explorer-tab-draws"
+            tabindex="0"
+          >
             <!-- Deciding tagline -->
             <div class="tab-decide-banner">
               <span class="decide-icon">💡</span>
@@ -487,11 +660,19 @@
               </div>
             </div>
 
-            <div v-if="!isPostflopReady" class="postflop-empty-state">
+            <div v-if="!isDrawAnalysisReady" class="postflop-empty-state explorer-invitation">
               <div class="empty-state-content">
-                <span class="empty-state-icon">🔒</span>
-                <h3>{{ t('postflopLockedTitle') }}</h3>
-                <p class="desc">{{ t('postflopLockedDesc') }}</p>
+                <span class="invitation-kicker">{{ t('optionalExplorerLabel') }}</span>
+                <h3>{{ t('drawsEmptyTitle') }}</h3>
+                <p class="desc">{{ t('drawsEmptyDesc') }}</p>
+                <ul class="empty-guidance-list">
+                  <li>{{ t('emptyGuideMadeHand') }}</li>
+                  <li>{{ t('emptyGuideEquity') }}</li>
+                  <li>{{ t('emptyGuideDirtyOuts') }}</li>
+                </ul>
+                <button type="button" class="guide-action" @click="selectExplorerTab('spot')">
+                  {{ t('openSpotSetupCta') }}
+                </button>
               </div>
             </div>
 
@@ -505,9 +686,7 @@
                       {{ isStrongMadeHand ? t('handbook.draws.strongMadeTitle') : t('activeDrawsTitle') }}
                     </h3>
                     <p class="math-card-desc" v-if="!isStrongMadeHand">{{ t('activeDrawsDesc') }}</p>
-                    <p class="math-card-desc" v-else>
-                      {{ currentLang === 'zh' ? '已击中强成牌，重心从“追牌胜率”转向“获取价值”。' : 'Made a strong hand. Shift focus from draws to maximizing value.' }}
-                    </p>
+                    <p class="math-card-desc" v-else>{{ t('strongMadeDesc') }}</p>
                   </div>
                 </div>
 
@@ -552,12 +731,8 @@
                     <p>{{ t('noDrawsDetected') }}</p>
                   </div>
 
-                  <!-- Linkage Status Bar -->
-                  <div 
-                    class="linkage-status-bar animate-fadeIn" 
-                    :class="linkageStatusClass"
-                  >
-                    {{ linkageText }}
+                  <div class="linkage-status-bar neutral-boundary animate-fadeIn">
+                    {{ t('drawTruthBoundary') }}
                   </div>
 
                   <!-- Section Divider -->
@@ -657,15 +832,15 @@
                   <div class="strong-made-container animate-fadeIn">
                     <ul class="strong-made-list">
                       <li>
-                        <strong>{{ currentLang === 'zh' ? '底池保护：' : 'Pot Protection: ' }}</strong>
+                        <strong>{{ t('strongMadeLens1') }}</strong>
                         {{ t('handbook.draws.strongMadePoint1') }}
                       </li>
                       <li>
-                        <strong>{{ currentLang === 'zh' ? '避免给免费牌：' : 'Avoid Giving Free Cards: ' }}</strong>
+                        <strong>{{ t('strongMadeLens2') }}</strong>
                         {{ t('handbook.draws.strongMadePoint2') }}
                       </li>
                       <li>
-                        <strong>{{ currentLang === 'zh' ? '如何 Value Bet：' : 'How to Value Bet: ' }}</strong>
+                        <strong>{{ t('strongMadeLens3') }}</strong>
                         {{ t('handbook.draws.strongMadePoint3') }}
                       </li>
                     </ul>
@@ -749,7 +924,14 @@
           </div>
 
           <!-- TAB 4: BOARD -->
-          <div v-else-if="activeTab === 'board'" class="math-cheat-sheet animate-fadeIn">
+          <div
+            v-else-if="activeTab === 'board'"
+            id="explorer-panel-board"
+            class="math-cheat-sheet animate-fadeIn"
+            role="tabpanel"
+            aria-labelledby="explorer-tab-board"
+            tabindex="0"
+          >
             <!-- Deciding tagline -->
             <div class="tab-decide-banner">
               <span class="decide-icon">💡</span>
@@ -763,11 +945,19 @@
               </div>
             </div>
 
-            <div v-if="!isPostflopReady" class="postflop-empty-state">
+            <div v-if="!isPostflopReady" class="postflop-empty-state explorer-invitation">
               <div class="empty-state-content">
-                <span class="empty-state-icon">🔒</span>
-                <h3>{{ t('postflopLockedTitle') }}</h3>
-                <p class="desc">{{ t('postflopLockedDesc') }}</p>
+                <span class="invitation-kicker">{{ t('optionalExplorerLabel') }}</span>
+                <h3>{{ t('boardEmptyTitle') }}</h3>
+                <p class="desc">{{ t('boardEmptyDesc') }}</p>
+                <ul class="empty-guidance-list">
+                  <li>{{ t('boardEmptyQ1') }}</li>
+                  <li>{{ t('boardEmptyQ2') }}</li>
+                  <li>{{ t('boardEmptyQ3') }}</li>
+                </ul>
+                <button type="button" class="guide-action" @click="selectExplorerTab('spot')">
+                  {{ t('openSpotSetupCta') }}
+                </button>
               </div>
             </div>
 
@@ -841,6 +1031,7 @@
               </div>
             </div>
           </div>
+          </section>
         </div>
       </div>
     </Transition>
@@ -898,25 +1089,158 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, nextTick } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
+import { useRoute } from 'vue-router'
 import { useOnlineStore } from '@/stores/online'
 import { normalizeCard } from '@/utils/cardFormat'
 import { evaluateHoldemHand } from '@/utils/pokerEvaluator'
+import {
+  HU_BTN_RFI_RANGE_ID,
+  HU_BTN_RFI_RANGE_VERSION,
+  HU_BTN_RFI_ASSUMPTIONS,
+  HU_169_HAND_MATRIX_ORDER,
+  HU_BTN_RFI_100BB_V1_BY_HAND
+} from '@/training/ranges/hu-btn-rfi-100bb-v1.js'
+import { PREFLOP_EXPLANATIONS } from '@/training/explanations/preflop-explanations.js'
 import CardView from '@/components/online/CardView.vue'
 
 const dictionary = {
   en: {
     badge: 'POSTSOMA · DECISION GUIDE',
-    title: 'Tactical Handbook',
-    guide: 'Guide',
-    motto: 'Poker is not only about luck. Every hand is a decision under uncertainty. This guide does not tell you the "correct move". It teaches you what to look at before making a decision: your hand, the board, your outs, the price, and the risk.',
+    title: 'Decision Guide',
+    guide: 'Start Here',
+    motto: 'Build a repeatable way to read range, price, equity, and risk before you act. Learn the framework first; explore a concrete hand only when it helps.',
+    closeGuideLabel: 'Close Decision Guide',
+    primaryNavLabel: 'Decision Guide sections',
+    navStartKicker: '01',
+    navStart: 'Start Here',
+    navConceptsKicker: '02',
+    navConcepts: 'Concepts',
+    navReferenceKicker: '03',
+    navReference: 'Reference',
+    navExplorerKicker: '04',
+    navExplorer: 'Explorer',
+    startEyebrow: 'A five-question decision loop',
+    startTitle: 'Think through the spot before chasing an answer.',
+    startDesc: 'These questions transfer from a ten-hand drill to a live heads-up table. No cards, pot inputs, room, or API key are required to begin.',
+    fiveQuestionsLabel: 'Five-question poker decision flow',
+    stepHandTitle: 'Hand · What am I holding?',
+    stepHandQuestion: 'Read rank, suits, connectivity, blockers, and postflop playability.',
+    stepContextTitle: 'Context · What situation am I in?',
+    stepContextQuestion: 'Locate position, effective stack, and the action before you.',
+    stepRangeTitle: 'Range · What can each player arrive with?',
+    stepRangeQuestion: 'Think in frequencies and tendencies, not only playable or unplayable.',
+    stepPriceTitle: 'Price · What does this price require?',
+    stepPriceQuestion: 'Compare the cost of continuing with the equity the price demands.',
+    stepRiskTitle: 'Risk · What could distort the judgment?',
+    stepRiskQuestion: 'Check dirty outs, rake, future action, and result-oriented thinking.',
+    trainPreflopCta: 'Practice 10 Preflop Hands',
+    trainPotOddsCta: 'Practice Pot Odds / EV',
+    viewRangeCta: 'View Range Reference',
+    openExplorerCta: 'Explorer · Study a Specific Spot',
+    guideTruthBoundary: 'Training answers come from a versioned baseline or fixed math model. The Guide teaches a process; it does not create a new strategy truth.',
+    conceptsEyebrow: 'Five lenses, one decision',
+    conceptsTitle: 'Portable concepts for uncertain spots',
+    conceptsDesc: 'Each lens gives you one question, one principle, and one reason to stay humble about the answer.',
+    conceptHandTitle: 'Hand',
+    conceptHandQuestion: 'What is this hand capable of—not just how high is it?',
+    conceptHandPrinciple: 'Hand value also comes from suits, connectivity, blockers, and postflop playability.',
+    conceptHandReminder: 'Two hands with similar raw strength can realize equity very differently.',
+    conceptHandCta: 'Explore a specific hand',
+    conceptContextTitle: 'Context',
+    conceptContextQuestion: 'What changed before I had to decide?',
+    conceptContextPrinciple: 'Position, effective stack, and prior action change the value of the same two cards.',
+    conceptContextReminder: 'A hand does not carry one universal action across every spot.',
+    conceptContextCta: 'Open the Explorer',
+    conceptRangeTitle: 'Range',
+    conceptRangeQuestion: 'Which hands and frequencies belong in this spot?',
+    conceptRangePrinciple: 'A range is not simply playable or unplayable; edge hands can be frequency and mixed-strategy decisions.',
+    conceptRangeReminder: 'baseline-v1 is a versioned training reference—not solver output or the only correct strategy.',
+    conceptRangeCta: 'Open the range reference',
+    conceptPriceTitle: 'Price',
+    conceptPriceQuestion: 'What minimum real equity does the current price require?',
+    conceptPricePrinciple: 'Look at price before outcome. A half-pot bet usually requires about 25% equity to call in the fixed no-rake example.',
+    conceptPriceReminder: 'That threshold is a math example, not a complete strategy verdict.',
+    conceptPriceCta: 'Practice Pot Odds / EV',
+    conceptRiskTitle: 'Risk',
+    conceptRiskQuestion: 'Which hidden assumptions could make the estimate too optimistic?',
+    conceptRiskPrinciple: 'Dirty outs, rake, future betting, and range shifts can all change what your estimate means.',
+    conceptRiskReminder: 'Draw-hit probability is not true equity versus a range, and one hand result does not define decision quality.',
+    conceptRiskCta: 'Inspect a concrete example',
+    explorerEyebrow: 'Optional concrete-hand workspace',
+    explorerTitle: 'Explorer · Free-form experiment',
+    explorerDesc: 'Add Hero cards and a flop only when you want to inspect a concrete example. The core concepts remain available without any input.',
+    explorerNavLabel: 'Explorer tools',
+    explorerBoundary: 'This is a simplified concept workspace—not a solver, a complete strategy answer, or a source of training truth.',
+    tabSpot: 'Spot Setup',
+    tabPrice: 'Price',
+    spotSetupTitle: 'Spot Setup · Describe what is visible',
+    spotSetupQ1: 'Do I already have a made hand or showdown value?',
+    spotSetupQ2: 'Am I paying to improve, or continuing with value I already hold?',
+    spotSetupQ3: 'Which range, position, and future-street risks are still unknown?',
+    spotCardsTitle: 'Hero hand and flop',
+    spotCardsDesc: 'Cards are optional. Add them only to inspect hand class, draw possibilities, or board texture.',
+    currentMadeHandLabel: 'Current made-hand reading',
+    spotEmptyIntro: 'No input is required. Start with questions that still matter before a concrete example exists:',
+    emptyGuideMadeHand: 'Do I already hold a made hand or meaningful showdown value?',
+    emptyGuideValue: 'Am I paying to improve, or continuing with value already present?',
+    emptyGuideEquity: 'Have I mistaken draw-hit probability for true equity versus a range?',
+    emptyGuideDirtyOuts: 'Which outs may be dirty, and which future-street risks are missing?',
+    liveSnapshotTitle: 'Live game snapshot',
+    snapshotContextLabel: 'Context only',
+    liveStreetLabel: 'Street / stage',
+    stagePreflop: 'Preflop',
+    stageFlop: 'Flop',
+    stageTurn: 'Turn',
+    stageRiver: 'River',
+    stageShowdown: 'Showdown',
+    currentPotSnapshotLabel: 'Current pot snapshot',
+    currentToCallSnapshotLabel: 'Current to-call snapshot',
+    liveSnapshotEmpty: 'No live table snapshot is available. Manual exploration remains available.',
+    liveSnapshotBoundary: 'Sync shows the current cards and committed-chip state. It does not reconstruct betting history, pot before bet, or Villain bet—and it is not training truth.',
+    potBeforeBetInputLabel: 'Pot before bet',
+    potBeforeBetHelper: 'Enter the pot before Villain makes this bet.',
+    villainBetInputLabel: 'Villain bet',
+    villainBetHelper: 'Enter this bet manually; it is not inferred from a live snapshot.',
+    yourCallInputLabel: 'Your call',
+    yourCallHelper: 'The additional amount Hero would put in now.',
+    requiredEquityFormula: 'Required equity = Your call ÷ (Pot before bet + Villain bet + Your call)',
+    priceFormulaBoundary: 'A simplified, no-rake price threshold for the current additional investment.',
+    finalPotLabel: 'Final pot if you call',
+    priceInputsPrompt: 'Enter all three manual fields to reveal the final pot and price threshold.',
+    priceThresholdTitle: 'Price threshold—not an action verdict',
+    priceThresholdDesc: 'Required equity is the true equity threshold for continuing. Explorer does not estimate Hero’s true equity versus Villain’s range, so it cannot judge Call or Fold.',
+    badgePriceThreshold: 'threshold',
+    drawsEmptyTitle: 'Inspect draw-hit probability when cards help',
+    drawsEmptyDesc: 'Add both Hero cards and a flop in Spot Setup to inspect possible draws. Until then, use the questions below.',
+    openSpotSetupCta: 'Open Spot Setup',
+    drawTruthBoundary: 'Draw-hit probability builds intuition about improvement. It is not true equity versus Villain’s range and cannot decide Call or Fold by itself.',
+    strongMadeDesc: 'A made hand may already have showdown value. Draw-hit probability describes improvement, not the full value of continuing.',
+    strongMadeLens1: 'Current value: ',
+    strongMadeLens2: 'Future risk: ',
+    strongMadeLens3: 'Range context: ',
+    boardEmptyTitle: 'Observe a board when a concrete flop helps',
+    boardEmptyDesc: 'Add a flop in Spot Setup when you want to classify its texture. The questions remain useful before any cards are entered.',
+    boardEmptyQ1: 'Is the board paired, monotone, or connected?',
+    boardEmptyQ2: 'Which draws or made hands could this texture support?',
+    boardEmptyQ3: 'What range and action context would be needed before choosing a line?',
+    optionalExplorerLabel: 'Optional example',
+    exploreSpecificTitle: 'Explore a specific postflop spot',
+    exploreSpecificDesc: 'Add Hero cards and a flop when you want to inspect a concrete example.',
+    basicConceptsAvailable: 'You can return to Start Here, Concepts, or Reference at any time—learning is not locked behind these inputs.',
+    useHandInExplorerCta: 'Use this hand in Explorer',
+    rangeGridLabel: '169 starting-hand range reference',
+    currentSpotLabel: 'Current spot',
+    primaryTendencyLabel: 'Primary tendency',
+    cardSlotHero: 'Hero card',
+    cardSlotBoard: 'Flop card',
     thinkingFrameworkTitle: 'Thinking Framework',
     preflopQ1: 'Can I enter the hand?',
     preflopQ2: 'How playable is this hand heads-up?',
     preflopQ3: 'What line fits this spot: raise, call, or fold?',
-    mathQ1: 'Is the price good?',
-    mathQ2: 'What do I need to pay?',
-    mathQ3: 'Is my chance to improve higher than the required equity?',
+    mathQ1: 'What is the pot before the bet?',
+    mathQ2: 'What am I paying, and what is the final pot if I call?',
+    mathQ3: 'Does my estimated real equity meet the price—and have I kept it separate from draw-hit probability?',
     drawsQ1: 'What can improve me?',
     drawsQ2: 'How many clean outs do I have?',
     drawsQ3: 'How often do I improve by the river?',
@@ -940,52 +1264,70 @@ const dictionary = {
     guideCall: 'Green (Call/Limp): Take the defensive line.',
     guideFold: 'Black (Fold): Save your stack.',
     tabPreflop: 'Preflop',
-    tabMath: 'Math',
+    tabMath: 'Price',
     tabDraws: 'Draws',
     tabBoard: 'Board',
     decidePreflop: 'What this helps you decide: Your baseline preflop opening and defending strategies based on position and hand strength to avoid entry mistakes.',
-    decideMath: 'What this helps you decide: Whether a call is mathematically profitable based on pot odds and required equity.',
-    decideDraws: 'What this helps you decide: How likely you are to hit your draw on future streets, using standard poker calculations.',
-    decideBoard: 'What this helps you decide: Analyzing board texture changes and runouts to predict opponent ranges.',
+    decideMath: 'What this helps you inspect: the real-equity threshold created by a manually defined price.',
+    decideDraws: 'What this helps you inspect: approximate and exact draw-hit probability under fixed unseen-card assumptions.',
+    decideBoard: 'What this helps you inspect: visible texture features and the range questions they create.',
     sbButton: 'SB (Button)',
     bbBigBlind: 'BB (Big Blind)',
     openRaiseRfi: 'Open-Raise / RFI',
     defendVsSbOpen: 'Defend vs SB Open (2.5x)',
     legendRaise: 'Raise',
-    legendCall: 'Call/Limp',
+    legendLimp: 'Limp',
+    legendCall: 'Call',
     legendFold: 'Fold',
-    placeholder: '👉 Click or hover any cell in the matrix to view GTO coaching action weights & real-time tactical advice.',
+    referenceVerifiedBaseline: 'Versioned range reference',
+    referenceNotSolver: 'Not solver output',
+    referenceOpenSize: 'Open size',
+    referenceSourceLabel: 'Source',
+    referenceLegacySnapshotSource: 'Fixed snapshot of the legacy local heuristic',
+    referenceBaselineBoundary: 'A versioned training baseline, not the only correct strategy.',
+    referenceBbTitle: 'BB defend reference · Facing an SB 2.5x open',
+    referenceBbBoundary: 'This spot keeps the existing local BB defend heuristic. It is not the baseline-v1 Button RFI snapshot.',
+    referenceFamilyLabel: 'Hand family',
+    referenceClassificationLabel: 'Classification',
+    referenceVersionLabel: 'Version',
+    referenceDataUnavailable: 'Reference data unavailable',
+    referenceExplanationFallback: 'This cell belongs to the versioned baseline. Use its frequencies as a learning reference, not an absolute strategy verdict.',
+    assumptionHeadsUp: 'Heads-up',
+    assumptionSbButton: 'SB/Button',
+    assumptionUnopenedPot: 'Unopened Pot',
+    backToGuideCta: 'Back to Decision Guide',
+    placeholder: 'Click, focus, or hover a matrix cell to inspect its reference frequencies and short tactical note.',
     coachInsight: 'COACH INSIGHT',
     pocketPair: 'Pocket Pair',
     suitedHand: 'Suited Hand',
     offsuitHand: 'Offsuit Hand',
-    mathTitle: 'Call Decision Console',
-    mathDesc: 'Verify if calling a postflop bet is profitable in the long run.',
-    potOddsFormula: 'Pot Odds = Risk / (Risk + Reward)',
+    mathTitle: 'Price Experiment',
+    mathDesc: 'Change three explicit manual inputs to see the final pot and required-equity threshold. No live value is inserted here.',
+    potOddsFormula: 'Required equity = Your call / Final pot if you call',
     riskLabel: 'Risk (Chips to Call):',
     riskDesc: 'Chips to call.',
     rewardLabel: 'Reward (Total Pot):',
-    rewardDesc: 'Chips currently in pot + opponent bet.',
-    requiredEquityLabel: 'Required Equity:',
-    requiredEquityDesc: 'Pot Odds converted to %, the minimum win percentage needed to break even.',
+    rewardDesc: 'Final pot is derived only from the three manual experiment fields.',
+    requiredEquityLabel: 'Required real-equity threshold',
+    requiredEquityDesc: 'The minimum true equity required by this simplified price; Explorer does not calculate it for your hand.',
     exampleTitle: '💡 WORKED EXAMPLE (Standard 1v1 Spot)',
     examplePot: 'Pot:',
     exampleOppBet: 'Opponent\'s Bet:',
     exampleRisk: 'Your Risk to Call:',
     exampleReward: 'Total Reward:',
     exampleMath: 'The Math:',
-    actualEqGteReq: 'Actual Equity ≥ Required Equity',
-    actualEqLtReq: 'Actual Equity < Required Equity',
-    profitableCall: '👉 Profitable CALL (+EV)',
-    profitableFold: 'Calling is unfavorable by direct odds / Folding avoids a negative-EV call',
-    mathGoldenRuleTitle: '⚡ TACTICAL GOLDEN RULE:',
-    mathGoldenRuleText: 'Required Equity is simply your Pot Odds converted into a percentage. If your actual win chance (e.g. 35% Flush Draw) is higher than the minimum win chance required (e.g. 25%), calling is mathematically guaranteed to print money in the long run!',
+    actualEqGteReq: 'Estimated real equity and the price threshold are separate inputs.',
+    actualEqLtReq: 'Draw-hit probability is not a substitute for real equity.',
+    profitableCall: 'Use the verified Pot Odds / EV Drill to practice scored decisions.',
+    profitableFold: 'Explorer shows a threshold, not a Call/Fold verdict.',
+    mathGoldenRuleTitle: 'PRICE BOUNDARY:',
+    mathGoldenRuleText: 'Pot odds describe the minimum true equity required by a price. Opponent range, rake, dirty outs, future betting, reverse implied odds, and split pots can change the real decision.',
     uncertaintyTitle: 'Decision Under Uncertainty',
-    uncertaintyDesc: 'Poker is not gambling if played with math.',
-    uncertaintyP1: 'Every bet or call you make represents a transaction with risk and return. By using Outs to calculate your Actual Equity, and comparing it against Pot Odds, you transform guesswork into a structured financial decision.',
-    goDrawsLink: '💡 Go to the Draws Tab to learn how to calculate your Outs and Actual Equity!',
+    uncertaintyDesc: 'A price threshold is useful only when its assumptions stay visible.',
+    uncertaintyP1: 'Outs and draw-hit probability describe possible improvement. True equity depends on how Hero performs against Villain’s range; Explorer does not calculate that range-based value.',
+    goDrawsLink: 'Open Draws to inspect outs and draw-hit probability without turning them into an action verdict.',
     drawsTitle: 'Common Draw Odds',
-    drawsDesc: 'Chances of hitting your draw based on your Outs (remaining winning cards in the deck).',
+    drawsDesc: 'Chances of hitting a candidate improvement card based on raw outs.',
     thDraw: 'Draw',
     thOuts: 'Outs',
     thF2T: 'F→T',
@@ -1006,56 +1348,56 @@ const dictionary = {
     drawCombo15: 'Monster Combo (15 Outs)',
     drawCombo15Desc: 'OESD + Flush Draw',
     rule24Title: 'Rule of 2 and 4',
-    rule24Desc: 'Quick mental math to estimate equity on the fly.',
+    rule24Desc: 'Quick mental math for approximate draw-hit probability—not true equity versus a range.',
     f2rCalc: 'Outs × 4 %',
     f2rNote: 'Use on the Flop when estimating the total chance of hitting by the River.',
     t2rCalc: 'Outs × 2 %',
     t2rNote: 'Use on the Turn when only one card is left to deal.',
     cleanOutsTitle: '⚠️ CLEAN OUTS WARNING:',
     cleanOutsText: 'Not all outs are clean. If hitting one of your out cards completes a stronger hand (like a flush or higher straight) for your opponent, that card is a dirty out. You must discount these from your calculations.',
-    'handbook.draws.linkageProfitable': '✅ Profitable Call: Current Draw Equity {draw} > Required Equity {req}, mathematically supports calling.',
-    'handbook.draws.linkageUnprofitable': '❌ Direct odds are unfavorable: your draw equity {draw} is below the required equity {req}. Without implied odds or strategic reasons, folding is usually more disciplined.',
-    'handbook.draws.linkageNeedsInput': '💡 Go to Math tab and input pot data to receive calling advice.',
+    'handbook.draws.linkageProfitable': 'Draw-hit probability is an improvement estimate, not an action verdict.',
+    'handbook.draws.linkageUnprofitable': 'True equity versus a range is required before comparing a hand with a price threshold.',
+    'handbook.draws.linkageNeedsInput': 'Price and draw-hit probability remain separate concept tools.',
     'handbook.draws.flopOnlyHint': '(Flop only)',
     'handbook.draws.turnOnlyHint': '(Turn only)',
     'handbook.draws.strongMadeTitle': 'Strong Made Hand, No Draw Needed',
-    'handbook.draws.strongMadePoint1': 'Your opponent may hold a second-best hand; charge them the wrong price to continue.',
-    'handbook.draws.strongMadePoint2': 'On coordinated boards (flush/straight draws), consider betting or raising instead of checking.',
-    'handbook.draws.strongMadePoint3': 'Based on your opponent\'s calling range, decide between thin or thick value bets.',
+    'handbook.draws.strongMadePoint1': 'Ask how much showdown value the current made hand already carries before focusing on improvement.',
+    'handbook.draws.strongMadePoint2': 'Notice which turn and river cards could weaken that value or complete visible draws.',
+    'handbook.draws.strongMadePoint3': 'Position, prior action, and Villain’s range are still required before choosing a betting line.',
     'handbook.preflop.positionTitle': 'Why Position Matters',
     'handbook.preflop.positionBody': 'In heads-up poker, the small blind/button acts first preflop but has position postflop.\nActing last gives you more information before deciding whether to bet, call, or control the pot.\nThis is why the Button/SB can open wider, while the BB defends with a price but often plays out of position postflop.',
     'handbook.math.betSizeTitle': 'How Bet Size Changes the Decision',
-    'handbook.math.betSizeBody': 'The larger the bet, the more equity you need to continue.\nThe same draw may be profitable against a small bet but unprofitable against a large bet.\nExample: Pot 100, call 25 needs about 16.7% equity; call 100 needs about 33.3% equity.',
+    'handbook.math.betSizeBody': 'A larger price requires more true equity to continue.\nA draw-hit percentage alone cannot tell whether that threshold is met because made-hand value and Villain’s range are missing.\nUse the fields here to inspect only how the price threshold changes.',
     'handbook.math.impliedOddsTitle': 'What Are Implied Odds?',
     'handbook.math.impliedOddsBody': 'Sometimes direct pot odds are not enough.\nBut if you can win more chips later when you hit, calling may still have a reason.\nThis is called implied odds.\nDo not overuse implied odds: if your opponent will not pay later, or your outs are not clean, implied odds can be overestimated.',
     'handbook.draws.outsWinsTitle': 'Outs Do Not Always Mean Wins',
     'handbook.draws.outsWinsBody': 'An out improves your hand, but it does not guarantee you win.\nIf a card also completes a stronger hand for your opponent, it may be a dirty out.\nFor example, a low flush can lose to a higher flush; on paired boards, a completed flush can still lose to a full house.',
     'handbook.draws.madeHandVsDrawTitle': 'Made Hand vs Draw',
     'handbook.draws.madeHandVsDrawBody': 'Made Hand: already has showdown value, such as pair, two pair, or trips.\nDraw: may be behind now, but can improve on the turn or river.\nMade hands often think about protection and value; draws focus more on outs, pot odds, and implied odds.',
-    'handbook.draws.linkageNeedsInput': '💡 Go to Math tab and input pot data to receive calling advice.',
+    'handbook.draws.linkageNeedsInput': 'Price and draw-hit probability remain separate concept tools.',
     'handbook.draws.flopOnlyHint': '(Flop only)',
     'handbook.draws.turnOnlyHint': '(Turn only)',
     'handbook.heroHandHelperNote': '* Click chart to load default suits, click slot to change.',
     boardTitle: 'Postflop Board Textures',
     boardComingSoon: 'Coming Soon',
-    boardDesc: 'We are developing a real-time board analyzer to help you classify board textures (wet, dry, static, dynamic) and understand range advantage shifts.',
-    postflopLockedTitle: 'Postflop Analysis Locked',
-    postflopLockedDesc: 'Add the flop to unlock postflop analysis.',
+    boardDesc: 'Classify visible board texture and use it to ask better range and risk questions without prescribing an action.',
+    postflopLockedTitle: 'Explore a specific postflop spot',
+    postflopLockedDesc: 'Add Hero cards and a flop when you want to inspect a concrete example.',
     heroHandLabel: 'Hero Hand',
     boardFlopLabel: 'Board (Flop)',
-    syncLive: 'Sync Live Game',
-    syncLiveTooltip: 'Reset to current live game cards',
-    potSizeInputLabel: 'Pot Size ($)',
-    callAmountInputLabel: 'Call Amount ($)',
+    syncLive: 'Sync live game snapshot',
+    syncLiveTooltip: 'Copy current cards and committed-chip context without changing the manual price experiment',
+    potSizeInputLabel: 'Pot before bet',
+    callAmountInputLabel: 'Your call',
     highestDrawLabel: 'Highest Draw Detected',
-    drawEquityLabel: 'Draw Equity (to River)',
+    drawEquityLabel: 'Draw-hit probability (to River)',
     noMajorDraw: 'No major draw',
-    coachAdviceTitle: 'MATHEMATICAL GUIDANCE',
-    callingReasonable: 'Calling may be mathematically reasonable if other risks are acceptable.',
-    callingUnprofitable: 'Calling is mathematically unprofitable based on direct odds alone.',
-    addPotAndCall: 'Add pot and call amount to compare against pot odds.',
+    coachAdviceTitle: 'CONCEPT BOUNDARY',
+    callingReasonable: 'Explorer does not issue a Call/Fold judgment.',
+    callingUnprofitable: 'Explorer does not issue a Call/Fold judgment.',
+    addPotAndCall: 'Enter the three manual price fields to inspect a threshold.',
     activeDrawsTitle: 'Current Hand Draws',
-    activeDrawsDesc: 'Draws and outs calculated dynamically for your input hand.',
+    activeDrawsDesc: 'Possible draws, raw outs, and draw-hit probability for the selected cards. This is not range-based equity.',
     referenceTableTitle: 'Common Draw Reference Table',
     noDrawsDetected: 'No major draws detected (straight, flush, or set mining).',
     dirtyOutsWarningText: 'Some outs might complete a stronger opponent hand.',
@@ -1069,10 +1411,10 @@ const dictionary = {
     rainbowBoard: 'Rainbow Board',
     connectedBoard: 'Connected Board',
     boardTacticalTitle: 'Tactical Context',
-    boardTacticalDesc: 'Strategic overview of range advantages and draws.',
+    boardTacticalDesc: 'Questions about texture, ranges, and risks—not a prescribed action.',
     flushDrawsLabel: 'Flush Potential',
     straightDrawsLabel: 'Straight Potential',
-    coachBoardInsight: 'Coach Insight',
+    coachBoardInsight: 'Observation prompt',
     yesFlushDraw: 'Flush draws possible (2+ suited)',
     noFlushDraw: 'No flush draws (Rainbow)',
     yesStraightDraw: 'Straight draws possible (connected)',
@@ -1081,8 +1423,8 @@ const dictionary = {
     texture_semiWet: 'Semi-Wet Board',
     texture_dry: 'Dry Board',
     badgeOuts: 'Outs',
-    badgeRequired: 'Required',
-    needsPotBadge: 'Needs Pot',
+    badgeRequired: 'Price threshold',
+    needsPotBadge: 'Add price',
     pickerTitle: 'Card Picker',
     pickerHeroSub: 'Select card for your hand',
     pickerBoardSub: 'Select card for the flop',
@@ -1091,16 +1433,140 @@ const dictionary = {
   },
   zh: {
     badge: 'POSTSOMA · 决策指南',
-    title: '战术手册',
-    guide: '指南',
-    motto: '扑克不仅仅关乎运气。每一手牌都是在不确定性下的决策。这个指南不会直接告诉你“标准答案”。它教你在做决定前应该先看什么：你的手牌、公共牌、补牌、跟注成本和风险。',
+    title: '决策指南',
+    guide: '回到开始',
+    motto: '行动前，用可重复的流程看清范围、价格、概率与风险。先理解思考框架；只有在需要时，才研究一手具体牌。',
+    closeGuideLabel: '关闭决策指南',
+    primaryNavLabel: '决策指南分区',
+    navStartKicker: '01',
+    navStart: '开始',
+    navConceptsKicker: '02',
+    navConcepts: '概念',
+    navReferenceKicker: '03',
+    navReference: '范围参考',
+    navExplorerKicker: '04',
+    navExplorer: '自由实验',
+    startEyebrow: '五问决策流程',
+    startTitle: '先看懂局面，再寻找答案。',
+    startDesc: '这五个问题可以从十手训练迁移到单挑牌桌。开始学习不需要填牌、输入底池、创建房间或配置 API Key。',
+    fiveQuestionsLabel: '扑克五问决策流程',
+    stepHandTitle: 'Hand · 我拿到的是什么？',
+    stepHandQuestion: '同时观察点数、花色、连接性、阻断牌与翻后可玩性。',
+    stepContextTitle: 'Context · 我处于什么局面？',
+    stepContextQuestion: '确认位置、有效筹码，以及轮到我前发生了什么。',
+    stepRangeTitle: 'Range · 我的范围与对手范围是什么？',
+    stepRangeQuestion: '用频率和倾向思考，而不是只分“能玩 / 不能玩”。',
+    stepPriceTitle: 'Price · 这个价格要求什么？',
+    stepPriceQuestion: '比较继续付出的成本与价格要求的最低真实 equity。',
+    stepRiskTitle: 'Risk · 哪些风险会让判断失真？',
+    stepRiskQuestion: '检查脏 outs、rake、后续行动，以及结果导向偏差。',
+    trainPreflopCta: '练 10 手 Preflop',
+    trainPotOddsCta: '练 Pot Odds / EV',
+    viewRangeCta: '打开范围矩阵',
+    openExplorerCta: 'Explorer · 研究具体牌局',
+    guideTruthBoundary: '训练答案来自版本化 baseline 或固定数学模型。决策指南提供思考流程，不创造新的策略真值。',
+    conceptsEyebrow: '五个视角，一次决策',
+    conceptsTitle: '可迁移到不确定局面的核心概念',
+    conceptsDesc: '每个视角只给你一个问题、一条原则，以及一个需要对结论保持克制的理由。',
+    conceptHandTitle: 'Hand · 手牌',
+    conceptHandQuestion: '这手牌能做什么，而不只是它现在有多大？',
+    conceptHandPrinciple: '牌力也来自花色、连接性、blocker 与翻后可玩性。',
+    conceptHandReminder: '原始强度接近的两手牌，最终实现 equity 的能力可能差很多。',
+    conceptHandCta: '研究一手具体牌',
+    conceptContextTitle: 'Context · 局面',
+    conceptContextQuestion: '轮到我决定前，哪些条件已经改变？',
+    conceptContextPrinciple: '位置、有效筹码和前面行动会改变同一手牌的价值。',
+    conceptContextReminder: '同一手牌不会在所有局面中对应一个固定行动。',
+    conceptContextCta: '打开自由实验台',
+    conceptRangeTitle: 'Range · 范围',
+    conceptRangeQuestion: '这个局面包含哪些手牌与行动频率？',
+    conceptRangePrinciple: '范围不是简单“能玩 / 不能玩”；边缘牌可能是频率或混合策略问题。',
+    conceptRangeReminder: 'baseline-v1 是版本化训练参考，不是 solver 输出，也不是唯一正确策略。',
+    conceptRangeCta: '打开范围参考',
+    conceptPriceTitle: 'Price · 价格',
+    conceptPriceQuestion: '当前价格要求多少最低真实 equity？',
+    conceptPricePrinciple: '先看价格，不先看结果。在固定、无 rake 示例中，面对半池下注通常需要约 25% equity。',
+    conceptPriceReminder: '这个门槛是数学示例，不是完整策略裁判。',
+    conceptPriceCta: '练 Pot Odds / EV',
+    conceptRiskTitle: 'Risk · 风险',
+    conceptRiskQuestion: '哪些隐藏假设会让估计过于乐观？',
+    conceptRiskPrinciple: '脏 outs、rake、后续下注与范围变化都会改变估计的含义。',
+    conceptRiskReminder: '听牌命中概率不等于对对手范围的真实 equity；单手结果也不定义决策质量。',
+    conceptRiskCta: '观察一个具体例子',
+    explorerEyebrow: '可选的具体牌局工作区',
+    explorerTitle: 'Explorer · 自由实验台',
+    explorerDesc: '只有在想研究一手具体牌时，才添加 Hero Hand 与 Flop。基础概念无需任何输入即可学习。',
+    explorerNavLabel: '自由实验工具',
+    explorerBoundary: '这是用于观察概念的简化工作区，不是 solver、完整策略答案或训练真值来源。',
+    tabSpot: '具体局面',
+    tabPrice: '价格实验',
+    spotSetupTitle: 'Spot Setup · 描述眼前局面',
+    spotSetupQ1: '我是否已经拥有成牌或摊牌价值？',
+    spotSetupQ2: '我是在为改善牌付费，还是已经拥有可以继续的价值？',
+    spotSetupQ3: '范围、位置和后续街风险中，还有哪些信息未知？',
+    spotCardsTitle: 'Hero 手牌与 Flop',
+    spotCardsDesc: '牌面输入是可选的；只在想观察牌型、听牌可能或牌面结构时添加。',
+    currentMadeHandLabel: '当前成牌观察',
+    spotEmptyIntro: '无需输入也能开始。先问这些在具体牌面出现前依然重要的问题：',
+    emptyGuideMadeHand: '我是否已经拥有成牌或足够的摊牌价值？',
+    emptyGuideValue: '我是在为改善牌付费，还是已经拥有可以继续的价值？',
+    emptyGuideEquity: '我是否把听牌命中概率误当成了对范围的真实 equity？',
+    emptyGuideDirtyOuts: '哪些 outs 可能不干净，哪些后续街风险尚未计入？',
+    liveSnapshotTitle: '实时牌局快照',
+    snapshotContextLabel: '仅作局面参考',
+    liveStreetLabel: '当前街 / 阶段',
+    stagePreflop: '翻前',
+    stageFlop: '翻牌',
+    stageTurn: '转牌',
+    stageRiver: '河牌',
+    stageShowdown: '摊牌',
+    currentPotSnapshotLabel: '当前底池快照',
+    currentToCallSnapshotLabel: '当前待跟金额快照',
+    liveSnapshotEmpty: '当前没有可用的实时牌桌快照；手动实验仍可正常使用。',
+    liveSnapshotBoundary: '同步只展示此刻的牌面与已投入筹码状态，不重建完整下注历史、下注前底池或对手本次下注，也不是训练真值。',
+    potBeforeBetInputLabel: 'Pot before bet · 下注前底池',
+    potBeforeBetHelper: '手动输入对手本次下注发生前的底池。',
+    villainBetInputLabel: 'Villain bet · 对手下注',
+    villainBetHelper: '请手动输入；不会从实时快照推断。',
+    yourCallInputLabel: 'Your call · 你的跟注',
+    yourCallHelper: 'Hero 此刻需要额外投入的金额。',
+    requiredEquityFormula: '所需真实 equity = 你的跟注 ÷（下注前底池 + 对手下注 + 你的跟注）',
+    priceFormulaBoundary: '这是一个不含 rake 的简化当前增量投入价格门槛。',
+    finalPotLabel: 'Final pot if you call · 跟注后最终底池',
+    priceInputsPrompt: '填写三个手动字段后，才会显示最终底池与价格门槛。',
+    priceThresholdTitle: '这是价格门槛，不是行动裁判',
+    priceThresholdDesc: '所需 equity 是继续投入要求的真实 equity 门槛。Explorer 不计算 Hero 对 Villain 范围的真实 equity，因此不能裁定 Call 或 Fold。',
+    badgePriceThreshold: '价格门槛',
+    drawsEmptyTitle: '在具体牌面有帮助时观察听牌命中概率',
+    drawsEmptyDesc: '在“具体局面”中添加两张 Hero 手牌与 Flop，即可观察可能听牌；未填写时先使用以下问题。',
+    openSpotSetupCta: '打开具体局面',
+    drawTruthBoundary: '听牌命中概率只用于建立改善牌的直觉；它不是 Hero 对 Villain 范围的真实 equity，也不能单独决定 Call 或 Fold。',
+    strongMadeDesc: '成牌可能已经拥有摊牌价值。听牌命中概率描述的是改善机会，不是继续行动的全部价值。',
+    strongMadeLens1: '当前价值：',
+    strongMadeLens2: '后续风险：',
+    strongMadeLens3: '范围语境：',
+    boardEmptyTitle: '需要具体 Flop 时再观察牌面',
+    boardEmptyDesc: '想分类牌面结构时，再到“具体局面”添加 Flop；未输入牌面也可以先思考以下问题。',
+    boardEmptyQ1: '牌面是否成对、单色或连接？',
+    boardEmptyQ2: '这种结构可能支持哪些听牌或成牌？',
+    boardEmptyQ3: '在选择行动前，还需要哪些范围与行动信息？',
+    optionalExplorerLabel: '可选具体例子',
+    exploreSpecificTitle: '研究一手具体翻后局面',
+    exploreSpecificDesc: '想研究具体翻后局面时，再添加 Hero Hand 和 Flop。',
+    basicConceptsAvailable: '你可以随时返回“开始”“概念”或“范围参考”；学习不会被输入表单锁住。',
+    useHandInExplorerCta: '用此手牌在 Explorer 中查看',
+    rangeGridLabel: '169 格起手牌范围参考',
+    currentSpotLabel: '当前局面',
+    primaryTendencyLabel: '主要倾向',
+    cardSlotHero: 'Hero 手牌',
+    cardSlotBoard: 'Flop 公共牌',
     thinkingFrameworkTitle: '思考框架',
     preflopQ1: '我能不能进入这手牌？',
     preflopQ2: '这手牌在单挑里可玩性如何？',
     preflopQ3: '这里更适合加注、跟注还是弃牌？',
-    mathQ1: '这个价格划算吗？',
-    mathQ2: '我需要付出多少？',
-    mathQ3: '我的成牌概率是否高于所需胜率？',
+    mathQ1: '对手下注前的底池是多少？',
+    mathQ2: '我需要支付多少，跟注后的最终底池是多少？',
+    mathQ3: '我估计的真实 equity 是否达到价格门槛，并且没有把它与听牌命中概率混为一谈？',
     drawsQ1: '什么牌能让我变强？',
     drawsQ2: '我有多少干净补牌？',
     drawsQ3: '到河牌前有多大机会改善？',
@@ -1124,52 +1590,70 @@ const dictionary = {
     guideCall: '绿色 (跟注/跟入): 防守型跟注。',
     guideFold: '黑色 (弃牌): 弃牌保护筹码。',
     tabPreflop: '翻前',
-    tabMath: '赔率',
+    tabMath: '价格实验',
     tabDraws: '听牌',
     tabBoard: '牌面',
     decidePreflop: '帮助你决策：基于位置与起手牌强度的翻牌前动作基准，避免盲目入池。',
-    decideMath: '帮助你决策：根据底池赔率与所需胜率，计算长期看跟注是否能够盈利。',
-    decideDraws: '帮助你决策：基于你的补牌数（Outs），估算在转牌或河牌圈击中听牌的概率，用数学代替直觉。',
-    decideBoard: '帮助你决策：分析公共牌结构与发牌走向，预测对手的范围分布与胜率变化。',
+    decideMath: '帮助你观察：手动定义的价格会产生怎样的真实 equity 门槛。',
+    decideDraws: '帮助你观察：在固定未知牌假设下，用近似与精确公式估算听牌命中概率。',
+    decideBoard: '帮助你观察：可见的牌面结构，以及它带来的范围与风险问题。',
     sbButton: 'SB (小盲/庄家)',
     bbBigBlind: 'BB (大盲)',
     openRaiseRfi: '开池加注 / RFI',
     defendVsSbOpen: '防守对抗 SB 开池 (2.5x)',
     legendRaise: '加注',
-    legendCall: '跟注/跟入',
+    legendLimp: 'Limp',
+    legendCall: '跟注',
     legendFold: '弃牌',
-    placeholder: '👉 点击或悬停矩阵中的任意格子，查看 GTO 动作权重与即时战术建议。',
+    referenceVerifiedBaseline: '版本化范围参考',
+    referenceNotSolver: '不是 solver 输出',
+    referenceOpenSize: '开池尺度',
+    referenceSourceLabel: '数据来源',
+    referenceLegacySnapshotSource: '既有本地启发式规则的固定快照',
+    referenceBaselineBoundary: '这是版本化训练 baseline，不是唯一正确策略。',
+    referenceBbTitle: 'BB 防守参考 · 面对 SB 2.5x 开池',
+    referenceBbBoundary: '此场景继续使用既有本地 BB 防守启发式，不属于 baseline-v1 Button RFI 快照。',
+    referenceFamilyLabel: '手牌家族',
+    referenceClassificationLabel: '分类',
+    referenceVersionLabel: '版本',
+    referenceDataUnavailable: '暂无参考数据',
+    referenceExplanationFallback: '该格属于版本化 baseline；请将频率作为学习参考，而不是绝对策略裁判。',
+    assumptionHeadsUp: 'Heads-up',
+    assumptionSbButton: 'SB/Button',
+    assumptionUnopenedPot: 'Unopened Pot',
+    backToGuideCta: '返回决策指南',
+    placeholder: '点击、聚焦或悬停矩阵格，查看参考行动频率与简短提示。',
     coachInsight: '教练建议',
     pocketPair: '口袋对子',
     suitedHand: '同花手牌',
     offsuitHand: '不同花手牌',
-    mathTitle: '跟注决策控制台',
-    mathDesc: '验证在长期博弈中，跟注对手的下注在数学期望上是否盈利。',
-    potOddsFormula: '底池赔率 = 跟注成本 / (跟注成本 + 可赢底池)',
+    mathTitle: '价格实验',
+    mathDesc: '调整三个含义明确的手动字段，观察最终底池与所需 equity 门槛；实时数据不会写入这里。',
+    potOddsFormula: '所需 equity = 你的跟注 / 跟注后最终底池',
     riskLabel: '跟注成本 (Risk):',
     riskDesc: '跟注需要投入的筹码量。',
     rewardLabel: '可赢底池 (Reward):',
-    rewardDesc: '当前底池已有的筹码总数（底池 + 对手下注）。',
-    requiredEquityLabel: '所需最低胜率:',
-    requiredEquityDesc: '底池赔率转换为百分比，即保本所需的最低赢牌概率。',
+    rewardDesc: '最终底池只由三个手动实验字段派生。',
+    requiredEquityLabel: '所需真实 equity 门槛',
+    requiredEquityDesc: '这个简化价格要求的最低真实 equity；Explorer 不替你的手牌计算该值。',
     exampleTitle: '💡 算例 (标准单挑场景)',
     examplePot: '底池:',
     exampleOppBet: '对手下注:',
     exampleRisk: '你的跟注风险/成本:',
     exampleReward: '可赢底池/总回报:',
     exampleMath: '数学计算:',
-    actualEqGteReq: '实际胜率 ≥ 所需最低胜率',
-    actualEqLtReq: '实际胜率 < 所需最低胜率',
-    profitableCall: '👉 跟注盈利 (+EV)',
-    profitableFold: '跟注在直接赔率上不利 / 弃牌避免一次负期望跟注。',
-    mathGoldenRuleTitle: '⚡ 战术黄金法则:',
-    mathGoldenRuleText: '所需最低胜率正是底池赔率转换为百分比的形式。如果你手牌的实际成牌概率（例如 35% 同花听牌）高于跟注所需的最低胜率（例如 25%），那么在长期来看，跟注是数学上能必定盈利的决策！',
+    actualEqGteReq: '估计的真实 equity 与价格门槛是两个独立输入。',
+    actualEqLtReq: '听牌命中概率不能替代真实 equity。',
+    profitableCall: '请使用固定真值的 Pot Odds / EV Drill 练习评分决策。',
+    profitableFold: 'Explorer 只展示门槛，不输出 Call/Fold 裁判。',
+    mathGoldenRuleTitle: '价格边界：',
+    mathGoldenRuleText: 'Pot odds 只描述当前价格要求的最低真实 equity。对手范围、rake、脏 outs、后续下注、反向隐含赔率与分池都会改变真实决策。',
     uncertaintyTitle: '不确定性下的决策科学',
-    uncertaintyDesc: '依靠数学做决策时，扑克绝非赌博。',
-    uncertaintyP1: '你的每一次下注或跟注都是一笔伴随风险与收益的交易。通过使用补牌估算你的实际成牌概率，并与底池赔率进行对比，你可以将盲目猜测转化为严谨的期望值决策。',
-    goDrawsLink: '💡 导航到 听牌 标签页，学习如何计算补牌数与实际胜率！',
-    drawsTitle: '常见听牌胜率表',
-    drawsDesc: '基于你的补牌数估算在不同阶段成牌的概率。',
+    uncertaintyDesc: '只有把假设留在视野中，价格门槛才有教学价值。',
+    uncertaintyP1: 'Outs 与听牌命中概率描述可能的改善。真实 equity 取决于 Hero 对 Villain 范围的整体表现；Explorer 不计算这个范围对抗值。',
+    goDrawsLink: '打开“改善概率”，观察 outs 与听牌命中概率，但不要把它们变成行动裁判。',
+    drawsTitle: '常见听牌命中概率表',
+    drawsDesc: '基于 raw outs 估算在不同阶段击中候选改善牌的概率。',
     thDraw: '听牌类型',
     thOuts: '补牌',
     thF2T: '翻→转',
@@ -1190,56 +1674,56 @@ const dictionary = {
     drawCombo15: '超强组合听牌 (15张补牌)',
     drawCombo15Desc: '同花听牌 + 两头顺子听牌',
     rule24Title: '二四法则',
-    rule24Desc: '实战中快速脑算估算成牌概率的口诀。',
+    rule24Desc: '快速脑算听牌命中概率的口诀，不是对范围的真实 equity。',
     f2rCalc: '补牌数 × 4 %',
     f2rNote: '适用于翻牌圈，估算到河牌时的总成牌概率。',
     t2rCalc: '补牌数 × 2 %',
     t2rNote: '适用于转牌圈，估算发最后一张河牌时的成牌概率。',
     cleanOutsTitle: '⚠️ 干净补牌说明:',
-    cleanOutsText: '并非所有补牌都是干净的。如果某张补牌在让你成牌的同时，也完成了对手更强的手牌（如更高顺子或同花），那这就是一张“脏补牌”，计算胜率时必须打折或扣除。',
-    'handbook.draws.linkageProfitable': '✅ 跟注有利：当前听牌胜率 {draw} > 所需胜率 {req}，数学上支持跟注',
-    'handbook.draws.linkageUnprofitable': '❌ 直接赔率不利：当前听牌胜率 {draw} < 所需最低胜率 {req}。如果没有隐含赔率或策略理由，弃牌通常更稳妥。',
-    'handbook.draws.linkageNeedsInput': '💡 前往赔率标签输入底池数据，即可获得跟注建议',
+    cleanOutsText: '并非所有补牌都是干净的。如果某张补牌在让你改善的同时，也可能完成对手更强的手牌（如更高顺子或同花），它就是“脏补牌”；估算命中概率时应把这项风险单独标出。',
+    'handbook.draws.linkageProfitable': '听牌命中概率是改善估计，不是行动裁判。',
+    'handbook.draws.linkageUnprofitable': '比较价格门槛前，仍需要对手范围下的真实 equity。',
+    'handbook.draws.linkageNeedsInput': '价格与听牌命中概率保持为两个独立的概念工具。',
     'handbook.draws.flopOnlyHint': '(翻牌圈再用)',
     'handbook.draws.turnOnlyHint': '(转牌圈再用)',
     'handbook.draws.strongMadeTitle': '当前是强成牌，无需追牌',
-    'handbook.draws.strongMadePoint1': '对手也可能持有次强成牌，你的目标是让他以错误赔率跟注。',
-    'handbook.draws.strongMadePoint2': '有听牌可能的牌面（同花面/连接面），考虑 Bet / Raise 而非 Check。',
-    'handbook.draws.strongMadePoint3': '根据对手跟注范围，选择薄价值下注还是超价值下注。',
+    'handbook.draws.strongMadePoint1': '在关注改善机会前，先问当前成牌已经拥有多少摊牌价值。',
+    'handbook.draws.strongMadePoint2': '观察哪些转牌或河牌会削弱现有价值，或完成明显听牌。',
+    'handbook.draws.strongMadePoint3': '选择下注线路前，仍需要位置、前面行动与 Villain 范围。',
     'handbook.preflop.positionTitle': '位置为什么重要？',
     'handbook.preflop.positionBody': '在单挑中，小盲/庄家翻前先行动，但翻后有位置优势。\n有位置的一方可以最后看到对手行动，再决定下注、跟注或控制底池。\n所以 Button/SB 可以玩更宽的范围；BB 虽然已经投入盲注，但翻后通常处于不利位置。',
     'handbook.math.betSizeTitle': '下注尺度如何改变决策？',
-    'handbook.math.betSizeBody': '下注越大，你需要支付的跟注成本越高，所需胜率也越高。\n同样一副听牌，面对小注可能可以跟注，面对大注可能就不划算。\n例子：底池 100，跟注 25 需要约 16.7% 胜率；跟注 100 需要约 33.3% 胜率。',
+    'handbook.math.betSizeBody': '价格越高，继续所需的真实 equity 越高。\n听牌命中概率本身无法说明是否达到门槛，因为当前成牌价值与 Villain 范围仍然未知。\n这里的字段只用于观察价格门槛如何变化。',
     'handbook.math.impliedOddsTitle': '什么是隐含赔率？',
     'handbook.math.impliedOddsBody': '有时候直接底池赔率不够，但如果你成牌后有机会从对手那里赢到更多筹码，跟注仍可能有理由。\n这叫隐含赔率。\n不要滥用隐含赔率：如果对手不会继续支付，或你的补牌不是干净补牌，隐含赔率会被高估。',
     'handbook.draws.outsWinsTitle': '补牌 ≠ 一定赢牌',
     'handbook.draws.outsWinsBody': '补牌只是让你的牌变强的牌，不代表一定获胜。\n如果某张补牌同时可能完成对手更强的牌，它就是“脏补牌”。\n例如低同花可能输给更高同花；成对牌面上，完成同花也可能输给葫芦。',
     'handbook.draws.madeHandVsDrawTitle': '成牌 vs 听牌',
     'handbook.draws.madeHandVsDrawBody': '成牌：现在已经有摊牌价值，例如一对、两对、三条。\n听牌：现在可能还落后，但有机会在转牌或河牌变强。\n成牌更关注保护和价值下注；听牌更关注补牌、底池赔率 and 隐含赔率。',
-    'handbook.draws.linkageNeedsInput': '💡 前往赔率标签输入底池数据，即可获得跟注建议',
+    'handbook.draws.linkageNeedsInput': '价格与听牌命中概率保持为两个独立的概念工具。',
     'handbook.draws.flopOnlyHint': '(翻牌圈再用)',
     'handbook.draws.turnOnlyHint': '(转牌圈再用)',
     'handbook.heroHandHelperNote': '* 点击图表可载入默认花色，点槽位可微调',
     boardTitle: '翻后牌面结构分析',
     boardComingSoon: '即将推出',
-    boardDesc: '我们正在开发实时公共牌面分析器，帮助你分类牌面特征（湿润、干燥、静态、动态）并理解范围优势的转移。',
-    postflopLockedTitle: '翻后分析已锁定',
-    postflopLockedDesc: '加入公共牌后，可以解锁翻后分析。',
+    boardDesc: '识别可见牌面结构，并据此提出更好的范围与风险问题，而不是直接指定行动。',
+    postflopLockedTitle: '研究一手具体翻后局面',
+    postflopLockedDesc: '想研究具体翻后局面时，再添加 Hero Hand 和 Flop。',
     heroHandLabel: '你的手牌',
     boardFlopLabel: '公共牌 (翻牌)',
-    syncLive: '同步实时牌局',
-    syncLiveTooltip: '重置为当前实时牌局的手牌和公牌',
-    potSizeInputLabel: '底池大小 ($)',
-    callAmountInputLabel: '跟注金额 ($)',
+    syncLive: '同步实时牌局快照',
+    syncLiveTooltip: '复制当前牌面与已投入筹码上下文，不改变手动价格实验',
+    potSizeInputLabel: '下注前底池',
+    callAmountInputLabel: '你的跟注',
     highestDrawLabel: '检测到的最强听牌',
-    drawEquityLabel: '听牌胜率 (到河牌)',
+    drawEquityLabel: '听牌命中概率 (到河牌)',
     noMajorDraw: '无主要听牌',
-    coachAdviceTitle: '数学决策指导',
-    callingReasonable: '如果额外风险可接受，跟注在数学上可能合理。',
-    callingUnprofitable: '仅从直接赔率来看，跟注在数学上不合理。',
-    addPotAndCall: '输入底池和跟注金额后，可以比较底池赔率。',
+    coachAdviceTitle: '概念边界',
+    callingReasonable: 'Explorer 不输出 Call/Fold 判断。',
+    callingUnprofitable: 'Explorer 不输出 Call/Fold 判断。',
+    addPotAndCall: '填写三个手动价格字段后即可观察门槛。',
     activeDrawsTitle: '当前手牌听牌分析',
-    activeDrawsDesc: '根据你输入的手牌与公牌实时计算的成牌概率。',
+    activeDrawsDesc: '基于所选牌面观察可能听牌、raw outs 与听牌命中概率；这不是对范围的真实 equity。',
     referenceTableTitle: '标准听牌参考表',
     noDrawsDetected: '未检测到主要听牌 (如顺子、同花或暗三)。',
     dirtyOutsWarningText: '部分补牌可能会帮助对手完成更强牌型。',
@@ -1253,10 +1737,10 @@ const dictionary = {
     rainbowBoard: '彩虹牌面',
     connectedBoard: '连牌牌面',
     boardTacticalTitle: '战术背景',
-    boardTacticalDesc: '范围优势与听牌的战术解读。',
+    boardTacticalDesc: '关于牌面、范围与风险的问题，不是指定行动。',
     flushDrawsLabel: '同花潜力',
     straightDrawsLabel: '顺子潜力',
-    coachBoardInsight: '教练建议',
+    coachBoardInsight: '观察提示',
     yesFlushDraw: '存在同花听牌可能 (2张及以上同色)',
     noFlushDraw: '无同花听牌 (彩虹牌面)',
     yesStraightDraw: '存在顺子听牌可能 (连牌)',
@@ -1265,8 +1749,8 @@ const dictionary = {
     texture_semiWet: '半湿润牌面',
     texture_dry: '干燥牌面',
     badgeOuts: '张补牌',
-    badgeRequired: '最低需胜率',
-    needsPotBadge: '需底池',
+    badgeRequired: '价格门槛',
+    needsPotBadge: '添加价格',
     pickerTitle: '选择扑克牌',
     pickerHeroSub: '选择你的手牌',
     pickerBoardSub: '选择翻牌公共牌',
@@ -1306,33 +1790,203 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['update:modelValue'])
+const emit = defineEmits(['update:modelValue', 'select-training'])
+const route = useRoute()
+
+const modalContentRef = ref(null)
+const closeButtonRef = ref(null)
+const primarySection = ref('start')
+const activeTab = ref('spot')
+const primaryTabRefs = new Map()
+const explorerTabRefs = new Map()
+let lastFocusedElement = null
+
+const primarySections = computed(() => [
+  { id: 'start', kicker: t('navStartKicker'), label: t('navStart') },
+  { id: 'concepts', kicker: t('navConceptsKicker'), label: t('navConcepts') },
+  { id: 'reference', kicker: t('navReferenceKicker'), label: t('navReference') },
+  { id: 'explorer', kicker: t('navExplorerKicker'), label: t('navExplorer') }
+])
+
+const explorerTabs = computed(() => [
+  { id: 'spot', label: t('tabSpot') },
+  { id: 'price', label: t('tabPrice') },
+  { id: 'draws', label: t('tabDraws') },
+  { id: 'board', label: t('tabBoard') }
+])
+
+const guideSteps = computed(() => [
+  { id: 'hand', title: t('stepHandTitle'), question: t('stepHandQuestion') },
+  { id: 'context', title: t('stepContextTitle'), question: t('stepContextQuestion') },
+  { id: 'range', title: t('stepRangeTitle'), question: t('stepRangeQuestion') },
+  { id: 'price', title: t('stepPriceTitle'), question: t('stepPriceQuestion') },
+  { id: 'risk', title: t('stepRiskTitle'), question: t('stepRiskQuestion') }
+])
+
+const conceptCards = computed(() => [
+  {
+    id: 'hand',
+    title: t('conceptHandTitle'),
+    question: t('conceptHandQuestion'),
+    principle: t('conceptHandPrinciple'),
+    reminder: t('conceptHandReminder'),
+    cta: 'explorer',
+    ctaLabel: t('conceptHandCta')
+  },
+  {
+    id: 'context',
+    title: t('conceptContextTitle'),
+    question: t('conceptContextQuestion'),
+    principle: t('conceptContextPrinciple'),
+    reminder: t('conceptContextReminder'),
+    cta: 'explorer',
+    ctaLabel: t('conceptContextCta')
+  },
+  {
+    id: 'range',
+    title: t('conceptRangeTitle'),
+    question: t('conceptRangeQuestion'),
+    principle: t('conceptRangePrinciple'),
+    reminder: t('conceptRangeReminder'),
+    cta: 'reference',
+    ctaLabel: t('conceptRangeCta')
+  },
+  {
+    id: 'price',
+    title: t('conceptPriceTitle'),
+    question: t('conceptPriceQuestion'),
+    principle: t('conceptPricePrinciple'),
+    reminder: t('conceptPriceReminder'),
+    cta: 'pot-odds',
+    ctaLabel: t('conceptPriceCta')
+  },
+  {
+    id: 'risk',
+    title: t('conceptRiskTitle'),
+    question: t('conceptRiskQuestion'),
+    principle: t('conceptRiskPrinciple'),
+    reminder: t('conceptRiskReminder'),
+    cta: 'explorer',
+    ctaLabel: t('conceptRiskCta')
+  }
+])
+
+const setPrimaryTabRef = (element, id) => {
+  if (element) primaryTabRefs.set(id, element)
+  else primaryTabRefs.delete(id)
+}
+
+const selectPrimarySection = (section) => {
+  if (!['start', 'concepts', 'reference', 'explorer'].includes(section)) return
+  primarySection.value = section
+}
+
+const handlePrimaryTabKeydown = (event) => {
+  if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
+  const sections = primarySections.value
+  const activeIndex = sections.findIndex((section) => section.id === primarySection.value)
+  let nextIndex = activeIndex
+  if (event.key === 'ArrowLeft') nextIndex = (activeIndex - 1 + sections.length) % sections.length
+  if (event.key === 'ArrowRight') nextIndex = (activeIndex + 1) % sections.length
+  if (event.key === 'Home') nextIndex = 0
+  if (event.key === 'End') nextIndex = sections.length - 1
+  event.preventDefault()
+  const nextSection = sections[nextIndex].id
+  selectPrimarySection(nextSection)
+  nextTick(() => primaryTabRefs.get(nextSection)?.focus())
+}
+
+const handleConceptCta = (cta) => {
+  if (cta === 'preflop' || cta === 'pot-odds') {
+    handleTrainingCta(cta)
+    return
+  }
+  if (cta === 'explorer') activeTab.value = 'spot'
+  selectPrimarySection(cta)
+}
+
+const setExplorerTabRef = (element, id) => {
+  if (element) explorerTabRefs.set(id, element)
+  else explorerTabRefs.delete(id)
+}
+
+const selectExplorerTab = (tab) => {
+  if (!explorerTabs.value.some((item) => item.id === tab)) return
+  activeTab.value = tab
+}
+
+const handleExplorerTabKeydown = (event) => {
+  if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
+  const tabs = explorerTabs.value
+  const activeIndex = tabs.findIndex((tab) => tab.id === activeTab.value)
+  let nextIndex = activeIndex
+  if (event.key === 'ArrowLeft') nextIndex = (activeIndex - 1 + tabs.length) % tabs.length
+  if (event.key === 'ArrowRight') nextIndex = (activeIndex + 1) % tabs.length
+  if (event.key === 'Home') nextIndex = 0
+  if (event.key === 'End') nextIndex = tabs.length - 1
+  event.preventDefault()
+  const nextTab = tabs[nextIndex].id
+  selectExplorerTab(nextTab)
+  nextTick(() => explorerTabRefs.get(nextTab)?.focus())
+}
+
+const handleTrainingCta = (training) => {
+  if (training !== 'preflop' && training !== 'pot-odds') return
+  if (route.name === 'Room') {
+    const trainingUrl = new URL('/', window.location.origin)
+    trainingUrl.searchParams.set('training', training)
+    window.open(trainingUrl.toString(), '_blank', 'noopener,noreferrer')
+    return
+  }
+  emit('select-training', training)
+  closeModal()
+}
 
 const closeModal = () => {
   emit('update:modelValue', false)
 }
 
-const activeTab = ref('preflop')
 const currentSpot = ref('sb_open')
 const hoveredCombo = ref(null)
-const showGuide = ref(false)
 
-// 169 Hand Combos standard poker matrix layout
-const combos = [
-  "AA", "AKs", "AQs", "AJs", "ATs", "A9s", "A8s", "A7s", "A6s", "A5s", "A4s", "A3s", "A2s",
-  "AKo", "KK", "KQs", "KJs", "KTs", "K9s", "K8s", "K7s", "K6s", "K5s", "K4s", "K3s", "K2s",
-  "AQo", "KQo", "QQ", "QJs", "QTs", "Q9s", "Q8s", "Q7s", "Q6s", "Q5s", "Q4s", "Q3s", "Q2s",
-  "AJo", "KJo", "QJo", "JJ", "JTs", "J9s", "J8s", "J7s", "J6s", "J5s", "J4s", "J3s", "J2s",
-  "ATo", "KTo", "QTo", "JTo", "TT", "T9s", "T8s", "T7s", "T6s", "T5s", "T4s", "T3s", "T2s",
-  "A9o", "K9o", "Q9o", "J9o", "T9o", "99", "98s", "97s", "96s", "95s", "94s", "93s", "92s",
-  "A8o", "K8o", "Q8o", "J8o", "T8o", "98o", "88", "87s", "86s", "85s", "84s", "83s", "82s",
-  "A7o", "K7o", "Q7o", "J7o", "T7o", "97o", "87o", "77", "76s", "75s", "74s", "73s", "72s",
-  "A6o", "K6o", "Q6o", "J6o", "T6o", "96o", "86o", "76o", "66", "65s", "64s", "63s", "62s",
-  "A5o", "K5o", "Q5o", "J5o", "T5o", "95o", "85o", "75o", "65o", "55", "54s", "53s", "52s",
-  "A4o", "K4o", "Q4o", "J4o", "T4o", "94o", "84o", "74o", "64o", "54o", "44", "43s", "42s",
-  "A3o", "K3o", "Q3o", "J3o", "T3o", "93o", "83o", "73o", "63o", "53o", "43o", "33", "32s",
-  "A2o", "K2o", "Q2o", "J2o", "T2o", "92o", "82o", "72o", "62o", "52o", "42o", "32o", "22",
-]
+// Reference and Drill share the same canonical 13×13 order.
+const combos = HU_169_HAND_MATRIX_ORDER
+
+const focusedCombo = ref(combos[0])
+const matrixCellRefs = new Map()
+
+const setMatrixCellRef = (element, combo) => {
+  if (element) matrixCellRefs.set(combo, element)
+  else matrixCellRefs.delete(combo)
+}
+
+const handleComboFocus = (combo) => {
+  focusedCombo.value = combo
+  hoveredCombo.value = combo
+}
+
+const handleComboKeydown = (event, combo) => {
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault()
+    onComboClick(combo)
+    return
+  }
+
+  const currentIndex = combos.indexOf(combo)
+  let nextIndex = currentIndex
+  if (event.key === 'ArrowLeft') nextIndex = Math.max(0, currentIndex - 1)
+  if (event.key === 'ArrowRight') nextIndex = Math.min(combos.length - 1, currentIndex + 1)
+  if (event.key === 'ArrowUp') nextIndex = Math.max(0, currentIndex - 13)
+  if (event.key === 'ArrowDown') nextIndex = Math.min(combos.length - 1, currentIndex + 13)
+  if (event.key === 'Home') nextIndex = Math.floor(currentIndex / 13) * 13
+  if (event.key === 'End') nextIndex = Math.min(combos.length - 1, Math.floor(currentIndex / 13) * 13 + 12)
+  if (nextIndex === currentIndex) return
+  event.preventDefault()
+  const nextCombo = combos[nextIndex]
+  focusedCombo.value = nextCombo
+  hoveredCombo.value = nextCombo
+  nextTick(() => matrixCellRefs.get(nextCombo)?.focus())
+}
 
 const getComboTypeClass = (combo) => {
   if (combo.length === 2) return 'pair'
@@ -1355,6 +2009,8 @@ const getComboMetadata = (combo) => {
   return { r1, r2, type, val1, val2 }
 }
 
+// Legacy comparison source only. Reference truth comes from the static snapshot;
+// scripts/check-preflop-range.mjs extracts this function to verify migration parity.
 const generateSbOpenWeights = (combo) => {
   const meta = getComboMetadata(combo)
   if (meta.type === 'pair') {
@@ -1438,10 +2094,81 @@ const generateBbDefWeights = (combo) => {
 
 const getComboWeights = (combo) => {
   if (currentSpot.value === 'sb_open') {
-    return generateSbOpenWeights(combo)
-  } else {
-    return generateBbDefWeights(combo)
+    const entry = HU_BTN_RFI_100BB_V1_BY_HAND[combo]
+    if (!entry) return [0, 0, 100]
+    return [entry.raiseFrequency, entry.limpFrequency, entry.foldFrequency]
   }
+  return generateBbDefWeights(combo)
+}
+
+const selectedSnapshotEntry = computed(() => {
+  if (currentSpot.value !== 'sb_open' || !hoveredCombo.value) return null
+  return HU_BTN_RFI_100BB_V1_BY_HAND[hoveredCombo.value] || null
+})
+
+const baselineScenarioLabel = computed(() => {
+  const assumptions = HU_BTN_RFI_ASSUMPTIONS
+  const format = assumptions.format === 'heads_up' ? t('assumptionHeadsUp') : assumptions.format
+  const position = assumptions.position === 'sb_button' ? t('assumptionSbButton') : assumptions.position
+  const potState = assumptions.potState === 'unopened' ? t('assumptionUnopenedPot') : assumptions.potState
+  return `${format} · ${position} · ${assumptions.effectiveStackBb} BB · ${potState}`
+})
+
+const baselineSourceLabel = computed(() => (
+  HU_BTN_RFI_ASSUMPTIONS.sourceKind === 'legacy_heuristic_snapshot'
+    ? t('referenceLegacySnapshotSource')
+    : HU_BTN_RFI_ASSUMPTIONS.sourceKind
+))
+
+const baselineBoundaryNote = computed(() => (
+  currentLang.value === 'en'
+    ? HU_BTN_RFI_ASSUMPTIONS.note
+    : t('referenceBaselineBoundary')
+))
+
+const getReferenceActionLabel = (action) => {
+  if (action === 'raise') return t('legendRaise')
+  if (action === 'limp') return t('legendLimp')
+  if (action === 'call') return t('legendCall')
+  if (action === 'fold') return t('legendFold')
+  return action
+}
+
+const getSecondaryActionLabel = () => (
+  currentSpot.value === 'sb_open' ? t('legendLimp') : t('legendCall')
+)
+
+const getCurrentSpotLabel = () => {
+  return currentSpot.value === 'sb_open'
+    ? `${t('sbButton')} · ${t('openRaiseRfi')}`
+    : `${t('bbBigBlind')} · ${t('defendVsSbOpen')}`
+}
+
+const getPrimaryActionLabel = (combo) => {
+  if (currentSpot.value === 'sb_open') {
+    const entry = HU_BTN_RFI_100BB_V1_BY_HAND[combo]
+    if (!entry) return t('referenceDataUnavailable')
+    const orderedPrimaryActions = [
+      entry.primaryAction,
+      ...entry.primaryActions.filter((action) => action !== entry.primaryAction)
+    ]
+    return orderedPrimaryActions
+      .map((action) => `${getReferenceActionLabel(action)} ${entry[`${action}Frequency`]}%`)
+      .join(' / ')
+  }
+
+  const weights = getComboWeights(combo)
+  const labels = [t('legendRaise'), t('legendCall'), t('legendFold')]
+  const highestWeight = Math.max(...weights)
+  return weights
+    .map((weight, index) => weight === highestWeight ? `${labels[index]} ${weight}%` : null)
+    .filter(Boolean)
+    .join(' / ')
+}
+
+const getComboAriaLabel = (combo) => {
+  const [raise, call, fold] = getComboWeights(combo)
+  return `${combo}, ${t(getComboFullTypeNameKey(combo))}. ${t('legendRaise')} ${raise}%, ${getSecondaryActionLabel()} ${call}%, ${t('legendFold')} ${fold}%`
 }
 
 const getCellBg = (combo) => {
@@ -1469,74 +2196,70 @@ const getCellBg = (combo) => {
 }
 
 const getComboAdvice = (combo) => {
+  const lang = currentLang.value
+
+  if (currentSpot.value === 'sb_open') {
+    const entry = HU_BTN_RFI_100BB_V1_BY_HAND[combo]
+    const explanation = entry ? PREFLOP_EXPLANATIONS[entry.explanationKey] : null
+    return explanation?.[lang] || t('referenceExplanationFallback')
+  }
+
+  // BB defend keeps its existing local heuristic and detail guidance.
   const weights = getComboWeights(combo)
   const meta = getComboMetadata(combo)
-  const lang = currentLang.value
-  
-  if (currentSpot.value === 'sb_open') {
-    if (weights[0] === 100) {
-      if (meta.val1 >= 10 && meta.type === 'pair') {
-        return lang === 'en'
-          ? `${combo} is a premier pocket pair. Open-raise 100% of the time to build a pot immediately.`
-          : `${combo} 是顶级口袋对，100% 频率开池加注，立即做大底池。`
-      }
-      if (meta.val1 === 14) {
-        return lang === 'en'
-          ? `Suited Ace ${combo} plays incredibly well postflop. Mandatory raise to seize initiative.`
-          : `同花 A ${combo} 翻牌后极具操作性，强制加注以夺取主动权。`
-      }
+  if (weights[0] >= 80) {
+    if (meta.val1 >= 11 && meta.type === 'pair') {
       return lang === 'en'
-        ? `${combo} is a strong open-raise hand in heads-up. Push your equity edge and raise.`
-        : `${combo} 是单挑中强力的开池加注手牌。推满胜率优势并加注。`
+        ? `JJ+ represents a dominant preflop premium. 3-bet high frequency for value and stack protection.`
+        : `JJ+ 代表翻前绝对统治力。高频 3-bet 以获取价值和保护筹码。`
     }
-    if (weights[1] > 0) {
+    if (meta.val1 === 14 && meta.val2 === 5) {
       return lang === 'en'
-        ? `${combo} is a medium-strength marginal hand. Mix raise and limp to protect your limping range and play a small pot.`
-        : `${combo} 是中等强度的边际牌。混合加注与跟入以保护你的跟入范围，并玩一个小底池。`
+        ? `A5s is the ultimate 3-bet bluff card; it blocks AA/AK and possesses great wheel equity.`
+        : `A5s 是极佳的 3-bet 诈唬牌；阻断了 AA/AK 且具备良好的顺子/同花潜力。`
     }
     return lang === 'en'
-      ? `${combo} is too weak to play profitably in Heads-Up even with position. Fast fold.`
-      : `${combo} 太弱，即使有位置也无法在单挑中实现盈利。快速弃牌。`
-  } else {
-    if (weights[0] >= 80) {
-      if (meta.val1 >= 11 && meta.type === 'pair') {
-        return lang === 'en'
-          ? `JJ+ represents a dominant preflop premium. 3-bet high frequency for value and stack protection.`
-          : `JJ+ 代表翻前绝对统治力。高频 3-bet 以获取价值和保护筹码。`
-      }
-      if (meta.val1 === 14 && meta.val2 === 5) {
-        return lang === 'en'
-          ? `A5s is the ultimate 3-bet bluff card; it blocks AA/AK and possesses great wheel equity.`
-          : `A5s 是极佳的 3-bet 诈唬牌；阻断了 AA/AK 且具备良好的顺子/同花潜力。`
-      }
-      return lang === 'en'
-        ? `3-bet ${combo} to put maximum pressure on SB's wide opening range.`
-        : `3-bet ${combo} 对 SB 宽广的开池范围施加最大压力。`
-    }
-    if (weights[0] > 0 && weights[1] > 0) {
-      return lang === 'en'
-        ? `${combo} sits right on the threshold. Mix between 3-bet bluffs and defensive calling to stay unexploitable.`
-        : `${combo} 处于边缘地带。在 3-bet 诈唬和防守跟注之间进行混合，保持不可被剥削。`
-    }
-    if (weights[1] === 100) {
-      if (meta.type === 'pair') {
-        return lang === 'en'
-          ? `Pocket pair ${combo} has great set-mining value. Call and seek a set on the flop.`
-          : `口袋对 ${combo} 具有极高的中暗三价值。跟注并在翻牌圈寻找暗三机会。`
-      }
-      if (meta.type === 'suited') {
-        return lang === 'en'
-          ? `Suited ${combo} has strong flush and straight equity. Perfect candidate for calling to play postflop.`
-          : `同花 ${combo} 具有极强的同花与顺子权益。非常适合跟注进入翻牌后。`
-      }
-      return lang === 'en'
-        ? `Flat call with ${combo} to defend your big blind in-position against a wide SB open.`
-        : `用 ${combo} 平跟，利用位置优势防守大盲，对抗 SB 宽广的开池。`
-    }
-    return lang === 'en'
-      ? `${combo} is too weak to defend out-of-position against a raise. Safe fold.`
-      : `${combo} 太弱，无法在不利位置防守对抗加注。安全弃牌。`
+      ? `3-bet ${combo} to put maximum pressure on SB's wide opening range.`
+      : `3-bet ${combo} 对 SB 宽广的开池范围施加最大压力。`
   }
+  if (weights[0] > 0 && weights[1] > 0) {
+    return lang === 'en'
+      ? `${combo} sits right on the threshold. Mix between 3-bet bluffs and defensive calling to stay unexploitable.`
+      : `${combo} 处于边缘地带。在 3-bet 诈唬和防守跟注之间进行混合，保持不可被剥削。`
+  }
+  if (weights[1] === 100) {
+    if (meta.type === 'pair') {
+      return lang === 'en'
+        ? `Pocket pair ${combo} has great set-mining value. Call and seek a set on the flop.`
+        : `口袋对 ${combo} 具有极高的中暗三价值。跟注并在翻牌圈寻找暗三机会。`
+    }
+    if (meta.type === 'suited') {
+      return lang === 'en'
+        ? `Suited ${combo} has strong flush and straight equity. Perfect candidate for calling to play postflop.`
+        : `同花 ${combo} 具有极强的同花与顺子权益。非常适合跟注进入翻牌后。`
+    }
+    return lang === 'en'
+      ? `Flat call with ${combo} to defend your big blind in-position against a wide SB open.`
+      : `用 ${combo} 平跟，利用位置优势防守大盲，对抗 SB 宽广的开池。`
+  }
+  return lang === 'en'
+    ? `${combo} is too weak to defend out-of-position against a raise. Safe fold.`
+    : `${combo} 太弱，无法在不利位置防守对抗加注。安全弃牌。`
+}
+
+const formatActionStats = (values) => {
+  const scaled = values.map((value) => value * 10)
+  const displayUnits = scaled.map(Math.floor)
+  const remainderOrder = scaled
+    .map((value, index) => ({ index, fraction: value - displayUnits[index] }))
+    .sort((a, b) => b.fraction - a.fraction || a.index - b.index)
+  const remainingUnits = Math.round(1000 - displayUnits.reduce((sum, value) => sum + value, 0))
+
+  for (let index = 0; index < remainingUnits; index += 1) {
+    displayUnits[remainderOrder[index % remainderOrder.length].index] += 1
+  }
+
+  return displayUnits.map((value) => (value / 10).toFixed(1))
 }
 
 const getActionStats = computed(() => {
@@ -1549,11 +2272,16 @@ const getActionStats = computed(() => {
     callCount += w[1]
     foldCount += w[2]
   })
-  const total = 16900
+  const totalHands = combos.length
+  const [raise, secondary, fold] = formatActionStats([
+    raiseCount / totalHands,
+    callCount / totalHands,
+    foldCount / totalHands
+  ])
   return {
-    raise: (raiseCount / total * 100).toFixed(0),
-    call: (callCount / total * 100).toFixed(0),
-    fold: (foldCount / total * 100).toFixed(0)
+    raise,
+    secondary,
+    fold
   }
 })
 
@@ -1582,7 +2310,7 @@ const comboToDefaultCards = (combo) => {
   return [null, null]
 }
 
-const loadComboIntoOdds = (combo) => {
+const loadComboIntoExplorer = (combo) => {
   const [c1, c2] = comboToDefaultCards(combo)
   coachState.value.heroCards = [c1, c2]
   if (currentLang.value === 'zh') {
@@ -1590,7 +2318,8 @@ const loadComboIntoOdds = (combo) => {
   } else {
     loadNoticeText.value = `Loaded from chart: ${combo}`
   }
-  activeTab.value = 'math'
+  activeTab.value = 'spot'
+  primarySection.value = 'explorer'
   highlightOddsInput.value = true
   if (highlightTimeoutId) {
     clearTimeout(highlightTimeoutId)
@@ -1608,15 +2337,30 @@ const loadComboIntoOdds = (combo) => {
 
 const onComboClick = (combo) => {
   hoveredCombo.value = combo
-  loadComboIntoOdds(combo)
+  focusedCombo.value = combo
+}
+
+const getCardSlotLabel = (slotType, index, card) => {
+  const slotLabel = slotType === 'hero' ? t('cardSlotHero') : t('cardSlotBoard')
+  return card ? `${slotLabel} ${index + 1}: ${card}` : `${slotLabel} ${index + 1}`
 }
 
 const coachState = ref({
   language: currentLang.value,
   heroCards: [null, null],
-  boardCards: [null, null, null],
-  pot: null,
-  callAmount: null
+  boardCards: [null, null, null]
+})
+
+const manualPrice = ref({
+  potBeforeBet: null,
+  villainBet: null,
+  yourCall: null
+})
+
+const liveSnapshot = ref({
+  currentPot: null,
+  toCall: null,
+  stage: null
 })
 
 // Sync language
@@ -1631,30 +2375,31 @@ const toUiFormat = (cardStr) => {
   return normalized && normalized.valid ? normalized.code : null
 }
 
+const finiteNumberOrNull = (value) => {
+  if (value === null || value === undefined || value === '') return null
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+const deriveLiveToCall = (publicState, heroPlayer) => {
+  const tableCurrentBet = finiteNumberOrNull(publicState?.current_bet)
+  const heroBetInRound = finiteNumberOrNull(heroPlayer?.bet_in_round)
+  if (tableCurrentBet === null || heroBetInRound === null) return null
+  return Math.max(0, tableCurrentBet - heroBetInRound)
+}
+
 const syncFromLiveGame = () => {
-  if (onlineStore.publicState) {
-    coachState.value.pot = onlineStore.publicState.pot || null
-    
-    const hero = onlineStore.heroPlayer
-    const opponent = onlineStore.opponentPlayer
-    if (hero && opponent) {
-      const heroBet = hero.current_bet || 0
-      const oppBet = opponent.current_bet || 0
-      if (oppBet > heroBet) {
-        coachState.value.callAmount = oppBet - heroBet
-      } else {
-        coachState.value.callAmount = null
-      }
-    } else {
-      coachState.value.callAmount = null
-    }
-  } else {
-    coachState.value.pot = null
-    coachState.value.callAmount = null
+  const publicState = onlineStore.publicState
+  const hero = onlineStore.heroPlayer
+
+  liveSnapshot.value = {
+    currentPot: finiteNumberOrNull(publicState?.pot),
+    toCall: deriveLiveToCall(publicState, hero),
+    stage: typeof publicState?.stage === 'string' ? publicState.stage : null
   }
 
   const liveHole = onlineStore.privateState?.hole_cards || []
-  const liveCommunity = onlineStore.publicState?.community_cards || []
+  const liveCommunity = publicState?.community_cards || []
 
   coachState.value.heroCards = [null, null]
   for (let i = 0; i < 2; i++) {
@@ -1674,8 +2419,26 @@ const syncFromLiveGame = () => {
 // Sync on modal open
 watch(() => props.modelValue, (newVal) => {
   if (newVal) {
+    lastFocusedElement = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    primarySection.value = 'start'
+    activeTab.value = 'spot'
+    hoveredCombo.value = null
+    focusedCombo.value = combos[0]
+    showCardPicker.value = false
     syncFromLiveGame()
+    nextTick(() => {
+      const startTab = primaryTabRefs.get('start')
+      if (startTab) startTab.focus()
+      else modalContentRef.value?.focus()
+    })
+    return
   }
+
+  showCardPicker.value = false
+  nextTick(() => {
+    if (lastFocusedElement?.isConnected) lastFocusedElement.focus()
+    lastFocusedElement = null
+  })
 })
 
 // Sync on live game changes
@@ -1688,49 +2451,69 @@ watch([
   }
 }, { deep: true })
 
-// Check if user manually deviated from live game
-const isLiveGameDiff = computed(() => {
-  if (!props.modelValue) return false
-  
-  const liveHole = onlineStore.privateState?.hole_cards || []
-  const liveCommunity = onlineStore.publicState?.community_cards || []
-  
-  // Compare hero cards
-  for (let i = 0; i < 2; i++) {
-    const liveC = toUiFormat(liveHole[i])
-    const localC = coachState.value.heroCards[i]
-    if (liveC !== localC) return true
+const hasLiveGameState = computed(() => Boolean(onlineStore.publicState))
+
+const hasLiveSnapshot = computed(() => {
+  return liveSnapshot.value.currentPot !== null
+    || liveSnapshot.value.toCall !== null
+    || Boolean(liveSnapshot.value.stage)
+})
+
+const liveStageLabel = computed(() => {
+  const stageKeys = {
+    preflop: 'stagePreflop',
+    flop: 'stageFlop',
+    turn: 'stageTurn',
+    river: 'stageRiver',
+    showdown: 'stageShowdown'
   }
+  const key = stageKeys[liveSnapshot.value.stage]
+  return key ? t(key) : (liveSnapshot.value.stage || '—')
+})
 
-  // Compare board cards (first 3 flop cards)
-  for (let i = 0; i < 3; i++) {
-    const liveC = toUiFormat(liveCommunity[i])
-    const localC = coachState.value.boardCards[i]
-    if (liveC !== localC) return true
-  }
+const formatSnapshotValue = (value) => {
+  return value === null ? '—' : Number(value).toLocaleString(currentLang.value === 'zh' ? 'zh-CN' : 'en-US')
+}
 
-  // Compare pot and callAmount
-  const livePot = onlineStore.publicState?.pot || null
-  if (livePot !== coachState.value.pot) return true
+const formatPriceValue = (value) => {
+  if (!Number.isFinite(value)) return '—'
+  return Number.isInteger(value) ? String(value) : value.toFixed(2)
+}
 
-  const hero = onlineStore.heroPlayer
-  const opponent = onlineStore.opponentPlayer
-  let liveCall = null
-  if (hero && opponent) {
-    const heroBet = hero.current_bet || 0
-    const oppBet = opponent.current_bet || 0
-    if (oppBet > heroBet) {
-      liveCall = oppBet - heroBet
-    }
-  }
-  if (liveCall !== coachState.value.callAmount) return true
+const manualPriceValues = computed(() => ({
+  potBeforeBet: finiteNumberOrNull(manualPrice.value.potBeforeBet),
+  villainBet: finiteNumberOrNull(manualPrice.value.villainBet),
+  yourCall: finiteNumberOrNull(manualPrice.value.yourCall)
+}))
 
-  return false
+const hasValidManualPrice = computed(() => {
+  const { potBeforeBet, villainBet, yourCall } = manualPriceValues.value
+  return potBeforeBet !== null
+    && villainBet !== null
+    && yourCall !== null
+    && potBeforeBet >= 0
+    && villainBet > 0
+    && yourCall > 0
+})
+
+const finalPotIfCall = computed(() => {
+  if (!hasValidManualPrice.value) return null
+  const { potBeforeBet, villainBet, yourCall } = manualPriceValues.value
+  return potBeforeBet + villainBet + yourCall
+})
+
+const manualRequiredEquity = computed(() => {
+  if (!hasValidManualPrice.value || finalPotIfCall.value <= 0) return null
+  return (manualPriceValues.value.yourCall / finalPotIfCall.value) * 100
 })
 
 // Postflop Input Readiness Check
 const isPostflopReady = computed(() => {
   return coachState.value.boardCards.filter(Boolean).length >= 3
+})
+
+const isDrawAnalysisReady = computed(() => {
+  return coachState.value.heroCards.filter(Boolean).length >= 2 && isPostflopReady.value
 })
 
 // Card Picker state & logic
@@ -1749,6 +2532,46 @@ const closeCardPicker = () => {
   activeSlotType.value = null
   activeSlotIndex.value = null
 }
+
+const handleModalKeydown = (event) => {
+  if (event.key !== 'Tab' || showCardPicker.value || !modalContentRef.value) return
+  const focusable = Array.from(modalContentRef.value.querySelectorAll(
+    'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'
+  )).filter((element) => element.getClientRects().length > 0)
+  if (!focusable.length) {
+    event.preventDefault()
+    modalContentRef.value.focus()
+    return
+  }
+  const first = focusable[0]
+  const last = focusable[focusable.length - 1]
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault()
+    last.focus()
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault()
+    first.focus()
+  }
+}
+
+const handleGlobalKeydown = (event) => {
+  if (!props.modelValue || event.key !== 'Escape') return
+  event.preventDefault()
+  if (showCardPicker.value) {
+    closeCardPicker()
+    return
+  }
+  closeModal()
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', handleGlobalKeydown)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', handleGlobalKeydown)
+  if (highlightTimeoutId) clearTimeout(highlightTimeoutId)
+})
 
 const selectCard = (cardCode) => {
   if (activeSlotType.value === 'hero') {
@@ -1901,16 +2724,16 @@ const coachBoardInsightText = computed(() => {
   
   if (analysis.texture === 'wet') {
     return lang === 'en'
-      ? "Wet boards favor the caller's range and contain numerous active straight and flush draws. High variance postflop action is common. Avoid building massive pots without very strong made hands or premium draws."
-      : "湿润牌面有利于跟注者的范围，包含大量活跃的顺子和同花听牌。翻牌后动作波动较大。若无强成牌或优质听牌，应避免盲目做大底池。"
+      ? "Wet boards can support many straight and flush combinations. Ask which of those combinations each range can actually contain, which outs may be dirty, and how future cards could change the hand."
+      : "湿润牌面可能支持较多顺子与同花组合。继续思考：双方范围实际包含哪些组合、哪些 outs 可能不干净，以及后续牌会如何改变局面。"
   } else if (analysis.texture === 'semiWet') {
     return lang === 'en'
-      ? "Semi-wet boards present some backdoor draws and high card value threats. Keep bets sizes balanced and probe for opponent's response before committing massive chips."
-      : "半湿润牌面存在部分后门听牌和高牌价值威胁。下注尺度应保持平衡，在投入大量筹码前先试探对手的反应。"
+      ? "Semi-wet boards leave some direct and backdoor changes available. Ask which turn cards shift range interaction before drawing a betting conclusion."
+      : "半湿润牌面保留了一些直接与后门变化。先观察哪些转牌会改变双方范围互动，再讨论具体下注线路。"
   } else {
     return lang === 'en'
-      ? "Dry boards are highly static. Players rarely hit strong draws here, meaning range advantages are stable. Small continuation bets can often take down the pot effectively."
-      : "干燥牌面静态特征明显。玩家在此很难击中强听牌，范围优势非常稳定。小尺度的持续下注通常能高效拿下底池。"
+      ? "Dry boards expose fewer immediate draws, but that alone does not identify range advantage or a bet size. Ask who retains strong made hands and how prior action shapes each range."
+      : "干燥牌面暴露的直接听牌较少，但这本身不能确定范围优势或下注尺度。仍需结合前面行动，观察谁的范围保留了更多强成牌。"
   }
 })
 
@@ -2141,6 +2964,24 @@ const evaluatedHand = computed(() => {
   return evaluateHoldemHand(hero, board)
 })
 
+const evaluatedHandLabel = computed(() => {
+  const handName = evaluatedHand.value?.handName
+  if (!handName || currentLang.value === 'en') return handName || '—'
+  const zhHandNames = {
+    'High Card': '高牌',
+    'One Pair': '一对',
+    'Two Pair': '两对',
+    'Three of a Kind': '三条',
+    'Straight': '顺子',
+    'Flush': '同花',
+    'Full House': '葫芦',
+    'Four of a Kind': '四条',
+    'Straight Flush': '同花顺',
+    'Royal Flush': '皇家同花顺'
+  }
+  return zhHandNames[handName] || handName
+})
+
 const isStrongMadeHand = computed(() => {
   if (!evaluatedHand.value) return false
   const strongRanks = [
@@ -2152,41 +2993,12 @@ const isStrongMadeHand = computed(() => {
     'Two Pair'
   ]
   const hasStrongRank = strongRanks.includes(evaluatedHand.value.handName)
-  const hasNoDraws = bestDrawEquity.value === 0
+  const hasNoDraws = highestDraw.value === null
   return hasStrongRank && hasNoDraws
 })
 
-// ─── LINKAGE & STREET COMPUTED PROPERTIES ───
-const bestDrawEquity = computed(() => {
-  return highestDraw.value ? highestDraw.value.toRiverProbability : 0
-})
-
-const linkageStatusClass = computed(() => {
-  if (requiredEquity.value === null) {
-    return 'needs-input'
-  }
-  return bestDrawEquity.value >= requiredEquity.value ? 'profitable' : 'unprofitable'
-})
-
-const linkageText = computed(() => {
-  if (requiredEquity.value === null) {
-    return t('handbook.draws.linkageNeedsInput')
-  }
-  const drawEqStr = bestDrawEquity.value.toFixed(1) + '%'
-  const reqEqStr = requiredEquity.value.toFixed(1) + '%'
-  if (bestDrawEquity.value >= requiredEquity.value) {
-    return t('handbook.draws.linkageProfitable')
-      .replace('{draw}', drawEqStr)
-      .replace('{req}', reqEqStr)
-  } else {
-    return t('handbook.draws.linkageUnprofitable')
-      .replace('{draw}', drawEqStr)
-      .replace('{req}', reqEqStr)
-  }
-})
-
 const currentStreet = computed(() => {
-  return onlineStore.publicState?.stage || null
+  return liveSnapshot.value.stage || null
 })
 
 const isFlopStreet = computed(() => {
@@ -2199,40 +3011,6 @@ const isTurnStreet = computed(() => {
 
 const hasActiveStreet = computed(() => {
   return currentStreet.value === 'flop' || currentStreet.value === 'turn'
-})
-
-// ─── MATH ASSISTANT ───
-const requiredEquity = computed(() => {
-  const p = parseFloat(coachState.value.pot)
-  const c = parseFloat(coachState.value.callAmount)
-  if (isNaN(p) || isNaN(c) || p <= 0 || c <= 0) return null
-  return (c / (p + c + c)) * 100
-})
-
-const mathCoachAdviceText = computed(() => {
-  const p = parseFloat(coachState.value.pot)
-  const c = parseFloat(coachState.value.callAmount)
-  if (isNaN(p) || isNaN(c) || p <= 0 || c <= 0) {
-    return t('addPotAndCall')
-  }
-
-  const reqEq = requiredEquity.value
-  const drawEq = highestDraw.value ? highestDraw.value.toRiverProbability : 0
-
-  if (drawEq >= reqEq) {
-    return t('callingReasonable')
-  } else {
-    return t('callingUnprofitable')
-  }
-})
-
-const guidanceClass = computed(() => {
-  const p = parseFloat(coachState.value.pot)
-  const c = parseFloat(coachState.value.callAmount)
-  if (isNaN(p) || isNaN(c) || p <= 0 || c <= 0) return 'neutral'
-  const reqEq = requiredEquity.value
-  const drawEq = highestDraw.value ? highestDraw.value.toRiverProbability : 0
-  return drawEq >= reqEq ? 'success' : 'warning'
 })
 
 // ─── TAB BADGES ───
@@ -2250,14 +3028,12 @@ const drawsBadgeText = computed(() => {
   return `${maxOuts} ${t('badgeOuts')}`
 })
 
-const mathBadgeText = computed(() => {
-  if (coachState.value.heroCards.filter(Boolean).length < 2 || coachState.value.boardCards.filter(Boolean).length < 3) return ''
-  const reqEq = requiredEquity.value
-  if (reqEq === null) return t('needsPotBadge')
-  return `${reqEq.toFixed(1)}% ${t('badgeRequired')}`
+const priceBadgeText = computed(() => {
+  if (!hasValidManualPrice.value) return ''
+  return `${manualRequiredEquity.value.toFixed(1)}% ${t('badgePriceThreshold')}`
 })
 
-const buildCoachExplanation = (heroCards, boardCards, boardAnalysis, drawAnalysis, mathAnalysis, activeTab, language) => {
+const buildCoachExplanation = (heroCards, boardCards, boardAnalysis, language) => {
   const isZh = language === 'zh'
   
   // Parse inputs
@@ -2302,12 +3078,12 @@ const buildCoachExplanation = (heroCards, boardCards, boardAnalysis, drawAnalysi
         ],
         howToThink: hasPocketPair ? [
           `你拿 ${r1}-${r2} 时，形成了葫芦 (${tripsRank}-${tripsRank}-${tripsRank}-${r1}-${r2})。`,
-          "你击败了其他单张踢脚的手牌，但会输给更高的口袋对子（更高葫芦）或四条。",
-          "面对大额下注，要思考对手是否在代表更高的口袋对子、四条，或在静态牌面施压。"
+          "观察对手范围中可能存在的更高口袋对子、四条，以及较弱踢脚组合。",
+          "下注尺度与前面行动会怎样改变这些组合的相对可能性？"
         ] : [
           `你拿 ${r1}-${r2} 时，常见摊牌形态是 ${tripsRank}-${tripsRank}-${tripsRank}-${r1}-${r2}。`,
-          `你赢低踢脚，但会输给 ${r1 === 'A' ? '' : 'A 高、'}${r1 === 'Q' || r1 === 'A' ? '' : 'Q 高、'}任何口袋对子，或更高的踢脚。`,
-          "面对大额下注，要思考对手是否在代表更好踢脚、口袋对子，或在静态牌面施压。"
+          `哪些更高踢脚、${r1 === 'A' ? '' : 'A 高、'}${r1 === 'Q' || r1 === 'A' ? '' : 'Q 高、'}口袋对子仍可能出现在对手范围中？`,
+          "下注尺度与前面行动会怎样改变这些组合的相对可能性？"
         ],
         warnings: hasPocketPair ? [] : ["注意：你没有口袋对子，你的三条极其依赖踢脚强度。"],
         tags: ["公共三条", "静态牌面", "踢脚竞争"]
@@ -2326,12 +3102,12 @@ const buildCoachExplanation = (heroCards, boardCards, boardAnalysis, drawAnalysi
         ],
         howToThink: hasPocketPair ? [
           `With ${r1}-${r2}, you hold a full house (${tripsRank}-${tripsRank}-${tripsRank}-${r1}-${r2}).`,
-          "You beat other kickers, but lose to higher pocket pairs (higher full house) or quads.",
-          "Large bets may represent a higher pocket pair, quads, or pressure on a static board."
+          "Inspect which higher pocket pairs, quads, and weaker kicker combinations remain in Villain's range.",
+          "How do the bet size and prior action change the relative likelihood of those combinations?"
         ] : [
           `With ${r1}-${r2}, your common showdown shape is ${tripsRank}-${tripsRank}-${tripsRank}-${r1}-${r2}.`,
-          `You beat lower kickers, but lose to ${r1 === 'A' ? '' : 'A-high, '}${r1 === 'Q' || r1 === 'A' ? '' : 'Q-high, '}higher kickers, or any pocket pair.`,
-          "Large bets may represent a better kicker, a pocket pair, or pressure on a static board."
+          `Which ${r1 === 'A' ? '' : 'A-high, '}${r1 === 'Q' || r1 === 'A' ? '' : 'Q-high, '}higher-kicker and pocket-pair combinations remain in Villain's range?`,
+          "How do the bet size and prior action change the relative likelihood of those combinations?"
         ],
         warnings: hasPocketPair ? [] : ["Warning: You do not hold a pocket pair; your trips hand relies entirely on kicker strength."],
         tags: ["Trip Board", "Static Board", "Kicker Battle"]
@@ -2377,19 +3153,19 @@ const buildCoachExplanation = (heroCards, boardCards, boardAnalysis, drawAnalysi
         oneLineSummary: "公共牌高度关联，同花与顺子听牌非常活跃。",
         whatWeSee: [
           "公共牌有同花色或点数相连的卡牌。",
-          "对手极易持有强听牌或已完成的强牌。"
+          "这种结构可以支持多种听牌与成牌组合。"
         ],
         whyItMatters: [
-          "牌力价值非常动态：翻牌顶对在转牌或河牌极易被超越。",
-          "预期波动较大，这里很容易形成大底池。"
+          "牌力价值更动态，部分转牌与河牌可能显著改变相对强度。",
+          "双方范围实际包含哪些组合，仍取决于位置与前面行动。"
         ],
         howToThink: [
-          "持有成牌（如顶对）时，需要思考是否通过足够大的下注收取高额买牌成本。",
-          "持有听牌时，确认补牌是否干净且当前底池赔率足够合理。",
-          "面对后续危险牌发出后的激进攻击，通常需要谨慎应对。"
+          "当前成牌有多少摊牌价值，哪些后续牌会削弱它？",
+          "哪些补牌可能不干净，听牌命中概率与真实 equity 有何差异？",
+          "位置、范围与前面行动还缺少哪些信息？"
         ],
         warnings: [
-          "避免仅持有中等一对比牌时盲目跟注或投入过多筹码。"
+          "牌面结构本身不能确定下注尺度或行动。"
         ],
         tags
       }
@@ -2399,19 +3175,19 @@ const buildCoachExplanation = (heroCards, boardCards, boardAnalysis, drawAnalysi
         oneLineSummary: "The board is rich with coordination; straight and flush draws are highly active.",
         whatWeSee: [
           "Multiple cards of the same suit or connected ranks are present.",
-          "Opponents can easily hold strong draws or completed hands."
+          "This structure can support several draw and made-hand combinations."
         ],
         whyItMatters: [
-          "Hand values are dynamic: today's top pair can easily be beaten on the turn or river.",
-          "Expect high variance. Large pots are frequently built in these spots."
+          "Hand values are more dynamic because some turn and river cards can shift relative strength.",
+          "Which combinations actually exist still depends on position and prior action."
         ],
         howToThink: [
-          "With a made hand (like Top Pair), consider charging draws a high price to see the next card.",
-          "With a draw, verify your outs are clean and pot odds justify continuing.",
-          "Be highly cautious when facing intense aggression on completed runouts."
+          "How much showdown value does the current made hand have, and which cards weaken it?",
+          "Which outs may be dirty, and how does draw-hit probability differ from true equity?",
+          "What position, range, and prior-action information is still missing?"
         ],
         warnings: [
-          "Avoid committing too many chips with marginal one-pair hands."
+          "Board texture alone cannot determine a bet size or action."
         ],
         tags
       }
@@ -2427,12 +3203,12 @@ const buildCoachExplanation = (heroCards, boardCards, boardAnalysis, drawAnalysi
         ],
         whyItMatters: [
           "牌面结构可能随着转牌的发出而发生显著改变。",
-          "持续下注很常见，但做大底池需要更强的成牌支持。"
+          "是否形成范围优势，仍取决于双方如何到达当前局面。"
         ],
         howToThink: [
-          "注意潜在的后门听牌可能在转牌变成活跃听牌。",
-          "保持合理的下注尺度，试探对手的牌力强度。",
-          "在做大底池前，思考你的位置与踢脚强度。"
+          "哪些转牌会把后门潜力变成直接听牌？",
+          "双方范围中哪些组合能自然到达当前牌面？",
+          "在讨论下注尺度前，还缺少哪些位置与行动信息？"
         ],
         warnings: [
           "不要低估后续街可能成牌的后门潜力。"
@@ -2449,12 +3225,12 @@ const buildCoachExplanation = (heroCards, boardCards, boardAnalysis, drawAnalysi
         ],
         whyItMatters: [
           "The board texture can shift significantly depending on the turn card.",
-          "Continuation bets are common, but massive pots require stronger justification."
+          "Any range advantage still depends on how both players arrived at this spot."
         ],
         howToThink: [
-          "Watch for potential backdoor draws turning into active draws on the turn.",
-          "Balance your bet sizes to probe for opponent's hand strength.",
-          "Consider your position and kicker strength before inflating the pot."
+          "Which turn cards convert backdoor potential into direct draws?",
+          "Which combinations can naturally arrive here in each range?",
+          "What position and action information is missing before discussing a bet size?"
         ],
         warnings: [
           "Do not underestimate backdoor possibilities on future streets."
@@ -2474,15 +3250,15 @@ const buildCoachExplanation = (heroCards, boardCards, boardAnalysis, drawAnalysi
         ],
         whyItMatters: [
           "这是偏静态牌面：转牌和河牌很难改变谁领先的局面。",
-          "持续下注在此非常有效，可迫使对手弃掉弱牌。"
+          "直接听牌较少，但这并不自动确定哪一方拥有范围优势。"
         ],
         howToThink: [
-          "如果你持有领先手牌，由于听牌极少，你无需激进防守。",
-          "如果选择下注，小尺度下注通常已足够达到战术目的。",
-          "如果平时被动的对手突然展现极强攻势，做好弃牌准备。"
+          "双方范围中谁保留了更多强成牌与高牌组合？",
+          "哪些转牌仍可能改变相对牌力？",
+          "在讨论下注尺度前，位置与前面行动提供了什么信息？"
         ],
         warnings: [
-          "如果对手愿意做大底池，切忌过度游戏边际牌。"
+          "干燥牌面标签本身不能给出下注或弃牌结论。"
         ],
         tags
       }
@@ -2496,15 +3272,15 @@ const buildCoachExplanation = (heroCards, boardCards, boardAnalysis, drawAnalysi
         ],
         whyItMatters: [
           "This is a static board: turn and river cards are unlikely to change who is ahead.",
-          "Continuation bets are highly effective here to fold out weak hands."
+          "Fewer direct draws do not automatically identify which player has range advantage."
         ],
         howToThink: [
-          "If you have the best hand, you don\'t need to protect it aggressively as few draws exist.",
-          "If you bet, a small sizing is often sufficient to achieve your tactical goal.",
-          "Be prepared to fold if a passive opponent suddenly shows intense aggression."
+          "Which range retains more strong made hands and high-card combinations?",
+          "Which turn cards could still change relative hand strength?",
+          "What do position and prior action tell you before discussing a bet size?"
         ],
         warnings: [
-          "Do not overplay marginal hands if the opponent is willing to build a large pot."
+          "A dry-board label alone cannot prescribe a bet or fold."
         ],
         tags
       }
@@ -2517,13 +3293,6 @@ const coachExplanation = computed(() => {
     coachState.value.heroCards,
     coachState.value.boardCards,
     boardAnalysis.value,
-    activeDraws.value,
-    {
-      pot: coachState.value.pot,
-      callAmount: coachState.value.callAmount,
-      requiredEquity: requiredEquity.value
-    },
-    activeTab.value,
     currentLang.value
   )
 })
@@ -2549,13 +3318,14 @@ const coachExplanation = computed(() => {
   position: relative;
   width: 100%;
   max-width: 860px;
+  box-sizing: border-box;
   background:
     radial-gradient(circle at 50% 0%, rgba(217, 173, 88, 0.08), transparent 30rem),
     rgba(24, 18, 15, 0.94);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-xl);
   padding: 2.5rem;
-  box-shadow: 
+  box-shadow:
     var(--shadow-lg),
     0 0 40px rgba(217, 173, 88, 0.06);
   color: var(--text-primary);
@@ -2566,15 +3336,23 @@ const coachExplanation = computed(() => {
   overflow-y: auto;
 }
 
+.gto-modal-content > * {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
 /* Close button */
 .gto-close-btn {
   position: absolute;
-  top: 1.2rem;
-  right: 1.4rem;
+  top: 20px;
+  right: 20px;
   background: transparent;
   border: none;
-  width: 32px;
-  height: 32px;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2582,6 +3360,7 @@ const coachExplanation = computed(() => {
   color: var(--text-tertiary);
   transition: all 0.2s ease;
   border-radius: 50%;
+  z-index: 2;
 }
 .gto-close-btn:hover {
   color: var(--text-primary);
@@ -2596,13 +3375,27 @@ const coachExplanation = computed(() => {
 .gto-modal-header {
   text-align: left;
   position: relative;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+.header-identity {
+  min-width: 0;
+  padding-right: 76px;
 }
 .header-top-row {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start;
   align-items: center;
   margin-bottom: 0.5rem;
   width: 100%;
+}
+.header-language-row {
+  display: flex;
+  justify-content: flex-end;
+  width: 100%;
+  min-width: 0;
+  margin-top: 1rem;
 }
 .gto-title-badge {
   display: inline-block;
@@ -2631,7 +3424,8 @@ const coachExplanation = computed(() => {
   color: var(--text-tertiary);
   font-size: 0.75rem;
   font-weight: 800;
-  padding: 0.1rem 0.3rem;
+  min-height: 36px;
+  padding: 0.35rem 0.55rem;
   cursor: pointer;
   transition: all 0.2s ease;
 }
@@ -2650,8 +3444,10 @@ const coachExplanation = computed(() => {
 .gto-title-row {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.8rem;
   margin-bottom: 0.4rem;
+  min-width: 0;
 }
 
 /* Gold Collapsible Guide Badge */
@@ -2684,15 +3480,608 @@ const coachExplanation = computed(() => {
 .gto-modal-title {
   font-size: 1.65rem;
   font-weight: 820;
-  margin-bottom: 0.4rem;
+  margin: 0;
   letter-spacing: -0.02em;
   color: var(--text-primary);
+  overflow-wrap: anywhere;
 }
 .gto-modal-desc {
   font-size: 0.88rem;
   color: var(--text-tertiary);
   line-height: 1.5;
   margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.guide-primary-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.55rem;
+  padding: 0.35rem;
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.guide-primary-tab {
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  padding: 0.65rem 0.75rem;
+  background: transparent;
+  color: var(--text-tertiary);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  font: inherit;
+  font-weight: 760;
+  cursor: pointer;
+  transition: color 0.18s ease, background-color 0.18s ease, border-color 0.18s ease;
+}
+
+.guide-primary-tab:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.guide-primary-tab.active {
+  color: var(--text-primary);
+  background: var(--bg-panel-raised);
+  border-color: rgba(217, 173, 88, 0.3);
+  box-shadow: var(--shadow-sm);
+}
+
+.primary-tab-kicker {
+  color: var(--accent-primary);
+  font-family: var(--font-family-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
+}
+
+.guide-landing,
+.concepts-panel,
+.explorer-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 1.35rem;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.guide-landing-hero,
+.section-intro {
+  width: 100%;
+  max-width: 690px;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.guide-eyebrow {
+  margin: 0 0 0.5rem;
+  color: var(--accent-primary);
+  font-size: 0.7rem;
+  font-weight: 820;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.guide-landing-hero h3,
+.section-intro h3 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: clamp(1.45rem, 3.2vw, 2.15rem);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+
+.guide-landing-hero > p:last-child,
+.section-intro > p:last-child {
+  margin: 0.7rem 0 0;
+  color: var(--text-secondary);
+  font-size: 0.92rem;
+  line-height: 1.65;
+}
+
+.decision-flow {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.14);
+}
+
+.decision-flow-step {
+  min-width: 0;
+  padding: 1rem 0.8rem;
+  border-right: 1px solid var(--border-subtle);
+}
+
+.decision-flow-step:last-child {
+  border-right: none;
+}
+
+.flow-number {
+  display: inline-flex;
+  width: 25px;
+  height: 25px;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.65rem;
+  border: 1px solid rgba(217, 173, 88, 0.35);
+  border-radius: 50%;
+  color: var(--accent-primary-strong);
+  font: 700 0.7rem/1 var(--font-family-mono);
+}
+
+.decision-flow-step strong,
+.decision-flow-step span {
+  display: block;
+}
+
+.decision-flow-step strong {
+  min-height: 2.5em;
+  color: var(--text-primary);
+  font-size: 0.78rem;
+  line-height: 1.25;
+}
+
+.decision-flow-step div > span {
+  margin-top: 0.5rem;
+  color: var(--text-tertiary);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.guide-landing-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.guide-action,
+.concept-cta,
+.details-explorer-btn {
+  min-height: 44px;
+  border: 1px solid rgba(217, 173, 88, 0.28);
+  border-radius: var(--radius-md);
+  background: rgba(217, 173, 88, 0.07);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 760;
+  cursor: pointer;
+  transition: background-color 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+
+.guide-action:hover,
+.concept-cta:hover,
+.details-explorer-btn:hover {
+  background: rgba(217, 173, 88, 0.14);
+  border-color: var(--accent-primary);
+  transform: translateY(-1px);
+}
+
+.guide-action.primary {
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
+  color: #18110d;
+}
+
+.guide-action.secondary {
+  color: var(--text-secondary);
+  background: transparent;
+  border-color: var(--border-strong);
+}
+
+.guide-truth-boundary {
+  margin: 0;
+  padding: 0.8rem 0.95rem;
+  border-left: 3px solid var(--accent-primary);
+  background: rgba(217, 173, 88, 0.055);
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+
+.concept-card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.concept-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 286px;
+  padding: 1.15rem;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+}
+
+.concept-card:last-child {
+  grid-column: 1 / -1;
+  min-height: auto;
+}
+
+.concept-card-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 0.65rem;
+}
+
+.concept-card-heading h4 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 1rem;
+}
+
+.concept-index {
+  color: var(--accent-primary);
+  font-family: var(--font-family-mono);
+  font-size: 0.68rem;
+}
+
+.concept-question {
+  margin: 0.9rem 0 0;
+  color: var(--text-primary);
+  font-weight: 720;
+  line-height: 1.45;
+}
+
+.concept-principle,
+.concept-reminder {
+  margin: 0.65rem 0 0;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  line-height: 1.55;
+}
+
+.concept-reminder {
+  padding-left: 0.7rem;
+  border-left: 2px solid rgba(217, 173, 88, 0.4);
+  color: var(--text-tertiary);
+}
+
+.concept-cta {
+  align-self: flex-start;
+  min-height: 40px;
+  margin-top: auto;
+  padding: 0.55rem 0.8rem;
+}
+
+.explorer-intro {
+  padding: 0.95rem 1rem;
+  border: 1px solid var(--border-subtle);
+  border-left: 3px solid var(--accent-primary);
+  border-radius: var(--radius-md);
+  background: rgba(0, 0, 0, 0.14);
+}
+
+.explorer-intro h3 {
+  font-size: 1.25rem;
+}
+
+.explorer-boundary-note {
+  margin: 0;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid rgba(217, 173, 88, 0.2);
+  border-radius: var(--radius-md);
+  background: rgba(217, 173, 88, 0.045);
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+
+.explorer-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.explorer-tab {
+  min-height: 44px;
+  padding: 0.6rem 0.95rem;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  color: var(--text-tertiary);
+  font: inherit;
+  font-size: 0.83rem;
+  font-weight: 760;
+  cursor: pointer;
+}
+
+.explorer-tab.active {
+  color: var(--text-primary);
+  border-color: rgba(217, 173, 88, 0.4);
+  background: rgba(217, 173, 88, 0.1);
+}
+
+.explorer-tab:focus-visible,
+.sync-live-btn:focus-visible,
+.premium-math-input:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+.spot-setup-layout,
+.price-lab-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(230px, 0.8fr);
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.spot-card-panel,
+.live-snapshot-card {
+  padding: 1.15rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.spot-panel-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.spot-panel-heading h3,
+.snapshot-heading h3 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 1rem;
+}
+
+.spot-panel-heading p {
+  margin: 0.35rem 0 0;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.spot-input-bar {
+  align-items: flex-start;
+  margin: 0;
+  padding: 1rem;
+}
+
+.spot-input-bar .input-group {
+  align-items: flex-start;
+  flex-direction: column;
+}
+
+.spot-made-hand-readout {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1rem;
+  padding: 0.75rem 0.85rem;
+  border-left: 3px solid var(--accent-primary);
+  background: rgba(217, 173, 88, 0.055);
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+}
+
+.spot-made-hand-readout strong {
+  color: var(--text-primary);
+}
+
+.explorer-question-state {
+  margin-top: 1rem;
+  padding: 0.85rem 0.95rem;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.018);
+}
+
+.explorer-question-state p,
+.explorer-question-state ul {
+  margin: 0;
+}
+
+.explorer-question-state p {
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.explorer-question-state ul,
+.empty-guidance-list {
+  padding-left: 1.1rem;
+  color: var(--text-tertiary);
+  font-size: 0.76rem;
+  line-height: 1.55;
+}
+
+.explorer-question-state ul {
+  margin-top: 0.55rem;
+}
+
+.live-snapshot-card {
+  align-self: start;
+}
+
+.snapshot-kicker {
+  display: block;
+  margin-bottom: 0.35rem;
+  color: var(--accent-primary);
+  font-size: 0.66rem;
+  font-weight: 820;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.snapshot-values {
+  display: grid;
+  gap: 0.55rem;
+  margin: 1rem 0;
+}
+
+.snapshot-values div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.snapshot-values dt,
+.snapshot-values dd {
+  margin: 0;
+}
+
+.snapshot-values dt {
+  color: var(--text-tertiary);
+  font-size: 0.72rem;
+}
+
+.snapshot-values dd {
+  color: var(--text-primary);
+  font: 760 0.78rem/1.2 var(--font-family-mono);
+}
+
+.snapshot-empty,
+.snapshot-boundary {
+  color: var(--text-tertiary);
+  font-size: 0.73rem;
+  line-height: 1.55;
+}
+
+.snapshot-empty {
+  margin: 1rem 0;
+}
+
+.snapshot-boundary {
+  margin: 0;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.price-lab-card {
+  min-width: 0;
+}
+
+.price-input-row {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.input-helper {
+  color: var(--text-tertiary);
+  font-size: 0.68rem;
+  line-height: 1.4;
+}
+
+.price-formula-note {
+  margin: 0;
+  color: var(--text-tertiary);
+  font-size: 0.72rem;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.price-results {
+  display: grid;
+  gap: 0.6rem;
+  padding: 0.9rem;
+  border: 1px solid rgba(217, 173, 88, 0.25);
+  border-radius: var(--radius-md);
+  background: rgba(217, 173, 88, 0.055);
+}
+
+.price-empty-state {
+  padding: 0.85rem;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+  color: var(--text-tertiary);
+  font-size: 0.75rem;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.price-truth-boundary {
+  padding: 0.85rem 0.95rem;
+  border-left: 3px solid var(--accent-primary);
+  background: rgba(217, 173, 88, 0.045);
+}
+
+.price-truth-boundary strong {
+  color: var(--text-primary);
+  font-size: 0.78rem;
+}
+
+.price-truth-boundary p {
+  margin: 0.35rem 0 0;
+  color: var(--text-secondary);
+  font-size: 0.74rem;
+  line-height: 1.55;
+}
+
+.price-side-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.neutral-boundary {
+  border-left: 4px solid var(--accent-primary);
+  background: rgba(217, 173, 88, 0.055);
+  color: var(--text-secondary);
+}
+
+.invitation-kicker {
+  color: var(--accent-primary);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.invitation-note {
+  margin: 0;
+  color: var(--text-tertiary);
+  font-size: 0.72rem;
+  line-height: 1.5;
+}
+
+.details-explorer-btn {
+  min-height: 40px;
+  margin-top: 0.85rem;
+  padding: 0.5rem 0.75rem;
+}
+
+.details-reference-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 1rem;
+  margin-top: 0.75rem;
+  color: var(--text-secondary);
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
+.details-reference-meta strong {
+  color: var(--text-primary);
+}
+
+.gto-modal-content :is(button, input, [tabindex]):focus-visible {
+  outline: 3px solid rgba(255, 218, 130, 0.9);
+  outline-offset: 2px;
 }
 
 /* Guide dropdown container styles */
@@ -2814,6 +4203,99 @@ const coachExplanation = computed(() => {
   box-shadow: var(--shadow-sm);
 }
 
+.reference-source-card {
+  width: 100%;
+  min-width: 0;
+  margin-bottom: 0.8rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: rgba(0, 0, 0, 0.16);
+  box-sizing: border-box;
+}
+
+.baseline-source-card {
+  border-color: rgba(217, 173, 88, 0.26);
+  background: rgba(217, 173, 88, 0.055);
+}
+
+.reference-source-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.reference-source-kicker {
+  display: block;
+  color: var(--accent-primary);
+  font-size: 0.68rem;
+  font-weight: 820;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.reference-source-ids {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.45rem 0.75rem;
+  margin-top: 0.35rem;
+}
+
+.reference-source-ids strong {
+  color: var(--text-primary);
+  font-family: var(--font-family-mono);
+  font-size: 0.92rem;
+  overflow-wrap: anywhere;
+}
+
+.reference-source-ids span,
+.reference-boundary-badge {
+  padding: 0.25rem 0.55rem;
+  border: 1px solid rgba(217, 173, 88, 0.28);
+  border-radius: var(--radius-pill);
+  color: var(--accent-primary-strong);
+  font-size: 0.68rem;
+  font-weight: 780;
+}
+
+.reference-boundary-badge {
+  flex: 0 0 auto;
+}
+
+.reference-scenario {
+  margin: 0.85rem 0 0;
+  color: var(--text-primary);
+  font-weight: 760;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.reference-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1rem;
+  margin-top: 0.55rem;
+  color: var(--text-secondary);
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
+
+.reference-boundary-copy {
+  margin: 0.65rem 0 0;
+  color: var(--text-tertiary);
+  font-size: 0.76rem;
+  line-height: 1.55;
+}
+
+.reference-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin-bottom: 1.4rem;
+}
+
 .spot-role {
   font-size: 0.72rem;
   font-weight: 900;
@@ -2871,6 +4353,10 @@ const coachExplanation = computed(() => {
   position: relative;
   transition: transform 0.15s ease, filter 0.15s ease;
   user-select: none;
+  appearance: none;
+  padding: 0;
+  border: none;
+  color: inherit;
 }
 .combo-label {
   color: var(--text-primary);
@@ -3456,6 +4942,31 @@ const coachExplanation = computed(() => {
   .gto-modal-content {
     padding: 1.4rem;
   }
+  .guide-primary-tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .decision-flow {
+    grid-template-columns: 1fr;
+  }
+  .decision-flow-step {
+    display: grid;
+    grid-template-columns: 34px 1fr;
+    gap: 0.6rem;
+    border-right: none;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .decision-flow-step:last-child {
+    border-bottom: none;
+  }
+  .flow-number {
+    margin-bottom: 0;
+  }
+  .decision-flow-step strong {
+    min-height: auto;
+  }
+  .decision-flow-step div > span {
+    margin-top: 0.3rem;
+  }
   .gto-main-layout {
     margin-bottom: 1rem;
   }
@@ -3467,6 +4978,13 @@ const coachExplanation = computed(() => {
   .math-card-grid {
     grid-template-columns: 1fr;
     gap: 1.2rem;
+  }
+  .spot-setup-layout,
+  .price-lab-layout {
+    grid-template-columns: 1fr;
+  }
+  .price-input-row {
+    grid-template-columns: 1fr;
   }
   .guide-grid {
     grid-template-columns: 1fr;
@@ -3490,8 +5008,39 @@ const coachExplanation = computed(() => {
     padding: 1rem;
     gap: 1.2rem;
   }
+  .gto-close-btn {
+    top: 12px;
+    right: 12px;
+  }
+  .header-identity {
+    padding-right: 60px;
+  }
+  .header-language-row {
+    justify-content: flex-start;
+    margin-top: 0.85rem;
+  }
   .gto-modal-title {
     font-size: 1.35rem;
+  }
+  .gto-title-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .guide-primary-tabs,
+  .guide-landing-actions,
+  .concept-card-grid,
+  .reference-actions {
+    grid-template-columns: 1fr;
+  }
+  .reference-source-header {
+    flex-direction: column;
+  }
+  .concept-card:last-child {
+    grid-column: auto;
+  }
+  .guide-primary-tab {
+    justify-content: flex-start;
+    min-height: 48px;
   }
   .gto-tabs {
     gap: 0.8rem;
@@ -3502,6 +5051,17 @@ const coachExplanation = computed(() => {
   }
   .tab-decide-banner {
     padding: 0.6rem 0.8rem;
+  }
+  .spot-panel-heading {
+    flex-direction: column;
+  }
+  .sync-live-btn {
+    min-height: 44px;
+    margin-left: 0;
+  }
+  .postflop-input-bar {
+    padding: 0.85rem;
+    gap: 1rem;
   }
 }
 
@@ -3569,6 +5129,7 @@ const coachExplanation = computed(() => {
   justify-content: center;
   transition: all 0.2s ease;
   overflow: hidden;
+  padding: 0;
 }
 
 .interactive-card-slot:hover {
@@ -4681,5 +6242,40 @@ const coachExplanation = computed(() => {
 .fade-fast-enter-from,
 .fade-fast-leave-to {
   opacity: 0;
+}
+
+@media (max-width: 768px) {
+  .spot-setup-layout,
+  .price-lab-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .price-input-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 520px) {
+  .spot-panel-heading {
+    flex-direction: column;
+  }
+
+  .sync-live-btn {
+    min-height: 44px;
+    margin-left: 0;
+  }
+
+  .spot-input-bar {
+    padding: 0.85rem;
+    gap: 1rem;
+  }
+
+  .spot-input-bar .input-group {
+    width: 100%;
+  }
+
+  .card-slots-and-notice {
+    flex-wrap: wrap;
+  }
 }
 </style>

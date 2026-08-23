@@ -1,25 +1,46 @@
 <template>
-  <div class="mode-selector">
-    <button class="mode-card hvh-card" @click="$emit('select-mode', 'hvh')">
+  <div
+    class="mode-selector"
+    :class="{ compact, 'with-quick-practice': showQuickPractice }"
+  >
+    <button
+      v-if="showQuickPractice"
+      type="button"
+      class="mode-card quick-card"
+      aria-label="Quick Practice rule bot is coming soon"
+      disabled
+    >
+      <div class="card-content">
+        <div class="icon-wrapper quick-icon">
+          <span class="mode-icon">BOT</span>
+        </div>
+        <span class="mode-kicker">Rule Bot · Quick Practice</span>
+        <span class="mode-title" role="heading" :aria-level="headingLevel">Quick Practice</span>
+        <p>No lightweight local rule bot exists in this build. This no-API practice path is coming soon.</p>
+        <span class="mode-cta coming-soon">Coming soon · 即将推出</span>
+      </div>
+    </button>
+
+    <button class="mode-card hvh-card" aria-label="Open private room setup" @click="$emit('select-mode', 'hvh')">
       <div class="card-content">
         <div class="icon-wrapper">
           <span class="mode-icon">2P</span>
         </div>
-        <span class="mode-kicker">Private room</span>
-        <h2>Play with a Friend</h2>
-        <p>Create or join a cozy 1v1 table and send the invite.</p>
+          <span class="mode-kicker">Free play · Private room</span>
+          <span class="mode-title" role="heading" :aria-level="headingLevel">Play with a Friend</span>
+        <p>Apply what you practiced at a private 1v1 table. No automated training score.</p>
         <span class="mode-cta">Host or join</span>
       </div>
     </button>
     
-    <button class="mode-card ai-card" @click="$emit('select-mode', 'hva')">
+    <button class="mode-card ai-card" aria-label="Open BYOK AI match setup" @click="$emit('select-mode', 'hva')">
       <div class="card-content">
         <div class="icon-wrapper ai-icon">
           <span class="mode-icon">AI</span>
         </div>
-        <span class="mode-kicker">Practice table</span>
-        <h2>Play against AI <span class="beta-badge">BYOK</span></h2>
-        <p>Bring your own key and play a few hands against an LLM opponent.</p>
+          <span class="mode-kicker">Free play · AI sandbox</span>
+        <span class="mode-title" role="heading" :aria-level="headingLevel">Play against AI <span class="beta-badge">BYOK</span></span>
+        <p>Bring your own key and experiment against an LLM opponent. AI is not the training judge.</p>
         <span class="mode-cta">Set up AI match</span>
       </div>
     </button>
@@ -27,6 +48,22 @@
 </template>
 
 <script setup>
+defineProps({
+  compact: {
+    type: Boolean,
+    default: false
+  },
+  showQuickPractice: {
+    type: Boolean,
+    default: false
+  },
+  headingLevel: {
+    type: Number,
+    default: 3,
+    validator: (value) => [3, 4, 5].includes(value)
+  }
+})
+
 defineEmits(['select-mode'])
 </script>
 
@@ -41,14 +78,18 @@ defineEmits(['select-mode'])
   width: 100%;
 }
 
+.mode-selector.with-quick-practice {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .mode-card {
-  min-height: 300px;
+  min-height: 220px;
   background:
     linear-gradient(180deg, rgba(217, 173, 88, 0.08), rgba(255, 255, 255, 0.018)),
     var(--bg-panel-solid);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-xl);
-  padding: clamp(1.4rem, 4vw, 2rem);
+  padding: clamp(1.2rem, 3vw, 1.6rem);
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
   box-shadow: var(--shadow-md);
@@ -59,6 +100,7 @@ defineEmits(['select-mode'])
   position: relative;
   overflow: hidden;
   color: inherit;
+  touch-action: manipulation;
 }
 
 .mode-card::before {
@@ -75,6 +117,10 @@ defineEmits(['select-mode'])
   transform: translateY(-6px);
   box-shadow: var(--shadow-lg);
   border-color: var(--border-strong);
+}
+
+.mode-card:disabled {
+  cursor: not-allowed;
 }
 
 .mode-card:hover::before {
@@ -98,23 +144,46 @@ defineEmits(['select-mode'])
   background: radial-gradient(ellipse at center, rgba(217, 173, 88, 0.2), transparent 62%);
 }
 
+.quick-card {
+  border-style: dashed;
+  box-shadow: none;
+  opacity: 0.78;
+}
+
+.quick-card::before {
+  background: radial-gradient(ellipse at center, rgba(31, 122, 79, 0.18), transparent 62%);
+}
+
+.quick-card:hover {
+  transform: none;
+  border-color: var(--border-subtle);
+  box-shadow: none;
+}
+
+.quick-card:hover::before,
+.quick-card:hover .icon-wrapper {
+  transform: none;
+}
+
 .card-content {
   position: relative;
   z-index: 1;
   display: flex;
   flex-direction: column;
   min-height: 100%;
+  width: 100%;
+  flex: 1;
 }
 
 .icon-wrapper {
-  width: 64px;
-  height: 64px;
+  width: 52px;
+  height: 52px;
   background: rgba(255, 255, 255, 0.07);
-  border-radius: 18px;
+  border-radius: 15px;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 0 0 1.4rem;
+  margin: 0 0 1rem;
   border: 1px solid var(--border-subtle);
   transition: transform 0.3s ease;
 }
@@ -140,7 +209,7 @@ defineEmits(['select-mode'])
   margin-bottom: 0.45rem;
 }
 
-h2 {
+.mode-title {
   font-size: clamp(1.45rem, 3vw, 1.75rem);
   color: var(--text-primary);
   margin: 0 0 0.85rem 0;
@@ -176,7 +245,49 @@ p {
   color: var(--text-primary);
   font-size: 0.94rem;
   font-weight: 800;
-  padding-top: 2rem;
+  padding-top: 1.35rem;
+}
+
+.coming-soon {
+  color: var(--text-tertiary);
+}
+
+.mode-selector.compact .mode-card {
+  min-height: 188px;
+  padding: 1rem;
+}
+
+.mode-selector.compact .icon-wrapper {
+  width: 44px;
+  height: 44px;
+  margin-bottom: 0.75rem;
+  border-radius: 12px;
+}
+
+.mode-selector.compact .mode-icon {
+  font-size: 0.95rem;
+}
+
+.mode-selector.compact .mode-title {
+  margin-bottom: 0.6rem;
+  font-size: 1.08rem;
+}
+
+.mode-selector.compact p {
+  max-width: none;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.mode-selector.compact .mode-cta {
+  padding-top: 0.9rem;
+  font-size: 0.78rem;
+}
+
+@media (max-width: 900px) {
+  .mode-selector.with-quick-practice {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 760px) {
@@ -185,7 +296,21 @@ p {
   }
 
   .mode-card {
-    min-height: 240px;
+    min-height: 200px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mode-card,
+  .mode-card::before,
+  .icon-wrapper {
+    transition: none;
+  }
+
+  .mode-card:hover,
+  .mode-card:hover::before,
+  .mode-card:hover .icon-wrapper {
+    transform: none;
   }
 }
 </style>
