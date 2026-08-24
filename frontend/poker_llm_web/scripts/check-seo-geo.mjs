@@ -8,7 +8,8 @@ import {
   PRIVATE_INDEX_PATHS,
   PUBLIC_ROUTES,
   SITE_ORIGIN,
-  SITE_URL
+  SITE_URL,
+  SOURCE_REPOSITORY_URL
 } from '../src/seo/siteMetadata.js'
 
 const scriptDir = dirname(fileURLToPath(import.meta.url))
@@ -38,9 +39,12 @@ const controlledText = [indexHtml, robots, sitemap, llms, llmsFull, router, abou
 for (const staleOrigin of ['postsoma-allin.com', 'prayselah.org']) {
   assert(!controlledText.includes(staleOrigin), `stale origin remains: ${staleOrigin}`)
 }
+const staleSourceRepository = ['github.com', 'kewenzhe-oss', 'postsoma-allin'].join('/')
+assert(!controlledText.includes(staleSourceRepository), 'stale source repository remains')
 
 assert(indexHtml.includes(`<link rel="canonical" href="${SITE_URL}"`), 'home canonical is missing or incorrect')
 assert(indexHtml.includes(`content="${SITE_ORIGIN}/app_icon.png"`), 'absolute social image URL is missing')
+assert(indexHtml.includes(`"codeRepository": "${SOURCE_REPOSITORY_URL}"`), 'home codeRepository is missing or incorrect')
 assert(!indexHtml.includes('display: none'), 'hidden SEO fallback content must not be used')
 assert(!indexHtml.includes('SearchAction'), 'SearchAction must not be added without real site search')
 assert(!/AggregateRating|"Review"/.test(indexHtml), 'unverified rating/review schema detected')
@@ -95,6 +99,8 @@ PRIVATE_INDEX_PATHS.forEach((path) => assert(!sitemap.includes(path), `private p
 for (const requiredUrl of [SITE_URL, ABOUT_URL, `${SITE_ORIGIN}/llms-full.txt`, `${SITE_ORIGIN}/sitemap.xml`]) {
   assert(llms.includes(requiredUrl), `llms.txt is missing ${requiredUrl}`)
 }
+assert(llms.includes(SOURCE_REPOSITORY_URL), 'llms.txt source repository is incorrect')
+assert(llmsFull.includes(SOURCE_REPOSITORY_URL), 'llms-full.txt source repository is incorrect')
 for (const requiredBoundary of ['hu-btn-rfi-100bb-v1', 'baseline-v1', 'pot-odds-v1', 'not solver-calibrated', 'stated exercise assumption']) {
   assert(llmsFull.toLowerCase().includes(requiredBoundary.toLowerCase()), `llms-full.txt is missing boundary: ${requiredBoundary}`)
 }

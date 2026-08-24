@@ -1,7 +1,7 @@
 export const SITE_ORIGIN = 'https://www.205033.xyz'
 export const SITE_URL = `${SITE_ORIGIN}/`
 export const ABOUT_URL = `${SITE_ORIGIN}/about/`
-export const SOURCE_REPOSITORY_URL = 'https://github.com/kewenzhe-oss/postsoma-allin'
+export const SOURCE_REPOSITORY_URL = 'https://github.com/postsoma-2050/Poker'
 export const BRAND_NAME = 'POSTSOMA · ALLIN'
 export const BRAND_SIGNATURE = 'POSTSOMA-2050'
 

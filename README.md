@@ -1,205 +1,213 @@
-# Poker LLM
+# POSTSOMA · ALLIN
 
-中文 | [English](README_EN.md)
+**先看懂局面，再寻找答案。**
 
-一个由大语言模型驱动的AI版德州扑克对战框架
+POSTSOMA · ALLIN 是一个开源的扑克决策思考工具。它通过 **Hand → Context → Range → Price → Risk** 五问流程，帮助用户在行动前分清已知信息、题设假设与仍然存在的不确定性。
 
-## 项目介绍
+[在线体验](https://www.205033.xyz/) · [English](README_EN.md) · [方法与证据边界](https://www.205033.xyz/about/) · [源码仓库](https://github.com/postsoma-2050/Poker)
 
-本项目是一个德州扑克AI对战框架，使用大语言模型(LLM)作为AI玩家进行德州扑克游戏对战。框架模拟了完整的德州扑克游戏流程，包括发牌、下注、翻牌、转牌、河牌和摊牌等环节，并支持多个AI玩家同时参与游戏。
+## 产品定位
 
-### 主要特性
+这个项目的核心不是刷题、背 Chart 或让 AI 替用户裁定策略，而是建立一套可以迁移到不同牌局的思考习惯：
 
-- 完整的德州扑克游戏引擎
-- 支持多种大语言模型（OpenAI、Claude、DeepSeek、QWen等）
-- Web端可视化回放系统（Vue 3 + Vite + Element Plus）
-- 完善的日志记录系统
-- AI玩家的反思和分析功能
-- 灵活的配置管理
+1. **Hand · 手牌**：我拿到什么？当前牌力、改善可能、blocker 与翻后潜力是什么？
+2. **Context · 局面**：我处于什么位置、有效筹码、底池状态和前序行动中？
+3. **Range · 范围**：我与对手可能有什么？哪些行动属于主要倾向、混合频率或边界？
+4. **Price · 价格**：继续投入后最终底池是多少？最低需要多少 equity？
+5. **Risk · 风险**：脏 outs、rake、未来街投入、信息不足与结果导向会怎样影响判断？
+
+> 本项目不是完整 GTO Solver、权威策略数据库、真钱扑克平台或已验证的 AI 策略裁判。
+
+## 当前能力
+
+### Learn · 学会五问
+
+- Decision Guide：无需输入牌面即可理解五问流程。
+- 中英文全局界面，语言偏好保存在浏览器本地。
+- 清楚区分数学事实、版本化范围参考、AI 解释、用户观察与单手结果。
+
+### Tools · 看清一个问题
+
+- **Range Reference**：169 格 HU 翻前范围矩阵与版本化频率说明。
+- **Preflop Reference Drill**：在限定场景中对照 Raise / Limp / Fold 倾向。
+- **Price Builder**：亲手建立最终底池、计算 required equity，再比较题设 equity 假设。
+- **Explorer**：观察 Hero Hand、Flop、成牌、听牌命中概率、牌面纹理与简化价格实验。
+- **Scenario Library**：以可重放 seed、证据等级和透明调度组织现有可信概念；不伪造完整牌局 continuation。
+
+### Apply · 应用五问
+
+- 私人 Heads-up 好友房间。
+- BYOK AI 自由对局，支持 OpenAI-compatible、Gemini 等已配置 provider。
+- FastAPI + WebSocket 的服务端权威牌桌状态。
+
+好友或 AI 对局属于自由应用环境，不提供已验证训练评分；AI 和一次 runout 都不是训练裁判。
+
+## 数据与证据边界
+
+| 数据 / 功能 | 证据性质 | 适用范围与限制 |
+|---|---|---|
+| `hu-btn-rfi-100bb-v1` / `baseline-v1` | 内部版本化训练参考 | 仅适用于 Heads-up · SB/Button · 100 BB · Unopened Pot · Open 2.5 BB；不是 Solver 输出，不适用于 6-max、MTT、BB defend 或其它 stack/rake/open size |
+| `pot-odds-v1` | 可验证数学事实 + 冻结题设 | Hero equity 是题目给定假设，不是系统根据牌面或对手范围计算出的真实 equity |
+| Explorer 的 outs / Rule of 2/4 | 概念提示 | 听牌命中概率不等于对对手范围的真实 equity，不能单独裁定 Call/Fold |
+| Scenario Library | 现有真值的可追溯编排 | Price Bridge 是独立概念迁移，不是该手牌的真实后续策略 |
+| Friend / BYOK AI | 自由对局结果与解释 | 不覆盖数学事实，也不构成权威策略评分 |
+
+更完整的机器可读说明见 [llms-full.txt](frontend/poker_llm_web/public/llms-full.txt)。
+
+## 技术架构
+
+```text
+Browser
+├── Vue 3 + Vite + Vue Router
+├── Pinia + Element Plus + GSAP
+├── 固定训练数据 / seed / localStorage
+└── HTTP + WebSocket
+        │
+        ▼
+FastAPI
+├── 私人房间与连接管理
+├── 服务端权威扑克状态机
+├── BYOK provider adapter
+└── 内存房间状态（当前没有账户数据库）
+```
+
+| 层 | 技术 |
+|---|---|
+| Frontend | Vue 3、Vite、Vue Router、Pinia、Element Plus、GSAP |
+| Backend | Python、FastAPI、Pydantic、WebSocket、Uvicorn / Gunicorn |
+| Training data | 版本化 JavaScript snapshot、固定数学题、localStorage |
+| Online state | FastAPI 进程内存；房间销毁或服务重启后不保证保留 |
+| Frontend deployment | Vercel 配置已包含 SPA、About 静态入口与索引边界 |
 
 ## 项目结构
 
-```
-poker-llm/
-├── frontend/              # 前端项目（Vue 3）
-│   └── poker_llm_web/    # 游戏回放Web应用
-├── prompt/               # 提示词模板
-├── game_logs/            # 游戏日志存储
-├── doc/                  # 文档和截图
-├── ai_player.py          # AI玩家实现
-├── game_controller.py    # 游戏控制器
-├── poker_engine.py       # 德州扑克引擎
-├── game_logger.py        # 日志系统
-├── prompts.py            # 提示词管理
-├── replay_game.py        # 游戏回放工具
-├── analyze_logs.py       # 日志分析工具
-└── main.py               # 主程序入口
+```text
+Poker/
+├── frontend/poker_llm_web/       # Vue 3 前端、训练工具、SEO/GEO 资产
+├── online/                       # FastAPI 房间、WebSocket、AI provider 与牌桌 session
+├── tests/                        # 在线引擎和 API 回归测试
+├── docs/                         # API / WebSocket 与架构说明
+├── prompt/                       # Legacy CLI prompt 模板
+├── poker_engine.py               # 传统扑克引擎
+├── game_controller.py            # Legacy CLI 对局控制器
+├── main.py                       # Legacy 多 AI 命令行入口
+├── requirements.txt              # Python 运行依赖
+└── LICENSE                       # MIT License
 ```
 
-## 快速开始
+## 本地开发
 
-### 后端运行
+### 环境要求
 
-#### 环境要求
-
+- Node.js 18+
+- npm
 - Python 3.10+
 
-#### 安装依赖
+### 1. 克隆项目
 
 ```bash
-pip install -r requirements.txt
+git clone https://github.com/postsoma-2050/Poker.git
+cd Poker
 ```
 
-#### 配置环境变量
+### 2. 启动前端
 
-复制 `.env.example` 文件为 `.env`，并配置相应的API密钥：
-
-```bash
-cp .env.example .env
-```
-
-编辑 `.env` 文件，填入你的API密钥：
-
-```env
-# OpenAI 兼容接口 (DeepSeek, QWen, etc.)
-OPENAI_API_KEY=your_api_key_here
-OPENAI_BASE_URL=https://api.openai.com/v1
-
-# Anthropic Claude
-ANTHROPIC_API_KEY=your_anthropic_api_key_here
-ANTHROPIC_BASE_URL=https://api.anthropic.com
-
-# 游戏配置
-INITIAL_CHIPS=1000
-SMALL_BLIND=5
-BIG_BLIND=10
-NUM_HANDS=10
-```
-
-#### 开始游戏
-
-直接运行主程序：
-
-```bash
-python main.py
-```
-
-### 前端运行（Web回放）
-
-#### 环境要求
-
-- Node.js 16+
-- npm 或 yarn
-
-#### 安装依赖
+Preflop、Price Builder、Decision Guide 与 Explorer 不需要 API Key 或后端即可使用。
 
 ```bash
 cd frontend/poker_llm_web
 npm install
-```
-
-#### 开发模式
-
-```bash
 npm run dev
 ```
 
-#### 构建生产版本
+浏览器打开 `http://localhost:5173`。
+
+### 3. 启动在线房间后端
+
+在新的终端中回到仓库根目录：
 
 ```bash
-npm run build
+python3 -m venv .venv
+source .venv/bin/activate
+python3 -m pip install -r requirements.txt
+ALLOWED_ORIGINS=http://localhost:5173 uvicorn online.app:app --reload --port 8000
 ```
 
-#### 技术栈
+Windows PowerShell 激活虚拟环境：
 
-- Vue 3 - 渐进式JavaScript框架
-- Vite - 新一代前端构建工具
-- Element Plus - Vue 3 UI组件库
-- Pinia - Vue状态管理
-- Vue Router - 路由管理
-- GSAP - 高性能动画库
+```powershell
+.venv\Scripts\Activate.ps1
+```
 
-## 游戏回放
+然后在 `frontend/poker_llm_web/.env.local` 中指定后端：
 
-### 方式一：命令行回放
+```env
+VITE_API_URL=http://localhost:8000
+```
+
+健康检查：`http://localhost:8000/health`。
+
+### 4. 可选：Legacy CLI 多 AI 对局
+
+复制环境变量示例并填入自己拥有的 provider 凭证：
 
 ```bash
-python replay_game.py
+cp .env.example .env
+python3 main.py
 ```
 
-### 方式二：Web端回放
+不要提交 `.env` 或任何 API Key。训练工具本身不依赖 LLM；只有 BYOK 自由对局和 Legacy CLI 会调用模型服务。
 
-1. 启动前端开发服务器
-2. 在浏览器中打开 `http://localhost:5173`
-3. 选择已保存的游戏记录进行回放
+## 前端命令
 
-## 配置说明
+在 `frontend/poker_llm_web` 中运行：
 
-### AI玩家配置
+| 命令 | 用途 |
+|---|---|
+| `npm run dev` | 启动 Vite 开发服务器 |
+| `npm run build` | 生成 SEO 资产、构建前端并生成 `/about/` 静态入口 |
+| `npm run preview` | 预览生产构建 |
+| `npm run check:preflop-range` | 校验 169 手牌、频率、矩阵坐标与解释映射 |
+| `npm run check:pot-odds` | 校验 Pot Odds 公式、EV 边界和固定题库 |
+| `npm run check:scenario-library` | 校验证据、adapter、节点、调度与安全 storage |
+| `npm run check:seo-geo` | 校验 canonical、JSON-LD、robots、sitemap 与机器知识文件 |
 
-在 `main.py` 中可以添加不同类型的AI玩家：
+## Python 测试
 
-```python
-# OpenAI 兼容接口
-players.append(OpenAiLLMUser(
-    name="玩家名称",
-    model_name="模型名称",
-    api_key='YOUR_API_KEY',
-    base_url="YOUR_BASE_URL"
-))
-
-# Anthropic Claude
-players.append(AnthropicLLMUser(
-    name="玩家名称",
-    model_name="模型名称",
-    api_key='YOUR_API_KEY',
-    base_url="YOUR_BASE_URL"
-))
+```bash
+python3 -m pip install -r requirements.txt -r requirements-dev.txt
+python3 -m pytest
 ```
 
-### 游戏参数配置
+## BYOK、隐私与安全
 
-可通过修改 `main.py` 中的参数调整游戏设置：
+- 训练答案、语言偏好和复习记录保存在浏览器 localStorage / sessionStorage；当前没有学习账户数据库。
+- BYOK 配置可包含缓存在浏览器 localStorage 的 API Key。连接测试与 AI 对局会把该凭证传给 POSTSOMA 后端和所选 provider。
+- 房间 token 与实时状态属于运行数据，不写入 sitemap、JSON-LD 或 `llms.txt`。
+- 当前房间状态保存在服务器内存中，不承诺跨重启恢复。
+- 开发或部署时应限制 `ALLOWED_ORIGINS`，使用 HTTPS/WSS，并避免在日志中输出 API Key 或玩家 token。
 
-```python
-start_game(
-    players,
-    hands=10,        # 进行的手牌数量
-    chips=1000,      # 初始每位玩家筹码数量
-    small_blind=5,   # 小盲注金额
-    big_blind=10     # 大盲注金额
-)
-```
+## API 与协议
 
-## 游戏流程
+- HTTP / WebSocket 契约：[docs/api-ws-contract.md](docs/api-ws-contract.md)
+- 在线 1v1 架构说明：[docs/online-1v1-architecture.md](docs/online-1v1-architecture.md)
+- FastAPI 入口：`online.app:app`
+- WebSocket：`/ws/rooms/{room_id}?token={player_token}`
 
-1. 初始化游戏，设置盲注和初始筹码
-2. 为每个玩家发放底牌
-3. 进行翻牌前下注
-4. 发放翻牌并进行下注
-5. 发放转牌并进行下注
-6. 发放河牌并进行下注
-7. 进行摊牌并确定赢家
-8. 分配筹码并记录游戏结果
-9. AI玩家对本局游戏进行反思
-10. 开始新一轮游戏
+## SEO / GEO
 
-## 扩展功能
+- 正式域名：<https://www.205033.xyz/>
+- 方法、证据与引用指南：<https://www.205033.xyz/about/>
+- AI / LLM 索引：[llms.txt](frontend/poker_llm_web/public/llms.txt) · [llms-full.txt](frontend/poker_llm_web/public/llms-full.txt)
+- Sitemap：[sitemap.xml](frontend/poker_llm_web/public/sitemap.xml)
+- 项目维护规范：[GEO / SEO Skill](.agents/skills/geo-seo-optimization/SKILL.md)
 
-- 支持游戏日志记录和回放
-- AI玩家可以对其他玩家进行分析和反思
-- 可以自定义不同的大语言模型作为AI玩家
-- 支持调整游戏参数，如盲注大小、初始筹码等
-- Web端可视化界面
+这些资产提升机器可读性，但不保证搜索排名、AI 引用或 Rich Result 展示。
 
-## 程序运行截图
+## 贡献
 
-显示大模型调用结果，显示推理过程
-![程序截图](./doc/img/1.png)
-
-显示大模型对其他玩家进行行为分析的过程
-![程序截图](./doc/img/2.png)
+欢迎通过 [Issues](https://github.com/postsoma-2050/Poker/issues) 报告可复现问题，或提交范围清楚的 Pull Request。涉及范围、赔率或策略数据时，请同时说明来源、版本、场景假设、许可证与验证方式；未经核验的数据不能作为训练真值。
 
 ## License
 
-本项目采用开源许可证，详见 [LICENSE](LICENSE) 文件。
+项目代码采用 [MIT License](LICENSE)。扑克训练内容、第三方 provider 与外部服务仍受各自条款和适用法律约束。

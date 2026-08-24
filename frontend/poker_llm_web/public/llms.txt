@@ -14,7 +14,7 @@ POSTSOMA · ALLIN is not a complete GTO solver, an authoritative strategy databa
 - [Full Machine-Readable Product Knowledge](https://www.205033.xyz/llms-full.txt): Detailed product model, data versions, formulas, evidence boundaries, privacy behavior, and citation guidance.
 - [XML Sitemap](https://www.205033.xyz/sitemap.xml): Canonical public URLs only.
 - [Crawler Policy](https://www.205033.xyz/robots.txt): Public crawler access and private-path exclusions.
-- [Source Repository](https://github.com/kewenzhe-oss/postsoma-allin): Project source and MIT license.
+- [Source Repository](https://github.com/postsoma-2050/Poker): Project source and MIT license.
 
 ## Reference Boundaries
 

@@ -4,7 +4,7 @@ Canonical URL: https://www.205033.xyz/
 
 Brand signature: POSTSOMA-2050
 
-Source repository: https://github.com/kewenzhe-oss/postsoma-allin
+Source repository: https://github.com/postsoma-2050/Poker
 
 Code license: MIT License. Consult the repository LICENSE for exact terms.
 
@@ -196,7 +196,7 @@ Deployment observed for the public frontend: Vercel.
 - Full machine knowledge: https://www.205033.xyz/llms-full.txt
 - Crawler policy: https://www.205033.xyz/robots.txt
 - Sitemap: https://www.205033.xyz/sitemap.xml
-- Source: https://github.com/kewenzhe-oss/postsoma-allin
+- Source: https://github.com/postsoma-2050/Poker
 
 Private room URLs, API endpoints, WebSocket endpoints, and URL query parameters are intentionally absent from the public sitemap.
 

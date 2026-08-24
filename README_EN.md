@@ -1,205 +1,213 @@
-# Poker LLM
+# POSTSOMA · ALLIN
 
-[中文](README.md) | English
+**Understand the spot before searching for an answer.**
 
-An AI-powered Texas Hold'em Poker framework driven by Large Language Models
+POSTSOMA · ALLIN is an open-source poker decision-thinking tool. It uses the connected sequence **Hand → Context → Range → Price → Risk** to help players separate known information, stated assumptions, and remaining uncertainty before choosing an action.
 
-## Project Introduction
+[Live product](https://www.205033.xyz/) · [简体中文](README.md) · [Method & evidence](https://www.205033.xyz/about/) · [Source repository](https://github.com/postsoma-2050/Poker)
 
-This project is a Texas Hold'em Poker AI battle framework that uses Large Language Models (LLMs) as AI players to compete in poker games. The framework simulates the complete Texas Hold'em poker game process, including dealing cards, betting, flop, turn, river, and showdown phases, and supports multiple AI players participating simultaneously.
+## Product position
 
-### Key Features
+The project is designed to build a transferable decision habit—not to reward volume, make users memorize charts, or let AI act as a strategy judge.
 
-- Complete Texas Hold'em poker game engine
-- Support for multiple LLMs (OpenAI, Claude, DeepSeek, QWen, etc.)
-- Web-based visual replay system (Vue 3 + Vite + Element Plus)
-- Comprehensive logging system
-- AI player reflection and analysis functionality
-- Flexible configuration management
+1. **Hand**: What do I have? Inspect made value, improvement paths, blockers, and postflop playability.
+2. **Context**: What spot am I in? Confirm position, effective stack, pot state, prior action, and format.
+3. **Range**: What could we each have? Think in combinations, frequencies, primary tendencies, and boundaries.
+4. **Price**: What does investing more require? Build the final pot and calculate required equity.
+5. **Risk**: What could distort the decision? Check dirty outs, rake, future betting, missing information, and result bias.
 
-## Project Structure
+> This project is not a complete GTO solver, an authoritative strategy database, a real-money poker platform, or a verified AI strategy judge.
 
+## Current capabilities
+
+### Learn
+
+- Decision Guide: learn the five-question process without entering cards or pot values.
+- One global English / Simplified Chinese interface preference.
+- Visible separation between math facts, versioned references, AI explanations, user observations, and hand results.
+
+### Tools
+
+- **Range Reference**: a 169-cell HU preflop matrix with versioned frequencies and assumptions.
+- **Preflop Reference Drill**: compare Raise / Limp / Fold choices inside one explicitly limited scenario.
+- **Price Builder**: build the final pot, calculate required equity, then compare a stated equity assumption.
+- **Explorer**: inspect Hero cards, a flop, made hands, draw-hit probability, board texture, and a simplified manual price experiment.
+- **Scenario Library**: deterministic scheduling and replay over admitted evidence; it does not invent a full-hand continuation.
+
+### Apply
+
+- Private heads-up friend rooms.
+- BYOK AI free play with configured OpenAI-compatible, Gemini, and other supported providers.
+- Server-authoritative table state over FastAPI and WebSocket.
+
+Friend and AI games are free-play environments with no verified training score. AI and a single runout are not training judges.
+
+## Data and evidence boundaries
+
+| Data / feature | Evidence type | Scope and limitation |
+|---|---|---|
+| `hu-btn-rfi-100bb-v1` / `baseline-v1` | Internal versioned training reference | Only Heads-up · SB/Button · 100 BB · Unopened Pot · Open 2.5 BB; not solver output and not applicable to 6-max, MTT, BB defend, or different stack/rake/open-size assumptions |
+| `pot-odds-v1` | Verifiable math + frozen exercise inputs | Hero equity is a stated exercise assumption, not equity calculated from cards or a Villain range |
+| Explorer outs / Rule of 2/4 | Conceptual aid | Draw-hit probability is not real equity versus a range and cannot independently judge Call/Fold |
+| Scenario Library | Traceable orchestration of admitted truth | The Price Bridge is an independent concept transfer, not the hand's real strategic continuation |
+| Friend / BYOK AI | Free-play outcome and explanation | Does not override a math fact or become authoritative strategy scoring |
+
+See [llms-full.txt](frontend/poker_llm_web/public/llms-full.txt) for the complete machine-readable product boundary.
+
+## Architecture
+
+```text
+Browser
+├── Vue 3 + Vite + Vue Router
+├── Pinia + Element Plus + GSAP
+├── Versioned training data / seed / localStorage
+└── HTTP + WebSocket
+        │
+        ▼
+FastAPI
+├── Private rooms and connection management
+├── Server-authoritative poker state machine
+├── BYOK provider adapters
+└── In-memory room state (no account database)
 ```
-poker-llm/
-├── frontend/              # Frontend project (Vue 3)
-│   └── poker_llm_web/    # Game replay web application
-├── prompt/               # Prompt templates
-├── game_logs/            # Game log storage
-├── doc/                  # Documentation and screenshots
-├── ai_player.py          # AI player implementation
-├── game_controller.py    # Game controller
-├── poker_engine.py       # Texas Hold'em engine
-├── game_logger.py        # Logging system
-├── prompts.py            # Prompt management
-├── replay_game.py        # Game replay tool
-├── analyze_logs.py       # Log analysis tool
-└── main.py               # Main program entry
+
+| Layer | Technology |
+|---|---|
+| Frontend | Vue 3, Vite, Vue Router, Pinia, Element Plus, GSAP |
+| Backend | Python, FastAPI, Pydantic, WebSocket, Uvicorn / Gunicorn |
+| Training data | Versioned JavaScript snapshots, fixed math questions, localStorage |
+| Online state | FastAPI process memory; persistence across room deletion or restart is not guaranteed |
+| Frontend deployment | Vercel configuration with SPA routing, a static About entry, and indexing boundaries |
+
+## Repository structure
+
+```text
+Poker/
+├── frontend/poker_llm_web/       # Vue app, learning tools, and SEO/GEO assets
+├── online/                       # FastAPI rooms, WebSocket, AI providers, sessions
+├── tests/                        # API and online-engine regression tests
+├── docs/                         # API/WebSocket and architecture notes
+├── prompt/                       # Legacy CLI prompt templates
+├── poker_engine.py               # Legacy poker engine
+├── game_controller.py            # Legacy CLI controller
+├── main.py                       # Legacy multi-AI CLI entry
+├── requirements.txt              # Python runtime dependencies
+└── LICENSE                       # MIT License
 ```
 
-## Quick Start
+## Local development
 
-### Backend Setup
+### Requirements
 
-#### Requirements
-
+- Node.js 18+
+- npm
 - Python 3.10+
 
-#### Install Dependencies
+### 1. Clone
 
 ```bash
-pip install -r requirements.txt
+git clone https://github.com/postsoma-2050/Poker.git
+cd Poker
 ```
 
-#### Configure Environment Variables
+### 2. Start the frontend
 
-Copy `.env.example` to `.env` and configure your API keys:
-
-```bash
-cp .env.example .env
-```
-
-Edit `.env` file and add your API keys:
-
-```env
-# OpenAI compatible API (DeepSeek, QWen, etc.)
-OPENAI_API_KEY=your_api_key_here
-OPENAI_BASE_URL=https://api.openai.com/v1
-
-# Anthropic Claude
-ANTHROPIC_API_KEY=your_anthropic_api_key_here
-ANTHROPIC_BASE_URL=https://api.anthropic.com
-
-# Game configuration
-INITIAL_CHIPS=1000
-SMALL_BLIND=5
-BIG_BLIND=10
-NUM_HANDS=10
-```
-
-#### Start the Game
-
-Run the main program:
-
-```bash
-python main.py
-```
-
-### Frontend Setup (Web Replay)
-
-#### Requirements
-
-- Node.js 16+
-- npm or yarn
-
-#### Install Dependencies
+Preflop, Price Builder, Decision Guide, and Explorer work without an API key or backend.
 
 ```bash
 cd frontend/poker_llm_web
 npm install
-```
-
-#### Development Mode
-
-```bash
 npm run dev
 ```
 
-#### Build Production Version
+Open `http://localhost:5173`.
+
+### 3. Start the online-room backend
+
+From the repository root in another terminal:
 
 ```bash
-npm run build
+python3 -m venv .venv
+source .venv/bin/activate
+python3 -m pip install -r requirements.txt
+ALLOWED_ORIGINS=http://localhost:5173 uvicorn online.app:app --reload --port 8000
 ```
 
-#### Tech Stack
+Windows PowerShell activation:
 
-- Vue 3 - Progressive JavaScript framework
-- Vite - Next generation frontend build tool
-- Element Plus - Vue 3 UI component library
-- Pinia - Vue state management
-- Vue Router - Router management
-- GSAP - High-performance animation library
+```powershell
+.venv\Scripts\Activate.ps1
+```
 
-## Game Replay
+Create `frontend/poker_llm_web/.env.local`:
 
-### Method 1: Command Line Replay
+```env
+VITE_API_URL=http://localhost:8000
+```
+
+Health check: `http://localhost:8000/health`.
+
+### 4. Optional legacy multi-AI CLI
+
+Copy the environment template and add credentials for providers you control:
 
 ```bash
-python replay_game.py
+cp .env.example .env
+python3 main.py
 ```
 
-### Method 2: Web Replay
+Never commit `.env` or an API key. The learning tools do not require an LLM; only BYOK free play and the legacy CLI call model providers.
 
-1. Start the frontend development server
-2. Open `http://localhost:5173` in your browser
-3. Select a saved game record to replay
+## Frontend commands
 
-## Configuration Guide
+Run inside `frontend/poker_llm_web`:
 
-### AI Player Configuration
+| Command | Purpose |
+|---|---|
+| `npm run dev` | Start the Vite development server |
+| `npm run build` | Generate SEO assets, build the app, and create the static `/about/` entry |
+| `npm run preview` | Preview the production build |
+| `npm run check:preflop-range` | Validate all 169 hands, frequencies, coordinates, actions, and explanations |
+| `npm run check:pot-odds` | Validate pot-odds formulas, EV boundaries, and the fixed catalog |
+| `npm run check:scenario-library` | Validate evidence, adapters, nodes, scheduling, and safe storage |
+| `npm run check:seo-geo` | Validate canonical URLs, JSON-LD, robots, sitemap, and machine knowledge |
 
-You can add different types of AI players in `main.py`:
+## Python tests
 
-```python
-# OpenAI compatible API
-players.append(OpenAiLLMUser(
-    name="Player Name",
-    model_name="Model Name",
-    api_key='YOUR_API_KEY',
-    base_url="YOUR_BASE_URL"
-))
-
-# Anthropic Claude
-players.append(AnthropicLLMUser(
-    name="Player Name",
-    model_name="Model Name",
-    api_key='YOUR_API_KEY',
-    base_url="YOUR_BASE_URL"
-))
+```bash
+python3 -m pip install -r requirements.txt -r requirements-dev.txt
+python3 -m pytest
 ```
 
-### Game Parameters
+## BYOK, privacy, and security
 
-You can adjust game settings by modifying parameters in `main.py`:
+- Training answers, language preference, and review history may be stored in browser localStorage/sessionStorage. There is no learning-account database.
+- BYOK configuration can include an API key cached in localStorage. Connection tests and AI games transmit that credential to the POSTSOMA backend and the selected provider.
+- Room tokens and live state are operational data and are not published in the sitemap, JSON-LD, or `llms.txt`.
+- Current room state lives in server memory and is not guaranteed to survive a restart.
+- Production deployments should restrict `ALLOWED_ORIGINS`, use HTTPS/WSS, and never log API keys or player tokens.
 
-```python
-start_game(
-    players,
-    hands=10,        # Number of hands to play
-    chips=1000,      # Initial chips for each player
-    small_blind=5,   # Small blind amount
-    big_blind=10     # Big blind amount
-)
-```
+## API and protocol
 
-## Game Process
+- HTTP / WebSocket contract: [docs/api-ws-contract.md](docs/api-ws-contract.md)
+- Online 1v1 architecture: [docs/online-1v1-architecture.md](docs/online-1v1-architecture.md)
+- FastAPI entry: `online.app:app`
+- WebSocket: `/ws/rooms/{room_id}?token={player_token}`
 
-1. Initialize the game, set blinds and initial chips
-2. Deal hole cards to each player
-3. Pre-flop betting round
-4. Deal the flop and betting round
-5. Deal the turn and betting round
-6. Deal the river and betting round
-7. Showdown and determine the winner
-8. Distribute chips and record game results
-9. AI players reflect on the current game
-10. Start a new round
+## SEO / GEO
 
-## Extended Features
+- Canonical site: <https://www.205033.xyz/>
+- Method, evidence, and citation guide: <https://www.205033.xyz/about/>
+- Machine index: [llms.txt](frontend/poker_llm_web/public/llms.txt) · [llms-full.txt](frontend/poker_llm_web/public/llms-full.txt)
+- Sitemap: [sitemap.xml](frontend/poker_llm_web/public/sitemap.xml)
+- Maintenance rules: [GEO / SEO Skill](.agents/skills/geo-seo-optimization/SKILL.md)
 
-- Support for game log recording and replay
-- AI players can analyze and reflect on other players
-- Different large language models can be customized as AI players
-- Support for adjusting game parameters, such as blind size, initial chips, etc.
-- Web-based visual interface
+These assets improve machine readability; they do not guarantee search ranking, AI citation, or rich-result eligibility.
 
-## Program Screenshots
+## Contributing
 
-Showing LLM call results and reasoning process
-![Program Screenshot](./doc/img/1.png)
-
-Showing the process of LLM analyzing other players' behavior
-![Program Screenshot](./doc/img/2.png)
+Use [Issues](https://github.com/postsoma-2050/Poker/issues) for reproducible reports, or open a focused Pull Request. Range, probability, or strategy data must include its source, version, scenario assumptions, license, and validation method before it can be admitted as training truth.
 
 ## License
 
-This project is open-source, see [LICENSE](LICENSE) file for details.
+Project code is available under the [MIT License](LICENSE). Poker content, model providers, and external services remain subject to their own terms and applicable law.
