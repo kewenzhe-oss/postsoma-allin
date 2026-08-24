@@ -1,36 +1,45 @@
-# robots.txt for POSTSOMA · ALLIN
+# POSTSOMA · ALLIN — public crawler policy
+# Canonical origin: https://www.205033.xyz/
 
-# Allow all standard search engine bots
 User-agent: *
 Allow: /
 Disallow: /room/
 Disallow: /api/
+Disallow: /ws/
 
-# Explicitly allow AI agents and LLM crawlers for AEO (Answer Engine Optimization)
-User-agent: GPTBot
-Allow: /
-Disallow: /room/
-Disallow: /api/
-
+# Search and answer-engine discovery
+User-agent: OAI-SearchBot
 User-agent: PerplexityBot
+User-agent: Claude-User
+User-agent: Applebot
+User-agent: Googlebot
+User-agent: Amzn-SearchBot
 Allow: /
 Disallow: /room/
 Disallow: /api/
+Disallow: /ws/
 
+# User-triggered retrieval. Operators may apply additional runtime policies.
+User-agent: ChatGPT-User
+User-agent: Perplexity-User
+Allow: /
+Disallow: /room/
+Disallow: /api/
+Disallow: /ws/
+
+# Model-development, dataset, and extended-use controls
+User-agent: GPTBot
 User-agent: ClaudeBot
-Allow: /
-Disallow: /room/
-Disallow: /api/
-
 User-agent: anthropic-ai
-Allow: /
-Disallow: /room/
-Disallow: /api/
-
 User-agent: Applebot-Extended
+User-agent: Google-Extended
+User-agent: Amazonbot
+User-agent: Bytespider
+User-agent: CCBot
+User-agent: Diffbot
 Allow: /
 Disallow: /room/
 Disallow: /api/
+Disallow: /ws/
 
-# Sitemap location
-Sitemap: https://postsoma-allin.com/sitemap.xml
+Sitemap: https://www.205033.xyz/sitemap.xml

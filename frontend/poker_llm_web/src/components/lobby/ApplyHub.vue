@@ -2,10 +2,10 @@
   <section class="apply-hub" :aria-labelledby="headingId">
     <header class="apply-header">
       <div>
-        <span class="section-kicker">Apply · 用实战巩固</span>
-        <h4 :id="headingId">{{ copy.titleZh }}</h4>
+        <span class="section-kicker">{{ commonCopy.kicker }}</span>
+        <h4 :id="headingId">{{ copy.title }}</h4>
       </div>
-      <p>{{ copy.titleEn }}</p>
+      <p>{{ copy.subtitle }}</p>
     </header>
 
     <p class="apply-intro">
@@ -19,12 +19,12 @@
       @select-mode="handleModeSelection"
     />
 
-    <aside class="truth-boundary" aria-label="Training and free-play boundary">
-      <strong>Verified training stays authoritative · 固定训练反馈仍是依据</strong>
+    <aside class="truth-boundary" :aria-label="commonCopy.boundaryAria">
+      <strong>{{ commonCopy.boundaryTitle }}</strong>
       <ul>
         <li>{{ copy.truthSource }}</li>
-        <li>好友与 AI 对局用于应用概念、体验不确定性和维持趣味，不提供固定训练评分。</li>
-        <li>单手输赢、朋友意见或 AI 输出，都不能覆盖 baseline 或数学模型给出的训练反馈。</li>
+        <li>{{ commonCopy.freePlayBoundary }}</li>
+        <li>{{ commonCopy.outcomeBoundary }}</li>
       </ul>
     </aside>
   </section>
@@ -33,19 +33,53 @@
 <script setup>
 import { computed } from 'vue'
 import ModeSelector from '@/components/lobby/ModeSelector.vue'
+import { isZh } from '@/i18n/locale.js'
 
 const SOURCE_COPY = Object.freeze({
   preflop_range: Object.freeze({
-    titleZh: '把翻前范围带入一对一对局',
-    titleEn: 'Take your preflop range ideas into heads-up play.',
-    detail: 'Notice how position, opponent actions, and uncertain outcomes feel after practicing a fixed baseline.',
-    truthSource: '本训练的倾向反馈来自固定、版本化的 baseline-v1，而不是朋友或 AI 的评价。'
+    en: Object.freeze({
+      title: 'Take your preflop range ideas into heads-up play',
+      subtitle: 'Apply a limited reference in a dynamic environment.',
+      detail: 'Notice how position, opponent actions, and uncertain outcomes feel after practicing a fixed baseline.',
+      truthSource: 'The tendency feedback comes from the fixed, versioned baseline-v1—not from a friend or AI opinion.'
+    }),
+    zh: Object.freeze({
+      title: '把翻前范围带入一对一对局',
+      subtitle: '在动态环境中应用一份受限参考。',
+      detail: '练习固定 baseline 后，观察位置、对手行动与不确定结果如何改变你的思考。',
+      truthSource: '本训练的倾向反馈来自固定、版本化的 baseline-v1，而不是朋友或 AI 的评价。'
+    })
   }),
   pot_odds_ev: Object.freeze({
-    titleZh: '在动态局面中识别价格与风险',
-    titleEn: 'Recognize price and risk when the table becomes dynamic.',
-    detail: 'Use the fixed-math drill as your anchor, then practice noticing bet sizes without treating a runout as proof.',
-    truthSource: '本训练的答案来自固定 pot-odds-v1 数学模型，而不是牌桌结果或 AI 推测。'
+    en: Object.freeze({
+      title: 'Recognize price and risk in a dynamic spot',
+      subtitle: 'Apply fixed math without treating a runout as proof.',
+      detail: 'Use the fixed-math exercise as your anchor, then practice noticing bet sizes and uncertainty.',
+      truthSource: 'The exercise answer comes from the fixed pot-odds-v1 math model—not from a table result or AI guess.'
+    }),
+    zh: Object.freeze({
+      title: '在动态局面中识别价格与风险',
+      subtitle: '应用固定数学，不把单手结果当作证明。',
+      detail: '以固定数学练习为锚点，再观察下注尺度与不确定性。',
+      truthSource: '本训练的答案来自固定 pot-odds-v1 数学模型，而不是牌桌结果或 AI 推测。'
+    })
+  })
+})
+
+const COMMON_COPY = Object.freeze({
+  en: Object.freeze({
+    kicker: 'APPLY · USE IT IN PLAY',
+    boundaryAria: 'Training and free-play boundary',
+    boundaryTitle: 'References and free play serve different roles',
+    freePlayBoundary: 'Friend and AI games help you apply the five questions and experience uncertainty. They do not provide a verified training score.',
+    outcomeBoundary: 'One result, a friend’s opinion, or AI output cannot become range or math truth. AI is not the training judge.'
+  }),
+  zh: Object.freeze({
+    kicker: '应用 · 用实战巩固',
+    boundaryAria: '训练参考与自由对局边界',
+    boundaryTitle: '参考与自由对局各有边界',
+    freePlayBoundary: '好友与 AI 对局用于应用五问、体验不确定性和维持趣味，不提供已验证的训练评分。',
+    outcomeBoundary: '单手输赢、朋友意见或 AI 输出，不会变成范围参考或数学事实；AI 不是训练裁判。'
   })
 })
 
@@ -59,7 +93,8 @@ const props = defineProps({
 
 const emit = defineEmits(['select-mode'])
 
-const copy = computed(() => SOURCE_COPY[props.source])
+const copy = computed(() => SOURCE_COPY[props.source][isZh.value ? 'zh' : 'en'])
+const commonCopy = computed(() => COMMON_COPY[isZh.value ? 'zh' : 'en'])
 const headingId = computed(() => `apply-hub-${props.source}`)
 
 const handleModeSelection = (mode) => {

@@ -2,68 +2,105 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="icon" type="image/png" href="/favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    
-    <!-- Primary SEO Metadata -->
-    <title>POSTSOMA · ALLIN - Online Poker 1v1 & LLM Practicing</title>
-    <meta name="description" content="Host private 1v1 heads-up Texas Hold'em poker rooms to play with friends, or set up a practice match against LLMs like DeepSeek, OpenAI, or Gemini using your own API key." />
-    <meta name="keywords" content="1v1 poker, online heads-up poker, play poker with friends, LLM poker opponent, BYOK AI poker, DeepSeek poker, OpenAI poker practice" />
-    
-    <!-- OpenGraph / Facebook -->
+
+    <title>Poker Decision Thinking Tool | POSTSOMA · ALLIN</title>
+    <meta name="description" content="Understand the spot before searching for an answer. Use Hand, Context, Range, Price, and Risk to build a repeatable poker decision habit." />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/app_icon.png" />
+    <link rel="canonical" href="https://www.205033.xyz/" />
+
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://postsoma-allin.com/" />
-    <meta property="og:title" content="POSTSOMA · ALLIN - 1v1 Poker & LLM Practice" />
-    <meta property="og:description" content="Host private 1v1 heads-up Texas Hold'em poker rooms with friends, or practice against custom LLMs using your own API key." />
-    <meta property="og:image" content="/app_icon.png" />
+    <meta property="og:site_name" content="POSTSOMA · ALLIN" />
+    <meta property="og:url" content="https://www.205033.xyz/" />
+    <meta property="og:title" content="Poker Decision Thinking Tool | POSTSOMA · ALLIN" />
+    <meta property="og:description" content="Understand the spot before searching for an answer. Use Hand, Context, Range, Price, and Risk to build a repeatable poker decision habit." />
+    <meta property="og:image" content="https://www.205033.xyz/app_icon.png" />
+    <meta property="og:image:alt" content="POSTSOMA · ALLIN" />
+    <meta property="og:image:width" content="1024" />
+    <meta property="og:image:height" content="1024" />
 
-    <!-- Twitter -->
-    <meta property="twitter:card" content="summary_large_image" />
-    <meta property="twitter:url" content="https://postsoma-allin.com/" />
-    <meta property="twitter:title" content="POSTSOMA · ALLIN - 1v1 Poker & LLM Practice" />
-    <meta property="twitter:description" content="Host private 1v1 heads-up Texas Hold'em poker rooms with friends, or practice against custom LLMs using your own API key." />
-    <meta property="twitter:image" content="/app_icon.png" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Poker Decision Thinking Tool | POSTSOMA · ALLIN" />
+    <meta name="twitter:description" content="Understand the spot before searching for an answer. Use Hand, Context, Range, Price, and Risk to build a repeatable poker decision habit." />
+    <meta name="twitter:image" content="https://www.205033.xyz/app_icon.png" />
 
-    <!-- Canonical Tag -->
-    <link rel="canonical" href="https://postsoma-allin.com/" />
-
-    <!-- Schema.org JSON-LD (WebSite + SoftwareApplication) -->
-    <script type="application/ld+json">
+    <script id="postsoma-structured-data" type="application/ld+json">
       {
         "@context": "https://schema.org",
         "@graph": [
           {
-            "@type": "WebSite",
-            "@id": "https://postsoma-allin.com/#website",
-            "url": "https://postsoma-allin.com/",
+            "@type": "Organization",
+            "@id": "https://www.205033.xyz/#organization",
             "name": "POSTSOMA · ALLIN",
-            "description": "Play 1v1 heads-up Texas Hold'em poker online with friends or practice against custom LLM AI opponents.",
-            "publisher": {
-              "@type": "Organization",
-              "name": "POSTSOMA"
+            "alternateName": "POSTSOMA-2050",
+            "url": "https://www.205033.xyz/",
+            "logo": {
+              "@type": "ImageObject",
+              "url": "https://www.205033.xyz/app_icon.png",
+              "width": 1024,
+              "height": 1024
             }
           },
           {
-            "@type": "SoftwareApplication",
-            "@id": "https://postsoma-allin.com/#software",
+            "@type": "WebSite",
+            "@id": "https://www.205033.xyz/#website",
+            "url": "https://www.205033.xyz/",
             "name": "POSTSOMA · ALLIN",
-            "applicationCategory": "GameApplication",
-            "operatingSystem": "Web",
-            "url": "https://postsoma-allin.com/",
-            "description": "An online poker 1v1 sandbox for private rooms with friends and BYOK LLM AI opponent practice.",
-            "offers": {
-              "@type": "Offer",
-              "price": "0.00",
-              "priceCurrency": "USD"
-            },
+            "alternateName": "POSTSOMA-2050",
+            "inLanguage": ["en", "zh-CN"],
+            "publisher": { "@id": "https://www.205033.xyz/#organization" }
+          },
+          {
+            "@type": "SoftwareApplication",
+            "@id": "https://www.205033.xyz/#software",
+            "name": "POSTSOMA · ALLIN",
+            "alternateName": "POSTSOMA-2050",
+            "url": "https://www.205033.xyz/",
+            "applicationCategory": "EducationalApplication",
+            "applicationSubCategory": "Poker decision-thinking tool",
+            "operatingSystem": "Web browser",
+            "browserRequirements": "Requires JavaScript and a modern web browser",
+            "isAccessibleForFree": true,
+            "inLanguage": ["en", "zh-CN"],
+            "description": "A poker decision-thinking tool that helps players examine Hand, Context, Range, Price, and Risk before choosing an action.",
             "featureList": [
-              "1v1 Heads-Up Online Poker",
-              "Private Game Rooms with shareable link invites",
-              "Bring Your Own Key (BYOK) AI practice matches",
-              "Multiple LLM AI Providers (OpenAI, DeepSeek, Gemini, Qwen, OpenRouter)",
-              "Showdown analysis and hand history tracking"
+              "Five-question poker decision framework",
+              "Versioned heads-up preflop range reference",
+              "Pot odds and required-equity Price Builder",
+              "Hand and board Explorer",
+              "Private heads-up friend rooms",
+              "Bring Your Own Key AI free-play sandbox"
+            ],
+            "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+            "publisher": { "@id": "https://www.205033.xyz/#organization" },
+            "codeRepository": "https://github.com/kewenzhe-oss/postsoma-allin"
+          },
+          {
+            "@type": "WebPage",
+            "@id": "https://www.205033.xyz/#home",
+            "url": "https://www.205033.xyz/",
+            "name": "Poker Decision Thinking Tool",
+            "description": "Understand the spot before searching for an answer. Use Hand, Context, Range, Price, and Risk to build a repeatable poker decision habit.",
+            "inLanguage": "en",
+            "isPartOf": { "@id": "https://www.205033.xyz/#website" },
+            "about": { "@id": "https://www.205033.xyz/#software" },
+            "mainEntity": { "@id": "https://www.205033.xyz/#five-question-process" }
+          },
+          {
+            "@type": "HowTo",
+            "@id": "https://www.205033.xyz/#five-question-process",
+            "name": "Understand a poker decision with five questions",
+            "description": "A repeatable thinking process for examining a poker spot before looking for an answer.",
+            "inLanguage": "en",
+            "step": [
+              { "@type": "HowToStep", "position": 1, "name": "Hand", "text": "What do I have?", "url": "https://www.205033.xyz/#hand" },
+              { "@type": "HowToStep", "position": 2, "name": "Context", "text": "What spot am I in?", "url": "https://www.205033.xyz/#context" },
+              { "@type": "HowToStep", "position": 3, "name": "Range", "text": "What could we each have?", "url": "https://www.205033.xyz/#range" },
+              { "@type": "HowToStep", "position": 4, "name": "Price", "text": "What does this price require?", "url": "https://www.205033.xyz/#price" },
+              { "@type": "HowToStep", "position": 5, "name": "Risk", "text": "What could distort the decision?", "url": "https://www.205033.xyz/#risk" }
             ]
           }
         ]
@@ -71,7 +108,24 @@
     </script>
   </head>
   <body>
-    <div id="app"></div>
+    <div id="app">
+      <!-- POSTSOMA_FALLBACK_START -->
+      <noscript>
+        <main>
+          <h1>Understand the spot before searching for an answer.</h1>
+          <p>Use Hand, Context, Range, Price, and Risk to build a repeatable thinking habit before every poker decision.</p>
+          <ol>
+            <li><strong>Hand:</strong> What do I have?</li>
+            <li><strong>Context:</strong> What spot am I in?</li>
+            <li><strong>Range:</strong> What could we each have?</li>
+            <li><strong>Price:</strong> What does this price require?</li>
+            <li><strong>Risk:</strong> What could distort the decision?</li>
+          </ol>
+          <p><a href="/about/">Read the method, evidence, privacy notes, and project limits.</a></p>
+        </main>
+      </noscript>
+      <!-- POSTSOMA_FALLBACK_END -->
+    </div>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

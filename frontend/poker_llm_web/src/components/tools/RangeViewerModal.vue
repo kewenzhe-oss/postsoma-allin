@@ -44,23 +44,7 @@
             </div>
 
             <div class="header-language-row">
-              <div class="lang-switcher">
-                <button 
-                  class="lang-btn" 
-                  :class="{ active: currentLang === 'en' }" 
-                  @click="setLanguage('en')"
-                >
-                  English
-                </button>
-                <span class="lang-divider">|</span>
-                <button 
-                  class="lang-btn" 
-                  :class="{ active: currentLang === 'zh' }" 
-                  @click="setLanguage('zh')"
-                >
-                  中文
-                </button>
-              </div>
+              <LocaleSwitcher />
             </div>
           </div>
 
@@ -1040,7 +1024,7 @@
     <Transition name="modal-fade">
       <div v-if="showCardPicker" class="picker-modal-overlay" @click.self="closeCardPicker">
         <div class="picker-modal-content animate-scaleIn">
-          <button class="picker-close-btn" @click="closeCardPicker" aria-label="Close picker">&times;</button>
+          <button class="picker-close-btn" @click="closeCardPicker" :aria-label="t('closePickerLabel')">&times;</button>
           <h3 class="picker-title">{{ t('pickerTitle') }}</h3>
           <p class="picker-subtitle">
             {{ activeSlotType === 'hero' ? t('pickerHeroSub') : t('pickerBoardSub') }}
@@ -1103,6 +1087,8 @@ import {
 } from '@/training/ranges/hu-btn-rfi-100bb-v1.js'
 import { PREFLOP_EXPLANATIONS } from '@/training/explanations/preflop-explanations.js'
 import CardView from '@/components/online/CardView.vue'
+import LocaleSwitcher from '@/components/common/LocaleSwitcher.vue'
+import { isZh } from '@/i18n/locale.js'
 
 const dictionary = {
   en: {
@@ -1134,8 +1120,8 @@ const dictionary = {
     stepPriceQuestion: 'Compare the cost of continuing with the equity the price demands.',
     stepRiskTitle: 'Risk · What could distort the judgment?',
     stepRiskQuestion: 'Check dirty outs, rake, future action, and result-oriented thinking.',
-    trainPreflopCta: 'Practice 10 Preflop Hands',
-    trainPotOddsCta: 'Practice Pot Odds / EV',
+    trainPreflopCta: 'Open HU Range Practice',
+    trainPotOddsCta: 'Open Price Builder',
     viewRangeCta: 'View Range Reference',
     openExplorerCta: 'Explorer · Study a Specific Spot',
     guideTruthBoundary: 'Training answers come from a versioned baseline or fixed math model. The Guide teaches a process; it does not create a new strategy truth.',
@@ -1428,6 +1414,7 @@ const dictionary = {
     pickerTitle: 'Card Picker',
     pickerHeroSub: 'Select card for your hand',
     pickerBoardSub: 'Select card for the flop',
+    closePickerLabel: 'Close card picker',
     clearCard: 'Clear Slot',
     cancel: 'Cancel'
   },
@@ -1450,57 +1437,57 @@ const dictionary = {
     startTitle: '先看懂局面，再寻找答案。',
     startDesc: '这五个问题可以从十手训练迁移到单挑牌桌。开始学习不需要填牌、输入底池、创建房间或配置 API Key。',
     fiveQuestionsLabel: '扑克五问决策流程',
-    stepHandTitle: 'Hand · 我拿到的是什么？',
+    stepHandTitle: '手牌：我拿到的是什么？',
     stepHandQuestion: '同时观察点数、花色、连接性、阻断牌与翻后可玩性。',
-    stepContextTitle: 'Context · 我处于什么局面？',
+    stepContextTitle: '局面：我处于什么局面？',
     stepContextQuestion: '确认位置、有效筹码，以及轮到我前发生了什么。',
-    stepRangeTitle: 'Range · 我的范围与对手范围是什么？',
+    stepRangeTitle: '范围：我的范围与对手范围是什么？',
     stepRangeQuestion: '用频率和倾向思考，而不是只分“能玩 / 不能玩”。',
-    stepPriceTitle: 'Price · 这个价格要求什么？',
+    stepPriceTitle: '价格：这个价格要求什么？',
     stepPriceQuestion: '比较继续付出的成本与价格要求的最低真实 equity。',
-    stepRiskTitle: 'Risk · 哪些风险会让判断失真？',
+    stepRiskTitle: '风险：哪些风险会让判断失真？',
     stepRiskQuestion: '检查脏 outs、rake、后续行动，以及结果导向偏差。',
-    trainPreflopCta: '练 10 手 Preflop',
-    trainPotOddsCta: '练 Pot Odds / EV',
+    trainPreflopCta: '进入 HU 范围参考练习',
+    trainPotOddsCta: '打开价格计算',
     viewRangeCta: '打开范围矩阵',
-    openExplorerCta: 'Explorer · 研究具体牌局',
+    openExplorerCta: '研究具体牌局',
     guideTruthBoundary: '训练答案来自版本化 baseline 或固定数学模型。决策指南提供思考流程，不创造新的策略真值。',
     conceptsEyebrow: '五个视角，一次决策',
     conceptsTitle: '可迁移到不确定局面的核心概念',
     conceptsDesc: '每个视角只给你一个问题、一条原则，以及一个需要对结论保持克制的理由。',
-    conceptHandTitle: 'Hand · 手牌',
+    conceptHandTitle: '手牌（Hand）',
     conceptHandQuestion: '这手牌能做什么，而不只是它现在有多大？',
     conceptHandPrinciple: '牌力也来自花色、连接性、blocker 与翻后可玩性。',
     conceptHandReminder: '原始强度接近的两手牌，最终实现 equity 的能力可能差很多。',
     conceptHandCta: '研究一手具体牌',
-    conceptContextTitle: 'Context · 局面',
+    conceptContextTitle: '局面（Context）',
     conceptContextQuestion: '轮到我决定前，哪些条件已经改变？',
     conceptContextPrinciple: '位置、有效筹码和前面行动会改变同一手牌的价值。',
     conceptContextReminder: '同一手牌不会在所有局面中对应一个固定行动。',
     conceptContextCta: '打开自由实验台',
-    conceptRangeTitle: 'Range · 范围',
+    conceptRangeTitle: '手牌范围（Range）',
     conceptRangeQuestion: '这个局面包含哪些手牌与行动频率？',
     conceptRangePrinciple: '范围不是简单“能玩 / 不能玩”；边缘牌可能是频率或混合策略问题。',
     conceptRangeReminder: 'baseline-v1 是版本化训练参考，不是 solver 输出，也不是唯一正确策略。',
     conceptRangeCta: '打开范围参考',
-    conceptPriceTitle: 'Price · 价格',
+    conceptPriceTitle: '价格（Price）',
     conceptPriceQuestion: '当前价格要求多少最低真实 equity？',
     conceptPricePrinciple: '先看价格，不先看结果。在固定、无 rake 示例中，面对半池下注通常需要约 25% equity。',
     conceptPriceReminder: '这个门槛是数学示例，不是完整策略裁判。',
     conceptPriceCta: '练 Pot Odds / EV',
-    conceptRiskTitle: 'Risk · 风险',
+    conceptRiskTitle: '风险（Risk）',
     conceptRiskQuestion: '哪些隐藏假设会让估计过于乐观？',
     conceptRiskPrinciple: '脏 outs、rake、后续下注与范围变化都会改变估计的含义。',
     conceptRiskReminder: '听牌命中概率不等于对对手范围的真实 equity；单手结果也不定义决策质量。',
     conceptRiskCta: '观察一个具体例子',
     explorerEyebrow: '可选的具体牌局工作区',
-    explorerTitle: 'Explorer · 自由实验台',
+    explorerTitle: '自由实验台',
     explorerDesc: '只有在想研究一手具体牌时，才添加 Hero Hand 与 Flop。基础概念无需任何输入即可学习。',
     explorerNavLabel: '自由实验工具',
     explorerBoundary: '这是用于观察概念的简化工作区，不是 solver、完整策略答案或训练真值来源。',
     tabSpot: '具体局面',
     tabPrice: '价格实验',
-    spotSetupTitle: 'Spot Setup · 描述眼前局面',
+    spotSetupTitle: '具体局面',
     spotSetupQ1: '我是否已经拥有成牌或摊牌价值？',
     spotSetupQ2: '我是在为改善牌付费，还是已经拥有可以继续的价值？',
     spotSetupQ3: '范围、位置和后续街风险中，还有哪些信息未知？',
@@ -1524,15 +1511,15 @@ const dictionary = {
     currentToCallSnapshotLabel: '当前待跟金额快照',
     liveSnapshotEmpty: '当前没有可用的实时牌桌快照；手动实验仍可正常使用。',
     liveSnapshotBoundary: '同步只展示此刻的牌面与已投入筹码状态，不重建完整下注历史、下注前底池或对手本次下注，也不是训练真值。',
-    potBeforeBetInputLabel: 'Pot before bet · 下注前底池',
+    potBeforeBetInputLabel: '下注前底池',
     potBeforeBetHelper: '手动输入对手本次下注发生前的底池。',
-    villainBetInputLabel: 'Villain bet · 对手下注',
+    villainBetInputLabel: '对手下注',
     villainBetHelper: '请手动输入；不会从实时快照推断。',
-    yourCallInputLabel: 'Your call · 你的跟注',
+    yourCallInputLabel: '你的跟注',
     yourCallHelper: 'Hero 此刻需要额外投入的金额。',
     requiredEquityFormula: '所需真实 equity = 你的跟注 ÷（下注前底池 + 对手下注 + 你的跟注）',
     priceFormulaBoundary: '这是一个不含 rake 的简化当前增量投入价格门槛。',
-    finalPotLabel: 'Final pot if you call · 跟注后最终底池',
+    finalPotLabel: '跟注后最终底池',
     priceInputsPrompt: '填写三个手动字段后，才会显示最终底池与价格门槛。',
     priceThresholdTitle: '这是价格门槛，不是行动裁判',
     priceThresholdDesc: '所需 equity 是继续投入要求的真实 equity 门槛。Explorer 不计算 Hero 对 Villain 范围的真实 equity，因此不能裁定 Call 或 Fold。',
@@ -1611,7 +1598,7 @@ const dictionary = {
     referenceSourceLabel: '数据来源',
     referenceLegacySnapshotSource: '既有本地启发式规则的固定快照',
     referenceBaselineBoundary: '这是版本化训练 baseline，不是唯一正确策略。',
-    referenceBbTitle: 'BB 防守参考 · 面对 SB 2.5x 开池',
+    referenceBbTitle: 'BB 防守参考：面对 SB 2.5x 开池',
     referenceBbBoundary: '此场景继续使用既有本地 BB 防守启发式，不属于 baseline-v1 Button RFI 快照。',
     referenceFamilyLabel: '手牌家族',
     referenceClassificationLabel: '分类',
@@ -1754,25 +1741,13 @@ const dictionary = {
     pickerTitle: '选择扑克牌',
     pickerHeroSub: '选择你的手牌',
     pickerBoardSub: '选择翻牌公共牌',
+    closePickerLabel: '关闭选牌器',
     clearCard: '清除该槽',
     cancel: '取消'
   }
 }
 
-const getBrowserLanguage = () => {
-  const saved = localStorage.getItem('postsoma_decision_guide_lang')
-  if (saved === 'en' || saved === 'zh') return saved
-  const navLang = navigator.language || navigator.userLanguage || ''
-  if (navLang.startsWith('zh')) return 'zh'
-  return 'en'
-}
-
-const currentLang = ref(getBrowserLanguage())
-
-const setLanguage = (lang) => {
-  currentLang.value = lang
-  localStorage.setItem('postsoma_decision_guide_lang', lang)
-}
+const currentLang = computed(() => isZh.value ? 'zh' : 'en')
 
 const t = (key) => {
   return dictionary[currentLang.value]?.[key] || dictionary['en'][key] || key
@@ -1787,6 +1762,10 @@ const props = defineProps({
   modelValue: {
     type: Boolean,
     required: true
+  },
+  entrySection: {
+    type: String,
+    default: 'start'
   }
 })
 
@@ -1800,6 +1779,11 @@ const activeTab = ref('spot')
 const primaryTabRefs = new Map()
 const explorerTabRefs = new Map()
 let lastFocusedElement = null
+const ENTRY_SECTIONS = Object.freeze(['start', 'reference', 'explorer'])
+
+const getEntrySection = () => (
+  ENTRY_SECTIONS.includes(props.entrySection) ? props.entrySection : 'start'
+)
 
 const primarySections = computed(() => [
   { id: 'start', kicker: t('navStartKicker'), label: t('navStart') },
@@ -2420,15 +2404,15 @@ const syncFromLiveGame = () => {
 watch(() => props.modelValue, (newVal) => {
   if (newVal) {
     lastFocusedElement = document.activeElement instanceof HTMLElement ? document.activeElement : null
-    primarySection.value = 'start'
+    primarySection.value = getEntrySection()
     activeTab.value = 'spot'
     hoveredCombo.value = null
     focusedCombo.value = combos[0]
     showCardPicker.value = false
     syncFromLiveGame()
     nextTick(() => {
-      const startTab = primaryTabRefs.get('start')
-      if (startTab) startTab.focus()
+      const entryTab = primaryTabRefs.get(primarySection.value)
+      if (entryTab) entryTab.focus()
       else modalContentRef.value?.focus()
     })
     return
@@ -3407,39 +3391,6 @@ const coachExplanation = computed(() => {
   background: rgba(217, 173, 88, 0.06);
   padding: 0.25rem 0.6rem;
   border-radius: var(--radius-xs);
-}
-.lang-switcher {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  background: rgba(0, 0, 0, 0.2);
-  border: 1px solid var(--border-subtle);
-  padding: 0.25rem 0.6rem;
-  border-radius: var(--radius-pill);
-  line-height: 1;
-}
-.lang-btn {
-  background: transparent;
-  border: none;
-  color: var(--text-tertiary);
-  font-size: 0.75rem;
-  font-weight: 800;
-  min-height: 36px;
-  padding: 0.35rem 0.55rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-.lang-btn:hover {
-  color: var(--text-primary);
-}
-.lang-btn.active {
-  color: var(--accent-primary-strong);
-  text-shadow: 0 0 8px rgba(217, 173, 88, 0.4);
-}
-.lang-divider {
-  font-size: 0.7rem;
-  color: var(--border-strong);
-  user-select: none;
 }
 .gto-title-row {
   display: flex;

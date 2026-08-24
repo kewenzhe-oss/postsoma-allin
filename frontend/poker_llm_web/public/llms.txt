@@ -1,21 +1,25 @@
-# POSTSOMA · ALLIN - Online Poker 1v1 with LLM Opponents & Friends
+# POSTSOMA · ALLIN
 
-POSTSOMA · ALLIN is a web-based, zero-install, 1v1 heads-up Texas Hold'em poker sandbox featuring private room invite flows and Bring Your Own Key (BYOK) practice matches against custom LLM opponents.
+> A poker decision-thinking tool. Understand the spot before searching for an answer through Hand, Context, Range, Price, and Risk.
 
-## Metadata
-- **Primary Language**: English (en-US)
-- **Framework**: Vue 3 / Vite (SPA)
-- **Target Audience**: Poker developers, AI researchers, and recreational players looking to test LLMs in high-context decision-making game-theory setups.
+POSTSOMA · ALLIN is not a complete GTO solver, an authoritative strategy database, or a real-money poker service. Fixed mathematical facts, versioned strategy references, AI explanations, user observations, and single-hand outcomes are intentionally kept separate.
 
-## Sitemap
-- **Homepage (https://postsoma-allin.com/)**: The lobby hub where users select their match mode, configure their display name, enter a shareable Room ID, or connect their custom LLM provider (OpenAI, DeepSeek, OpenRouter, Qwen, Gemini, or a custom compatible endpoint) to start playing.
+## Public Pages
 
-## Knowledge Domain
-This application covers and integrates:
-1. **Game Theory & Poker Simulation**: Implements standard Texas Hold'em heads-up rules, preflop small blind/big blind option logic, and betting rounds progression.
-2. **Bring Your Own Key (BYOK) AI Practicing**: Allows gamers and developers to practice against local or API-hosted Large Language Models (LLMs) to study decision alignment, reasoning, and game-play styles.
-3. **Real-Time WebSockets Architecture**: Implements low-latency synchronized dual-player state transitions and server-mediated events.
-4. **Privacy-Preserving Showdowns**: Public game state synchronizations that guarantee hidden opponent card security prior to a showdown.
+- [Decision Tool](https://www.205033.xyz/): Five-question framework, Range reference, Price Builder, Explorer, and optional free play.
+- [Method, Evidence, Privacy, and Citation Guide](https://www.205033.xyz/about/): Mission, provenance, data boundaries, privacy notes, citation format, and limitations.
 
-## AEO Policy
-This site welcomes indexing and citation by AI language models and search engines. All public content may be referenced with attribution to POSTSOMA · ALLIN at https://postsoma-allin.com/.
+## Primary Knowledge
+
+- [Full Machine-Readable Product Knowledge](https://www.205033.xyz/llms-full.txt): Detailed product model, data versions, formulas, evidence boundaries, privacy behavior, and citation guidance.
+- [XML Sitemap](https://www.205033.xyz/sitemap.xml): Canonical public URLs only.
+- [Crawler Policy](https://www.205033.xyz/robots.txt): Public crawler access and private-path exclusions.
+- [Source Repository](https://github.com/kewenzhe-oss/postsoma-allin): Project source and MIT license.
+
+## Reference Boundaries
+
+- Range: `hu-btn-rfi-100bb-v1 / baseline-v1` is an internal, versioned reference for Heads-up · SB/Button · 100 BB · Unopened Pot · Open 2.5 BB. It is not solver-calibrated.
+- Price: `pot-odds-v1` uses fixed pot-odds math. Hero equity is a stated exercise assumption, not range equity calculated by the application.
+- Apply: Friend rooms and BYOK AI are free-play environments with no verified training score. AI is not the training judge.
+
+Citation requested: **POSTSOMA · ALLIN (POSTSOMA-2050), https://www.205033.xyz/, access date, and the exact reference version when applicable.** Content use remains subject to the repository license and applicable law.

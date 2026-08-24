@@ -2,33 +2,33 @@
   <div class="panel-container">
     <div class="panel-card">
       <el-tabs v-model="activeTab" class="lobby-tabs">
-        <el-tab-pane label="Host a Game" name="host">
+        <el-tab-pane :label="copy.hostTab" name="host">
           <div class="tab-content">
             <div class="form-group">
-              <label>Display Name</label>
-              <el-input v-model="displayName" placeholder="Enter your name" class="panel-input" />
+              <label>{{ copy.displayName }}</label>
+              <el-input v-model="displayName" :placeholder="copy.namePlaceholder" class="panel-input" />
             </div>
             <div class="action-wrapper">
               <el-button type="primary" class="panel-btn submit-btn" @click="handleCreate" :loading="loading">
-                Create Room
+                {{ copy.createRoom }}
               </el-button>
             </div>
           </div>
         </el-tab-pane>
         
-        <el-tab-pane label="Join a Game" name="join">
+        <el-tab-pane :label="copy.joinTab" name="join">
           <div class="tab-content">
             <div class="form-group">
-              <label>Display Name</label>
-              <el-input v-model="joinDisplayName" placeholder="Enter your name" class="panel-input" />
+              <label>{{ copy.displayName }}</label>
+              <el-input v-model="joinDisplayName" :placeholder="copy.namePlaceholder" class="panel-input" />
             </div>
             <div class="form-group">
               <label>Room ID</label>
-              <el-input v-model="joinRoomId" placeholder="Enter 6-character room ID" class="panel-input" />
+              <el-input v-model="joinRoomId" :placeholder="copy.roomPlaceholder" class="panel-input" />
             </div>
             <div class="action-wrapper">
               <el-button class="panel-btn join-btn" @click="handleJoin" :loading="loading" :disabled="!joinRoomId">
-                Join Room
+                {{ copy.joinRoom }}
               </el-button>
             </div>
           </div>
@@ -39,10 +39,11 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useOnlineStore } from '@/stores/online'
 import { ElMessage } from 'element-plus'
+import { isZh } from '@/i18n/locale.js'
 
 const router = useRouter()
 const onlineStore = useOnlineStore()
@@ -54,8 +55,36 @@ const displayName = ref(localStorage.getItem('poker_hvh_name') || 'Player 1')
 const joinDisplayName = ref(localStorage.getItem('poker_hvh_name') || 'Player 2')
 const joinRoomId = ref('')
 
+const copy = computed(() => isZh.value
+  ? {
+      hostTab: '创建房间',
+      joinTab: '加入房间',
+      displayName: '显示名称',
+      namePlaceholder: '输入你的名称',
+      roomPlaceholder: '输入 6 位 Room ID',
+      createRoom: '创建房间',
+      joinRoom: '加入房间',
+      nameRequired: '请输入显示名称。',
+      createFailed: '创建房间失败。',
+      joinRequired: '请输入名称和 Room ID。',
+      joinFailed: '加入房间失败。'
+    }
+  : {
+      hostTab: 'Host a Game',
+      joinTab: 'Join a Game',
+      displayName: 'Display Name',
+      namePlaceholder: 'Enter your name',
+      roomPlaceholder: 'Enter 6-character room ID',
+      createRoom: 'Create Room',
+      joinRoom: 'Join Room',
+      nameRequired: 'Display name is required.',
+      createFailed: 'Failed to create room.',
+      joinRequired: 'Name and Room ID are required.',
+      joinFailed: 'Failed to join room.'
+    })
+
 const handleCreate = async () => {
-  if (!displayName.value) return ElMessage.warning("Display name is required")
+  if (!displayName.value) return ElMessage.warning(copy.value.nameRequired)
   localStorage.setItem('poker_hvh_name', displayName.value)
   
   loading.value = true
@@ -63,14 +92,14 @@ const handleCreate = async () => {
     const roomId = await onlineStore.createRoom('hvsh', displayName.value)
     router.replace(`/room/${roomId}`)
   } catch (err) {
-    ElMessage.error(err.message || 'Failed to create room')
+    ElMessage.error(err.message || copy.value.createFailed)
   } finally {
     loading.value = false
   }
 }
 
 const handleJoin = async () => {
-  if (!joinDisplayName.value || !joinRoomId.value) return ElMessage.warning("Name and Room ID are required")
+  if (!joinDisplayName.value || !joinRoomId.value) return ElMessage.warning(copy.value.joinRequired)
   localStorage.setItem('poker_hvh_name', joinDisplayName.value)
   
   loading.value = true
@@ -78,7 +107,7 @@ const handleJoin = async () => {
     await onlineStore.joinRoom(joinRoomId.value, joinDisplayName.value)
     router.replace(`/room/${joinRoomId.value}`)
   } catch (err) {
-    ElMessage.error(err.message || 'Failed to join room')
+    ElMessage.error(err.message || copy.value.joinFailed)
   } finally {
     loading.value = false
   }

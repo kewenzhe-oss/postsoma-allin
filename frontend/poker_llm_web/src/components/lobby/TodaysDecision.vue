@@ -2,12 +2,9 @@
   <article class="decision-card" aria-labelledby="todays-decision-title">
     <div class="decision-card__header">
       <div>
-        <span class="section-kicker">Today’s Decision · 今日一手</span>
-        <h2 id="todays-decision-title">10-hand preflop range drill</h2>
-        <p class="section-description">
-          Choose first, then reveal the fixed baseline. No login, API key, room, or AI request.
-          <span>先行动，再查看固定基准。</span>
-        </p>
+        <span class="section-kicker">{{ copy.kicker }}</span>
+        <h2 id="todays-decision-title">{{ copy.title }}</h2>
+        <p class="section-description">{{ copy.description }}</p>
       </div>
       <div class="session-meta">
         <span class="baseline-badge">baseline-v1</span>
@@ -15,29 +12,29 @@
       </div>
     </div>
 
-    <div class="scenario-strip" aria-label="Training scenario">
+    <div class="scenario-strip" :aria-label="copy.scenarioAria">
       <div class="scenario-item">
-        <span class="scenario-label">Format · 赛制</span>
+        <span class="scenario-label">{{ copy.format }}</span>
         <strong>Heads-up</strong>
       </div>
       <div class="scenario-item">
-        <span class="scenario-label">Position · 位置</span>
+        <span class="scenario-label">{{ copy.position }}</span>
         <strong>SB / Button</strong>
       </div>
       <div class="scenario-item">
-        <span class="scenario-label">Effective stack · 有效筹码</span>
+        <span class="scenario-label">{{ copy.effectiveStack }}</span>
         <strong>100 BB</strong>
       </div>
       <div class="scenario-item">
-        <span class="scenario-label">Pot state · 底池状态</span>
+        <span class="scenario-label">{{ copy.potState }}</span>
         <strong>Unopened</strong>
       </div>
     </div>
 
     <template v-if="phase !== 'complete'">
-      <div class="session-progress" :aria-label="`Hand ${currentIndex + 1} of ${session.hands.length}`">
+      <div class="session-progress" :aria-label="copy.progressAria(currentIndex + 1, session.hands.length)">
         <div class="progress-copy">
-          <strong>{{ phase === 'intro' ? 'Ready for 10 hands' : `Hand ${currentIndex + 1} / ${session.hands.length}` }}</strong>
+          <strong>{{ phase === 'intro' ? copy.ready : copy.handProgress(currentIndex + 1, session.hands.length) }}</strong>
           <span>{{ sessionModeLabel }}</span>
         </div>
         <div class="progress-track" aria-hidden="true">
@@ -47,7 +44,7 @@
 
       <div class="decision-stage">
         <div class="hero-hand">
-          <span class="stage-label">Hero hand · 手牌</span>
+          <span class="stage-label">{{ copy.heroHand }}</span>
           <strong class="canonical-hand">{{ currentHand.hero.canonicalHand }}</strong>
           <div class="playing-cards" :aria-label="currentHand.hero.cards.map(({ label }) => label).join(' ') ">
             <span
@@ -63,11 +60,11 @@
         </div>
 
         <div class="decision-prompt">
-          <span class="stage-label">Your action · 你的行动</span>
-          <h3>Action folds to you on the Button. What is your move?</h3>
-          <p>按钮位无人入池，轮到你行动。</p>
+          <span class="stage-label">{{ copy.yourAction }}</span>
+          <h3>{{ copy.prompt }}</h3>
+          <p>{{ copy.promptDetail }}</p>
 
-          <div class="action-options" role="group" aria-label="Choose a preflop action">
+          <div class="action-options" role="group" :aria-label="copy.actionGroupAria">
             <button
               v-for="action in currentHand.actions"
               :key="action.id"
@@ -83,29 +80,28 @@
               @click="selectAction(action.id)"
             >
               <span>{{ action.label }}</span>
-              <small>{{ action.labelZh }}</small>
               <em v-if="evaluation">{{ currentHand.baseline.frequencies[action.id] }}%</em>
             </button>
           </div>
 
           <p v-if="phase === 'intro'" class="action-helper">
-            Start the session to unlock actions. The baseline stays hidden until you answer.
+            {{ copy.introHelper }}
           </p>
           <p v-else-if="!evaluation" class="action-helper active">
-            Baseline hidden · 基准尚未揭示
+            {{ copy.baselineHidden }}
           </p>
         </div>
       </div>
 
       <div v-if="phase === 'intro'" class="intro-actions">
         <button type="button" class="primary-button" @click="beginPreparedSession">
-          <span>Start 10 hands · 开始作答</span>
+          <span>{{ copy.start }}</span>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
             <path d="M5 12h14" />
             <path d="m13 6 6 6-6 6" />
           </svg>
         </button>
-        <p>Fixed local data · 可重放 seed · no scoring by AI</p>
+        <p>{{ copy.localBoundary }}</p>
       </div>
 
       <section
@@ -116,27 +112,27 @@
       >
         <div class="feedback-heading">
           <div>
-            <span class="feedback-eyebrow">Immediate feedback · 即时反馈</span>
+            <span class="feedback-eyebrow">{{ copy.immediateFeedback }}</span>
             <h3>{{ feedbackTitle }}</h3>
           </div>
-          <span class="alignment-badge">{{ evaluation.chosenFrequency }}% in baseline</span>
+          <span class="alignment-badge">{{ copy.inBaseline(evaluation.chosenFrequency) }}</span>
         </div>
 
         <div class="feedback-facts">
           <div>
-            <span>Hero hand</span>
+            <span>{{ copy.heroHand }}</span>
             <strong>{{ currentHand.hero.canonicalHand }}</strong>
           </div>
           <div>
-            <span>Your choice · 你的选择</span>
+            <span>{{ copy.yourChoice }}</span>
             <strong>{{ actionLabel(evaluation.action) }}</strong>
           </div>
           <div>
-            <span>Baseline tendency · 基准倾向</span>
+            <span>{{ copy.baselineTendency }}</span>
             <strong>{{ primaryActionSummary }}</strong>
           </div>
           <div>
-            <span>169 matrix · 矩阵位置</span>
+            <span>{{ copy.matrixPosition }}</span>
             <strong>
               #{{ currentHand.baseline.matrixPosition.index + 1 }}
               · R{{ currentHand.baseline.matrixPosition.row }} C{{ currentHand.baseline.matrixPosition.column }}
@@ -144,7 +140,7 @@
           </div>
         </div>
 
-        <div class="frequency-row" aria-label="Baseline action frequencies">
+        <div class="frequency-row" :aria-label="copy.frequencyAria">
           <span
             v-for="action in currentHand.actions"
             :key="action.id"
@@ -156,20 +152,16 @@
 
         <div class="feedback-explanation">
           <p>{{ feedbackCopy }}</p>
-          <p>{{ explanation.zh }}</p>
-          <p class="english-explanation">{{ explanation.en }}</p>
-          <small>
-            baseline-v1 is a fixed learning snapshot, not solver output or an absolute strategy.
-            它不是唯一或绝对正确的扑克答案。
-          </small>
+          <p>{{ localizedExplanation }}</p>
+          <small>{{ copy.baselineBoundary }}</small>
         </div>
 
         <div class="feedback-actions">
           <button type="button" class="primary-button compact" @click="advanceHand">
-            {{ isLastHand ? '再来一手 · 查看本轮结果' : '再来一手 · Next hand' }}
+            {{ isLastHand ? copy.viewResults : copy.nextHand }}
           </button>
           <button type="button" class="secondary-button" @click="emit('open-ranges')">
-            看完整范围 · Full range
+            {{ copy.fullRange }}
           </button>
           <button
             type="button"
@@ -177,45 +169,42 @@
             :disabled="mistakeCount === 0"
             @click="startMistakeSession"
           >
-            只练错题 · Mistakes ({{ mistakeCount }})
+            {{ copy.reviewCandidates }} ({{ mistakeCount }})
           </button>
         </div>
       </section>
     </template>
 
     <section v-else class="session-complete" aria-live="polite">
-      <span class="section-kicker">Session complete · 本轮完成</span>
-      <h3>{{ session.mode === 'mistakes' ? 'Mistake review finished' : '10 decisions completed' }}</h3>
-      <p>
-        This summary measures alignment with baseline-v1’s main tendency—not poker truth and not hand results.
-        这里统计的是与基准主要倾向的一致程度。
-      </p>
+      <span class="section-kicker">{{ copy.completeKicker }}</span>
+      <h3>{{ session.mode === 'mistakes' ? copy.reviewComplete : copy.practiceComplete }}</h3>
+      <p>{{ copy.completeBoundary }}</p>
 
       <div class="score-grid">
         <div>
           <strong>{{ sessionScores.primary }}</strong>
-          <span>Main tendency · 主要倾向</span>
+          <span>{{ copy.mainTendency }}</span>
         </div>
         <div>
           <strong>{{ sessionScores.mixed }}</strong>
-          <span>In mix · 混合可接受</span>
+          <span>{{ copy.inMix }}</span>
         </div>
         <div>
           <strong>{{ sessionScores.deviation }}</strong>
-          <span>Outside mix · 范围外</span>
+          <span>{{ copy.outsideMix }}</span>
         </div>
         <div>
           <strong>{{ mistakeCount }}</strong>
-          <span>Review queue · 错题候选</span>
+          <span>{{ copy.reviewQueue }}</span>
         </div>
       </div>
 
       <div class="complete-actions">
         <button type="button" class="primary-button compact" @click="startNewStandardSession">
-          New 10 hands · 新一轮
+          {{ copy.newPractice }}
         </button>
         <button type="button" class="secondary-button" @click="emit('open-ranges')">
-          看完整范围 · Full range
+          {{ copy.fullRange }}
         </button>
         <button
           type="button"
@@ -223,7 +212,7 @@
           :disabled="mistakeCount === 0"
           @click="startMistakeSession"
         >
-          只练错题 · Mistakes ({{ mistakeCount }})
+          {{ copy.reviewCandidates }} ({{ mistakeCount }})
         </button>
       </div>
 
@@ -236,8 +225,8 @@
     </section>
 
     <footer class="data-note">
-      <span>Range: hu-btn-rfi-100bb-v1</span>
-      <span>Local record: postsoma_preflop_training_v1</span>
+      <span>{{ copy.rangeData }}: hu-btn-rfi-100bb-v1</span>
+      <span>{{ copy.localRecord }}: postsoma_preflop_training_v1</span>
     </footer>
   </article>
 </template>
@@ -255,6 +244,7 @@ import {
   loadPreflopTrainingState,
   recordPreflopTrainingAnswer
 } from '@/utils/training/preflopTrainingStorage.js'
+import { isZh } from '@/i18n/locale.js'
 
 const emit = defineEmits(['open-ranges', 'apply-mode'])
 
@@ -267,6 +257,111 @@ const mistakeNotice = ref('')
 const storageState = ref(loadPreflopTrainingState())
 const sessionScores = ref({ primary: 0, mixed: 0, deviation: 0 })
 
+const COPY = Object.freeze({
+  en: Object.freeze({
+    kicker: 'HU RANGE REFERENCE PRACTICE',
+    title: 'Compare decisions with one fixed HU baseline',
+    description: 'Choose first, then reveal the fixed baseline. No login, API key, room, or AI request.',
+    scenarioAria: 'Training scenario',
+    format: 'Format',
+    position: 'Position',
+    effectiveStack: 'Effective stack',
+    potState: 'Pot state',
+    progressAria: (current, total) => `Hand ${current} of ${total}`,
+    ready: 'Ready for 10 hands',
+    handProgress: (current, total) => `Hand ${current} / ${total}`,
+    heroHand: 'Hero hand',
+    yourAction: 'Your action',
+    prompt: 'Action folds to you on the Button. What is your move?',
+    promptDetail: 'The pot is unopened and it is your turn to act.',
+    actionGroupAria: 'Choose a preflop action',
+    introHelper: 'Start the practice to unlock actions. The reference stays hidden until you answer.',
+    baselineHidden: 'Baseline hidden',
+    start: 'Start baseline practice',
+    localBoundary: 'Fixed local data · replayable seed · no scoring by AI',
+    immediateFeedback: 'IMMEDIATE FEEDBACK',
+    inBaseline: (frequency) => `${frequency}% in baseline`,
+    yourChoice: 'Your choice',
+    baselineTendency: 'Baseline tendency',
+    matrixPosition: '169 matrix position',
+    frequencyAria: 'Baseline action frequencies',
+    baselineBoundary: 'baseline-v1 is a fixed learning snapshot, not solver output or an absolute strategy.',
+    viewResults: 'View session results',
+    nextHand: 'Next hand',
+    fullRange: 'View full range',
+    reviewCandidates: 'Review outside-mix candidates',
+    completeKicker: 'SESSION COMPLETE',
+    reviewComplete: 'Outside-mix review finished',
+    practiceComplete: 'Baseline practice complete',
+    completeBoundary: 'This summary measures alignment with baseline-v1’s main tendency—not poker truth and not hand results.',
+    mainTendency: 'Main tendency',
+    inMix: 'Supported mix',
+    outsideMix: 'Outside mix',
+    reviewQueue: 'Review candidates',
+    newPractice: 'New practice set',
+    rangeData: 'Range',
+    localRecord: 'Local record',
+    standardMode: 'Baseline practice',
+    mistakeMode: 'Outside-mix review',
+    primaryTitle: 'Matches the main tendency',
+    mixedTitle: 'Supported mixed action, below the main tendency',
+    deviationTitle: 'Outside this baseline mix',
+    noCandidates: 'No review candidates yet'
+  }),
+  zh: Object.freeze({
+    kicker: 'HU 范围参考练习',
+    title: '把行动与一份固定 HU baseline 对照',
+    description: '先行动，再揭示适用条件明确的固定参考。无需登录、API Key、房间或 AI 请求。',
+    scenarioAria: '训练场景',
+    format: '赛制',
+    position: '位置',
+    effectiveStack: '有效筹码',
+    potState: '底池状态',
+    progressAria: (current, total) => `第 ${current} 手，共 ${total} 手`,
+    ready: '准备练习 10 手',
+    handProgress: (current, total) => `第 ${current} / ${total} 手`,
+    heroHand: 'Hero 手牌',
+    yourAction: '你的行动',
+    prompt: '按钮位无人入池，轮到你行动。',
+    promptDetail: '先选择行动，再查看 baseline 频率。',
+    actionGroupAria: '选择翻前行动',
+    introHelper: '开始练习后可选择行动；作答前不会揭示参考。',
+    baselineHidden: 'Baseline 尚未揭示',
+    start: '开始参考练习',
+    localBoundary: '固定本地数据 · 可重放 seed · 不由 AI 评分',
+    immediateFeedback: '即时反馈',
+    inBaseline: (frequency) => `Baseline 频率 ${frequency}%`,
+    yourChoice: '你的选择',
+    baselineTendency: 'Baseline 倾向',
+    matrixPosition: '169 矩阵位置',
+    frequencyAria: 'Baseline 行动频率',
+    baselineBoundary: 'baseline-v1 是固定学习快照，不是 solver 输出，也不是绝对策略。',
+    viewResults: '查看本轮结果',
+    nextHand: '再来一手',
+    fullRange: '查看完整范围',
+    reviewCandidates: '复习范围外候选',
+    completeKicker: '本轮完成',
+    reviewComplete: '范围外候选复习完成',
+    practiceComplete: 'Baseline 参考练习完成',
+    completeBoundary: '这里统计与 baseline-v1 主要倾向的一致程度，不代表扑克真值或单手结果。',
+    mainTendency: '主要倾向',
+    inMix: '混合行动可接受',
+    outsideMix: '范围外',
+    reviewQueue: '复习候选',
+    newPractice: '新一轮参考练习',
+    rangeData: '范围数据',
+    localRecord: '本地记录',
+    standardMode: '参考练习',
+    mistakeMode: '复习范围外候选',
+    primaryTitle: '符合主要倾向',
+    mixedTitle: 'Baseline 支持的混合行动，但不是主要倾向',
+    deviationTitle: '超出当前 baseline 混合范围',
+    noCandidates: '暂无复习候选'
+  })
+})
+
+const copy = computed(() => COPY[isZh.value ? 'zh' : 'en'])
+
 const currentHand = computed(() => session.value.hands[currentIndex.value])
 const mistakeCount = computed(() => storageState.value.mistakeHands.length)
 const isLastHand = computed(() => currentIndex.value === session.value.hands.length - 1)
@@ -275,9 +370,10 @@ const progressPercent = computed(() => {
   return Math.round(((currentIndex.value + (evaluation.value ? 1 : 0)) / session.value.hands.length) * 100)
 })
 const sessionModeLabel = computed(() => (
-  session.value.mode === 'mistakes' ? 'Mistake-only review · 只练错题' : 'Standard session · 标准练习'
+  session.value.mode === 'mistakes' ? copy.value.mistakeMode : copy.value.standardMode
 ))
 const explanation = computed(() => getPreflopExplanation(currentHand.value.explanationKey))
+const localizedExplanation = computed(() => explanation.value[isZh.value ? 'zh' : 'en'])
 const primaryActionSummary = computed(() => (
   currentHand.value.baseline.primaryActions
     .map((action) => `${getActionLabel(action)} ${currentHand.value.baseline.frequencies[action]}%`)
@@ -285,25 +381,33 @@ const primaryActionSummary = computed(() => (
 ))
 const feedbackTitle = computed(() => {
   if (evaluation.value?.alignment === 'primary_tendency') {
-    return 'Matches the main tendency · 命中主要倾向'
+    return copy.value.primaryTitle
   }
   if (evaluation.value?.alignment === 'acceptable_mix') {
-    return 'Acceptable mix, not the main tendency · 可接受，但不是主要倾向'
+    return copy.value.mixedTitle
   }
-  return 'Outside this baseline mix · 偏离本基准范围'
+  return copy.value.deviationTitle
 })
 const feedbackCopy = computed(() => {
   if (!evaluation.value) return ''
   if (evaluation.value.alignment === 'primary_tendency') {
     if (currentHand.value.baseline.primaryActions.length > 1) {
-      return 'This hand has no single dominant line in baseline-v1; your choice matches one of the joint-highest frequencies.'
+      return isZh.value
+        ? '这手牌在 baseline-v1 中没有单一主要线路；你的选择属于并列最高频行动。'
+        : 'This hand has no single dominant line in baseline-v1; your choice matches one of the joint-highest frequencies.'
     }
-    return `${getActionLabel(evaluation.value.action)} is the main recommendation at ${evaluation.value.chosenFrequency}% in baseline-v1.`
+    return isZh.value
+      ? `${getActionLabel(evaluation.value.action)} 是 baseline-v1 中最高频的倾向，频率为 ${evaluation.value.chosenFrequency}%。`
+      : `${getActionLabel(evaluation.value.action)} is the highest-frequency tendency at ${evaluation.value.chosenFrequency}% in baseline-v1.`
   }
   if (evaluation.value.alignment === 'acceptable_mix') {
-    return `${getActionLabel(evaluation.value.action)} appears at ${evaluation.value.chosenFrequency}%, so it is inside the mix but below the main tendency.`
+    return isZh.value
+      ? `${getActionLabel(evaluation.value.action)} 的频率为 ${evaluation.value.chosenFrequency}%，属于可接受混合行动，但低于主要倾向。`
+      : `${getActionLabel(evaluation.value.action)} appears at ${evaluation.value.chosenFrequency}%, so it is inside the mix but below the main tendency.`
   }
-  return `baseline-v1 assigns 0% to ${getActionLabel(evaluation.value.action)} here. Treat this as a review signal, not an absolute poker verdict.`
+  return isZh.value
+    ? `baseline-v1 在这里给 ${getActionLabel(evaluation.value.action)} 的频率为 0%。请把它当作复习信号，而不是绝对扑克裁决。`
+    : `baseline-v1 assigns 0% to ${getActionLabel(evaluation.value.action)} here. Treat this as a review signal, not an absolute poker verdict.`
 })
 
 const actionLabel = (action) => getActionLabel(action)
@@ -336,7 +440,7 @@ const startMistakeSession = () => {
   storageState.value = latestState
 
   if (!latestState.mistakeHands.length) {
-    mistakeNotice.value = 'No review candidates yet · 暂无错题候选'
+    mistakeNotice.value = copy.value.noCandidates
     return
   }
 

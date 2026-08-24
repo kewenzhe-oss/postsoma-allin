@@ -7,8 +7,15 @@ const routes = [
     component: () => import('@/views/Home.vue')
   },
   {
+    path: '/about',
+    alias: '/about/',
+    name: 'About',
+    component: () => import('@/views/About.vue')
+  },
+  {
     path: '/room/:id',
     name: 'Room',
+    meta: { robots: 'noindex' },
     component: () => import('@/views/Room.vue')
   }
 ]

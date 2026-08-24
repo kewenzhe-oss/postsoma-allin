@@ -1,11 +1,11 @@
 <template>
   <div class="header-section">
+    <div class="brand-signature">POSTSOMA-2050</div>
     <div class="eyebrow">{{ headerContent.eyebrow }}</div>
     <h1 class="main-title">{{ headerContent.title }}</h1>
     <p class="subtitle">{{ headerContent.subtitle }}</p>
-    <p v-if="currentMode === 'select'" class="subtitle-cn">看懂范围，算清赔率，在短决策中建立扑克直觉。</p>
     
-    <!-- GTO Entrance Button -->
+    <!-- Primary learning CTA -->
     <div class="gto-entry-wrapper" v-if="currentMode === 'select'">
       <button class="gto-entry-btn" @click="$emit('open-ranges')">
         <svg class="gto-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -14,7 +14,7 @@
           <rect x="3" y="14" width="7" height="7" rx="1" />
           <rect x="14" y="14" width="7" height="7" rx="1" />
         </svg>
-        Decision Guide · 决策指南
+        {{ copy.primaryCta }}
       </button>
     </div>
 
@@ -25,7 +25,7 @@
           class="back-btn" 
           text
         >
-          <el-icon><ArrowLeft /></el-icon> Back to training home
+          <el-icon><ArrowLeft /></el-icon> {{ copy.back }}
         </el-button>
       </div>
     </transition>
@@ -35,6 +35,7 @@
 <script setup>
 import { computed } from 'vue'
 import { ArrowLeft } from '@element-plus/icons-vue'
+import { isZh } from '@/i18n/locale.js'
 
 const props = defineProps({
   currentMode: {
@@ -45,28 +46,56 @@ const props = defineProps({
 
 defineEmits(['back', 'open-ranges'])
 
+const copy = computed(() => isZh.value
+  ? {
+      primaryCta: '查看五问流程',
+      back: '返回首页'
+    }
+  : {
+      primaryCta: 'Explore the five-question flow',
+      back: 'Back to home'
+    })
+
 const headerContent = computed(() => {
   if (props.currentMode === 'hvh') {
-    return {
-      eyebrow: 'APPLY · PRIVATE ROOM',
-      title: 'Play with a Friend',
-      subtitle: 'Take your ideas to a private heads-up table. Free play is preserved and does not provide verified training scores.'
-    }
+    return isZh.value
+      ? {
+          eyebrow: '应用 · 私人房间',
+          title: '和朋友对局',
+          subtitle: '把五问带进私人单挑牌桌。这里是自由对局，不提供已验证的训练评分。'
+        }
+      : {
+          eyebrow: 'APPLY · PRIVATE ROOM',
+          title: 'Play with a Friend',
+          subtitle: 'Take the five questions to a private heads-up table. This is free play with no verified training score.'
+        }
   }
 
   if (props.currentMode === 'hva') {
-    return {
-      eyebrow: 'APPLY · BYOK AI',
-      title: 'Play against AI',
-      subtitle: 'Experiment at an LLM-powered table with your own key. AI play is optional and does not define range or math truth.'
-    }
+    return isZh.value
+      ? {
+          eyebrow: '应用 · BYOK AI',
+          title: '和自己的 AI 练习',
+          subtitle: '使用自己的 API Key 在 LLM 牌桌中自由实验。AI 不是范围或数学真值的裁判。'
+        }
+      : {
+          eyebrow: 'APPLY · BYOK AI',
+          title: 'Practice with your AI',
+          subtitle: 'Experiment at an LLM-powered table with your own key. AI does not define range or math truth.'
+        }
   }
 
-  return {
-    eyebrow: 'POSTSOMA · ALLIN · DECISION TRAINER',
-    title: 'Build poker intuition, one decision at a time.',
-    subtitle: 'See the range, price the risk, and learn how strong decisions compound into long-term EV—then apply them at a table.'
-  }
+  return isZh.value
+      ? {
+        eyebrow: 'ALLIN · 扑克决策思考工具',
+        title: '先看懂局面，再寻找答案。',
+        subtitle: '用 Hand、Context、Range、Price、Risk 五个问题，建立每次扑克决定前的思考习惯。'
+      }
+      : {
+        eyebrow: 'ALLIN · DECISION THINKING TOOL',
+        title: 'Understand the spot before searching for an answer.',
+        subtitle: 'Use Hand, Context, Range, Price, and Risk to build a repeatable thinking habit before every poker decision.'
+      }
 })
 </script>
 
@@ -79,9 +108,33 @@ const headerContent = computed(() => {
   z-index: 1;
 }
 
+.brand-signature {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: fit-content;
+  margin: 0 auto 0.55rem;
+  color: #D4A54A;
+  font-family: var(--font-family-mono);
+  font-size: 10px;
+  font-weight: 760;
+  letter-spacing: 0.16em;
+  line-height: 1.2;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.brand-signature::after {
+  content: '';
+  width: 48px;
+  height: 1px;
+  margin-top: 0.5rem;
+  background: #F0CD7A;
+}
+
 .eyebrow {
   color: var(--accent-primary);
-  font-size: var(--font-size-meta);
+  font-size: max(var(--font-size-meta), 11px);
   font-weight: 800;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -106,13 +159,6 @@ const headerContent = computed(() => {
   line-height: 1.65;
   max-width: 620px;
   margin: 0 auto;
-}
-
-.subtitle-cn {
-  color: var(--accent-primary-strong);
-  font-size: clamp(0.9rem, 1.8vw, 1.02rem);
-  line-height: 1.55;
-  margin: 0.45rem auto 0;
 }
 
 .mode-navigation {
@@ -168,7 +214,7 @@ const headerContent = computed(() => {
   opacity: 0;
 }
 
-/* GTO Entry Button Styles */
+/* Primary learning CTA */
 .gto-entry-wrapper {
   margin-top: 1.4rem;
   display: flex;
@@ -179,13 +225,13 @@ const headerContent = computed(() => {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  background: rgba(217, 173, 88, 0.03);
-  border: 1px solid rgba(217, 173, 88, 0.16);
-  color: var(--accent-primary-strong);
+  background: linear-gradient(180deg, var(--accent-primary-strong), var(--accent-primary));
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: var(--text-inverse);
   font-weight: 800;
   font-size: 0.82rem;
-  padding: 0.5rem 1.15rem;
-  min-height: 44px;
+  padding: 0.7rem 1.25rem;
+  min-height: 48px;
   border-radius: var(--radius-pill);
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -195,18 +241,23 @@ const headerContent = computed(() => {
 }
 
 .gto-entry-btn:hover {
-  background: rgba(217, 173, 88, 0.1);
+  background: linear-gradient(180deg, var(--accent-primary-strong), var(--accent-primary));
   border-color: var(--accent-primary);
   transform: translateY(-2px);
   box-shadow: 
     0 8px 24px rgba(0, 0, 0, 0.4),
     0 0 16px rgba(217, 173, 88, 0.16);
-  color: var(--text-primary);
+  color: var(--text-inverse);
 }
 
 .gto-entry-btn:active {
   transform: translateY(-0.5px);
-  background: rgba(217, 173, 88, 0.14);
+  filter: brightness(0.96);
+}
+
+.gto-entry-btn:focus-visible {
+  outline: 2px solid var(--text-primary);
+  outline-offset: 3px;
 }
 
 .gto-icon {

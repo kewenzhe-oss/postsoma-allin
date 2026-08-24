@@ -1,0 +1,229 @@
+# POSTSOMA · ALLIN — Full Product Knowledge
+
+Canonical URL: https://www.205033.xyz/
+
+Brand signature: POSTSOMA-2050
+
+Source repository: https://github.com/kewenzhe-oss/postsoma-allin
+
+Code license: MIT License. Consult the repository LICENSE for exact terms.
+
+Last reviewed: 2026-08-24
+
+## 1. Product Identity
+
+POSTSOMA · ALLIN is a browser-based poker decision-thinking tool. Its primary promise is:
+
+> Understand the spot before searching for an answer.
+
+The product helps users build a repeatable decision habit through five connected questions:
+
+1. **Hand — What do I have?** Inspect made value, draws, improvement paths, blockers, and postflop playability.
+2. **Context — What spot am I in?** Confirm position, effective stack, pot state, prior action, format, and assumptions.
+3. **Range — What could we each have?** Think in combinations and frequencies rather than treating one hand as an isolated absolute.
+4. **Price — What does this price require?** Build the final pot, calculate required equity, and state the assumptions behind an EV comparison.
+5. **Risk — What could distort the decision?** Check dirty outs, rake, future betting, missing range information, split pots, and result bias.
+
+The five questions form one process, not five independent courses.
+
+## 2. Product Boundaries
+
+POSTSOMA · ALLIN is not:
+
+- a complete GTO solver;
+- an authoritative or universal strategy database;
+- a complete multi-format poker course;
+- a real-money poker platform;
+- a deposit, withdrawal, payment, ranking, or matchmaking service;
+- a system that treats AI output, a friend's opinion, or one runout as verified strategy truth.
+
+The application does not claim that one fixed range applies to 6-max, MTT, BB defend, different stack depths, different open sizes, different ante structures, or different rake models.
+
+## 3. Evidence Model
+
+The product separates six evidence levels plus user observations:
+
+- `L1_math_fact`: formulas and deterministic calculations that can be independently checked.
+- `L2_enumerated_probability`: probabilities computed from a fully specified, enumerable state.
+- `L3_versioned_training_baseline`: a versioned reference used for learning, with explicit assumptions and limitations.
+- `L4_solver_export`: admissible only with solver configuration, provenance, license, and redistribution rights.
+- `L5_heuristic_or_ai_explanation`: explanatory material that cannot act as the scoring judge.
+- `L6_hand_result`: a real or illustrated runout that cannot define decision quality.
+- `user_observation`: a user's action or review history, not an evidence level.
+
+Mathematical facts, strategy references, explanations, observations, and outcomes answer different questions and must not overwrite one another.
+
+## 4. Range Reference
+
+Canonical range ID: `hu-btn-rfi-100bb-v1`
+
+Range version: `baseline-v1`
+
+Exact scenario:
+
+- Format: Heads-up cash
+- Hero position: SB/Button
+- Effective stack: 100 BB
+- Prior action: Unopened pot
+- Open size: 2.5 BB
+- Matrix: 169 canonical starting-hand classes
+- Available actions: Raise 2.5x, Limp, Fold
+
+Each hand entry contains Raise/Limp/Fold frequencies, primary action information, hand family, classification, explanation key, version, assumptions, and matrix coordinates.
+
+Provenance: internal heuristic rules were converted into an explicit, versioned, auditable snapshot. The snapshot and the matching SB Open reference are internally consistent.
+
+Limitation: this is not a solver export, is not solver-calibrated, and is not the only reasonable poker strategy.
+
+The BB defend reference remains a separate legacy heuristic and is not part of `baseline-v1`.
+
+## 5. Price Builder and Pot Odds
+
+Canonical drill version: `pot-odds-v1`
+
+The Price Builder teaches three operations in order:
+
+1. Build the final pot.
+2. Calculate the required-equity threshold.
+3. Compare a stated Hero-equity assumption with that threshold.
+
+Definitions:
+
+```text
+finalPot = potBeforeBet + villainBet + callAmount
+
+requiredEquity = callAmount / finalPot
+
+equityEdge = heroEquity - requiredEquity
+
+callEV = heroEquity × finalPot - callAmount
+```
+
+Simplifying assumptions for the fixed exercise model:
+
+- Hero equity is the stated share of the final pot.
+- Fold EV for the current incremental decision is 0.
+- Previous Hero investment is treated as sunk.
+- No rake, implied odds, reverse implied odds, future betting, range shifts, or split-pot special handling.
+
+Hero equity in these exercises is a fixed exercise assumption. The application does not derive real equity from pot size, cards, draws, or a Villain range.
+
+Required equity is a price threshold. Draw-hit probability is not the same thing as real equity versus a Villain range.
+
+## 6. Decision Guide and Explorer
+
+The Decision Guide teaches the five-question framework without requiring cards or pot inputs.
+
+The Explorer is an optional observation tool for a specific spot. It can inspect Hero cards, a flop, made-hand recognition, draws, raw outs, Rule of 2/4 estimates, board texture, and a manual price experiment.
+
+Explorer limitations:
+
+- It is not a solver.
+- Draw-hit probability is not real range equity.
+- It does not provide an authoritative Call/Fold or postflop strategy verdict.
+- A live-game sync is a current snapshot, not a reconstruction of full betting history.
+- Current pot and to-call snapshots are not automatically treated as pot-before-bet or Villain-bet values.
+
+## 7. Scenario Library
+
+Current admitted pack: `scenario-01-hu-btn-first-in-100bb-v1`
+
+The pack schedules canonical HU Button first-in hand classes without repeating the same Scenario ID within a session. It can mix fresh items, true mistake review, and mixed/boundary revisits with deterministic seed-based scheduling and transparent fallback diagnostics.
+
+Each Scenario has two concept nodes:
+
+1. A preflop range-tendency node backed by `hu-btn-rfi-100bb-v1` at evidence level `L3_versioned_training_baseline`.
+2. An independent Price Bridge backed by a real `pot-odds-v1` question at evidence level `L1_math_fact`.
+
+The Price Bridge has semantic type `independent_concept_bridge`. It is not a real continuation of the preflop hand and does not claim a board, Villain range, opponent response, c-bet, turn, river, or runout.
+
+## 8. Free Play and AI
+
+Friend 1v1 provides private heads-up rooms.
+
+BYOK AI allows a user to configure a supported LLM provider or compatible endpoint for experimental free play.
+
+These modes are application environments, not verified training scorers. AI is not the training judge. A friend or AI action, explanation, win, loss, or single runout cannot override a mathematical fact or the stated limits of a versioned reference.
+
+The product does not use an LLM to calculate or judge pot odds, range frequencies, training scores, or mathematical truth.
+
+## 9. Data and Privacy
+
+There is currently no account database for learning records.
+
+Browser storage may contain:
+
+- language preference;
+- recent preflop answers and review hand IDs;
+- recent Pot Odds answers and review question IDs;
+- Scenario observations;
+- lobby display names;
+- room session identifiers and player tokens in sessionStorage;
+- BYOK provider configuration in localStorage.
+
+Important BYOK behavior: provider configuration can include an API key cached in browser localStorage for convenience. Connection tests and AI games transmit the configured credential to the POSTSOMA backend and the selected provider. Users can remove cached browser credentials by clearing storage for the site.
+
+Private room IDs, player tokens, API keys, live game state, WebSocket payloads, user-entered names, and AI responses are excluded from `llms.txt`, `llms-full.txt`, sitemap entries, and public JSON-LD.
+
+The FastAPI backend currently maintains room/session state in memory unless a deployment adds a separate persistence layer. No database-backed learning account system is represented in this repository.
+
+## 10. Technology
+
+Frontend:
+
+- Vue 3
+- Vite
+- Vue Router
+- Pinia
+- Element Plus
+- GSAP
+
+Backend:
+
+- Python
+- FastAPI
+- WebSocket
+- Uvicorn / Gunicorn
+- OpenAI-compatible and Gemini provider adapters for BYOK free play
+
+Deployment observed for the public frontend: Vercel.
+
+## 11. Public URLs
+
+- Product: https://www.205033.xyz/
+- Method, evidence, privacy, and citation guide: https://www.205033.xyz/about/
+- Concise machine index: https://www.205033.xyz/llms.txt
+- Full machine knowledge: https://www.205033.xyz/llms-full.txt
+- Crawler policy: https://www.205033.xyz/robots.txt
+- Sitemap: https://www.205033.xyz/sitemap.xml
+- Source: https://github.com/kewenzhe-oss/postsoma-allin
+
+Private room URLs, API endpoints, WebSocket endpoints, and URL query parameters are intentionally absent from the public sitemap.
+
+## 12. Citation Guide
+
+General project citation:
+
+```text
+POSTSOMA · ALLIN (POSTSOMA-2050). https://www.205033.xyz/. Accessed YYYY-MM-DD.
+```
+
+Range-reference citation:
+
+```text
+POSTSOMA · ALLIN. hu-btn-rfi-100bb-v1 / baseline-v1. Heads-up · SB/Button · 100 BB · Unopened Pot · Open 2.5 BB. https://www.205033.xyz/. Accessed YYYY-MM-DD. Internal heuristic training baseline; not solver-calibrated.
+```
+
+Pot Odds citation:
+
+```text
+POSTSOMA · ALLIN. pot-odds-v1 fixed mathematical exercise model. https://www.205033.xyz/. Accessed YYYY-MM-DD. Hero equity is a stated exercise assumption.
+```
+
+When quoting or summarizing, preserve the applicable version, assumptions, evidence level, and limitations. Do not describe the internal baseline as GTO, solver output, or a universal correct strategy.
+
+## 13. Machine-Use Policy
+
+Public content may be indexed and cited with clear attribution. Repository code use is governed by the repository license. This file does not grant rights to private game state, user data, provider credentials, third-party services, or third-party copyrighted material.
+
+Machine-readable files are provided for clarity and provenance. They do not guarantee crawling, ranking, inclusion in an AI answer, or citation by any search or generative system.

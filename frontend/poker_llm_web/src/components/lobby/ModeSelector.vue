@@ -7,47 +7,50 @@
       v-if="showQuickPractice"
       type="button"
       class="mode-card quick-card"
-      aria-label="Quick Practice rule bot is coming soon"
+      :aria-label="copy.quickAria"
       disabled
     >
       <div class="card-content">
         <div class="icon-wrapper quick-icon">
           <span class="mode-icon">BOT</span>
         </div>
-        <span class="mode-kicker">Rule Bot · Quick Practice</span>
-        <span class="mode-title" role="heading" :aria-level="headingLevel">Quick Practice</span>
-        <p>No lightweight local rule bot exists in this build. This no-API practice path is coming soon.</p>
-        <span class="mode-cta coming-soon">Coming soon · 即将推出</span>
+        <span class="mode-kicker">{{ copy.quickKicker }}</span>
+        <span class="mode-title" role="heading" :aria-level="headingLevel">{{ copy.quickTitle }}</span>
+        <p>{{ copy.quickDetail }}</p>
+        <span class="mode-cta coming-soon">{{ copy.comingSoon }}</span>
       </div>
     </button>
 
-    <button class="mode-card hvh-card" aria-label="Open private room setup" @click="$emit('select-mode', 'hvh')">
+    <button class="mode-card hvh-card" :aria-label="copy.friendAria" @click="$emit('select-mode', 'hvh')">
       <div class="card-content">
         <div class="icon-wrapper">
           <span class="mode-icon">2P</span>
         </div>
-          <span class="mode-kicker">Free play · Private room</span>
-          <span class="mode-title" role="heading" :aria-level="headingLevel">Play with a Friend</span>
-        <p>Apply what you practiced at a private 1v1 table. No automated training score.</p>
-        <span class="mode-cta">Host or join</span>
+          <span class="mode-kicker">{{ copy.friendKicker }}</span>
+          <span class="mode-title" role="heading" :aria-level="headingLevel">{{ copy.friendTitle }}</span>
+        <p>{{ copy.friendDetail }}</p>
+        <span class="mode-cta">{{ copy.friendCta }}</span>
       </div>
     </button>
     
-    <button class="mode-card ai-card" aria-label="Open BYOK AI match setup" @click="$emit('select-mode', 'hva')">
+    <button class="mode-card ai-card" :aria-label="copy.aiAria" @click="$emit('select-mode', 'hva')">
       <div class="card-content">
         <div class="icon-wrapper ai-icon">
           <span class="mode-icon">AI</span>
         </div>
-          <span class="mode-kicker">Free play · AI sandbox</span>
-        <span class="mode-title" role="heading" :aria-level="headingLevel">Play against AI <span class="beta-badge">BYOK</span></span>
-        <p>Bring your own key and experiment against an LLM opponent. AI is not the training judge.</p>
-        <span class="mode-cta">Set up AI match</span>
+          <span class="mode-kicker">{{ copy.aiKicker }}</span>
+        <span class="mode-title" role="heading" :aria-level="headingLevel">{{ copy.aiTitle }} <span class="beta-badge">BYOK</span></span>
+        <p>{{ copy.aiDetail }}</p>
+        <span class="mode-cta">{{ copy.aiCta }}</span>
       </div>
     </button>
   </div>
 </template>
 
 <script setup>
+import { computed } from 'vue'
+import { isZh } from '@/i18n/locale.js'
+
 defineProps({
   compact: {
     type: Boolean,
@@ -65,6 +68,42 @@ defineProps({
 })
 
 defineEmits(['select-mode'])
+
+const copy = computed(() => isZh.value
+  ? {
+      quickAria: '规则 Bot 快速练习即将推出',
+      quickKicker: '规则 Bot · 快速练习',
+      quickTitle: '快速练习',
+      quickDetail: '当前版本没有可复用的轻量本地规则 Bot。这条无需 API 的练习路径即将推出。',
+      comingSoon: '即将推出',
+      friendAria: '打开私人房间设置',
+      friendKicker: '自由对局 · 无已验证训练评分',
+      friendTitle: '和朋友对局',
+      friendDetail: '在私人 1v1 牌桌中应用五问。朋友意见和单手结果都不是训练裁判。',
+      friendCta: '创建或加入房间',
+      aiAria: '打开 BYOK AI 对局设置',
+      aiKicker: '自由对局 · AI 实验台 · BYOK',
+      aiTitle: '和自己的 AI 练习',
+      aiDetail: '使用自己的 API Key 与 LLM 对手自由实验。这里不提供已验证训练评分，AI 不是训练裁判。',
+      aiCta: '设置 AI 对局'
+    }
+  : {
+      quickAria: 'Quick Practice rule bot is coming soon',
+      quickKicker: 'RULE BOT · QUICK PRACTICE',
+      quickTitle: 'Quick Practice',
+      quickDetail: 'No lightweight local rule bot exists in this build. This no-API practice path is coming soon.',
+      comingSoon: 'Coming soon',
+      friendAria: 'Open private room setup',
+      friendKicker: 'FREE PLAY · NO VERIFIED TRAINING SCORE',
+      friendTitle: 'Play with a Friend',
+      friendDetail: 'Use the five questions at a private 1v1 table. Your friend and one hand result are not training judges.',
+      friendCta: 'Host or join',
+      aiAria: 'Open BYOK AI match setup',
+      aiKicker: 'FREE PLAY · AI SANDBOX · BYOK',
+      aiTitle: 'Practice with your AI',
+      aiDetail: 'Bring your own key and experiment against an LLM opponent. No verified training score; AI is not the training judge.',
+      aiCta: 'Set up AI match'
+    })
 </script>
 
 <style scoped>

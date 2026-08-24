@@ -2,7 +2,7 @@
   <header class="room-top-bar">
     <div class="left">
       <div class="connection-indicator" :class="connectionClass" :title="onlineStore.connectionStatus"></div>
-      <h2 class="room-id"><span>Room</span> {{ onlineStore.roomId }}</h2>
+      <h2 class="room-id"><span>{{ copy.room }}</span> {{ onlineStore.roomId }}</h2>
     </div>
     
     <div class="center">
@@ -12,20 +12,34 @@
     </div>
     
     <div class="right">
-      <el-button @click="$emit('open-handbook')" plain size="small" class="handbook-btn">
-        <el-icon><Reading /></el-icon> Decision Guide · 决策指南
+      <LocaleSwitcher class="room-locale-switcher" />
+      <el-button
+        @click="$emit('open-handbook')"
+        plain
+        size="small"
+        class="handbook-btn"
+        :aria-label="copy.openGuide"
+      >
+        <el-icon><Reading /></el-icon><span class="button-label">{{ copy.guide }}</span>
       </el-button>
-      <el-button @click="copyLink" plain size="small" class="copy-btn" :class="{ 'is-copied': isCopied }">
+      <el-button
+        @click="copyLink"
+        plain
+        size="small"
+        class="copy-btn"
+        :class="{ 'is-copied': isCopied }"
+        :aria-label="isCopied ? copy.copied : copy.copyInvite"
+      >
         <el-icon>
           <Check v-if="isCopied" />
           <DocumentCopy v-else />
         </el-icon>
-        {{ isCopied ? 'Copied!' : 'Copy Invite' }}
+        <span class="button-label">{{ isCopied ? copy.copied : copy.copyInvite }}</span>
       </el-button>
       <div class="player-identity">
         {{ onlineStore.heroPlayer?.display_name || 'Hero' }}
       </div>
-      <el-button @click="$emit('leave')" text class="leave-btn" size="small">
+      <el-button @click="$emit('leave')" text class="leave-btn" size="small" :aria-label="copy.leave">
         <el-icon><SwitchButton /></el-icon>
       </el-button>
     </div>
@@ -37,10 +51,38 @@ import { computed, ref } from 'vue'
 import { useOnlineStore } from '@/stores/online'
 import { ElMessage } from 'element-plus'
 import { DocumentCopy, SwitchButton, Check, Reading } from '@element-plus/icons-vue'
+import LocaleSwitcher from '@/components/common/LocaleSwitcher.vue'
+import { isZh } from '@/i18n/locale.js'
 
 const onlineStore = useOnlineStore()
 
 defineEmits(['leave', 'open-handbook'])
+
+const copy = computed(() => isZh.value
+  ? {
+      room: '房间',
+      guide: '决策指南',
+      openGuide: '打开决策指南',
+      copyInvite: '复制邀请',
+      copied: '已复制',
+      copySuccess: '邀请已复制',
+      copyFailure: '复制失败，请手动复制。',
+      leave: '离开房间',
+      waiting: '等待中',
+      dealing: '发牌中'
+    }
+  : {
+      room: 'Room',
+      guide: 'Decision Guide',
+      openGuide: 'Open Decision Guide',
+      copyInvite: 'Copy Invite',
+      copied: 'Copied!',
+      copySuccess: 'Invite copied',
+      copyFailure: 'Failed to copy. Please copy manually.',
+      leave: 'Leave room',
+      waiting: 'Waiting',
+      dealing: 'Dealing'
+    })
 
 const connectionClass = computed(() => {
   if (onlineStore.connectionStatus === 'connected') return 'is-connected'
@@ -53,11 +95,11 @@ const displayStage = computed(() => {
   const status = onlineStore.publicState.game_status
   const stage = onlineStore.publicState.stage
   
-  if (status === 'waiting') return 'Waiting'
+  if (status === 'waiting') return copy.value.waiting
   
   // Replace IN_HAND with the actual stage name to avoid redundancy
   if (status === 'in_progress' || status === 'in_hand') {
-    return stage ? stageLabel(stage) : 'Dealing'
+    return stage ? stageLabel(stage) : copy.value.dealing
   }
   
   return stageLabel(status || stage || '')
@@ -70,27 +112,38 @@ const copyLink = () => {
   const inviteUrl = `${url}/?room=${onlineStore.roomId}`
   
   navigator.clipboard.writeText(inviteUrl).then(() => {
-    ElMessage.success(`Invite copied. Room: ${onlineStore.roomId}`)
+    ElMessage.success(`${copy.value.copySuccess}: ${onlineStore.roomId}`)
     isCopied.value = true
     setTimeout(() => {
       isCopied.value = false
     }, 2000)
   }).catch(() => {
-    ElMessage.error('Failed to copy. Please copy manually.')
+    ElMessage.error(copy.value.copyFailure)
   })
 }
 
 function stageLabel(value) {
-  const labels = {
-    preflop: 'Preflop',
-    flop: 'Flop',
-    turn: 'Turn',
-    river: 'River',
-    showdown: 'Showdown',
-    game_over: 'Game over',
-    in_hand: 'In hand',
-    in_progress: 'In hand'
-  }
+  const labels = isZh.value
+    ? {
+        preflop: '翻前',
+        flop: '翻牌',
+        turn: '转牌',
+        river: '河牌',
+        showdown: '摊牌',
+        game_over: '牌局结束',
+        in_hand: '牌局中',
+        in_progress: '牌局中'
+      }
+    : {
+        preflop: 'Preflop',
+        flop: 'Flop',
+        turn: 'Turn',
+        river: 'River',
+        showdown: 'Showdown',
+        game_over: 'Game over',
+        in_hand: 'In hand',
+        in_progress: 'In hand'
+      }
   return labels[value] || String(value).replace(/_/g, ' ')
 }
 </script>
@@ -119,6 +172,10 @@ function stageLabel(value) {
 
 .right {
   justify-content: flex-end;
+}
+
+.room-locale-switcher {
+  flex: 0 0 auto;
 }
 
 /* Connection Dot Indicator */
@@ -213,6 +270,8 @@ function stageLabel(value) {
 
 .leave-btn {
   color: var(--text-tertiary);
+  min-width: 44px;
+  min-height: 44px;
   padding: 0.4rem;
 }
 .leave-btn:hover {
@@ -234,15 +293,53 @@ function stageLabel(value) {
     display: none;
   }
 
+  .center {
+    display: none;
+  }
+
+  .left {
+    flex: 0 1 auto;
+  }
+
+  .right {
+    flex: 1 1 auto;
+    gap: 0.35rem;
+  }
+
+  .handbook-btn,
+  .copy-btn {
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0.45rem !important;
+  }
+
+  .button-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
   .copy-btn {
     padding: 0.45rem 0.65rem;
   }
 
   .room-id {
-    max-width: 104px;
+    max-width: 76px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+}
+
+@media (max-width: 440px) {
+  .room-id {
+    display: none;
   }
 }
 </style>

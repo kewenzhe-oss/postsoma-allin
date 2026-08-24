@@ -2,26 +2,26 @@
   <div class="panel-container">
     <div class="panel-card ai-panel-card">
       <div class="panel-header">
-        <h2>Host AI Match</h2>
+        <h2>{{ copy.title }}</h2>
           <span class="beta-badge">BYOK</span>
       </div>
 
       <div class="form-content">
         <!-- Step 1: Basic Info -->
         <div class="form-group">
-          <label>Display Name</label>
-          <el-input v-model="displayName" placeholder="Enter your name" class="panel-input" />
+          <label>{{ copy.displayName }}</label>
+          <el-input v-model="displayName" :placeholder="copy.namePlaceholder" class="panel-input" />
         </div>
 
         <div class="form-group">
-          <label>AI Provider</label>
-          <el-select v-model="aiProvider" placeholder="Select Provider" class="panel-input full-width" @change="onProviderChange">
+          <label>{{ copy.aiProvider }}</label>
+          <el-select v-model="aiProvider" :placeholder="copy.providerPlaceholder" class="panel-input full-width" @change="onProviderChange">
             <el-option label="OpenAI" value="openai" />
             <el-option label="DeepSeek" value="deepseek" />
             <el-option label="OpenRouter" value="openrouter" />
             <el-option label="Qwen" value="qwen" />
             <el-option label="Gemini" value="gemini" />
-            <el-option label="Custom (OpenAI-compatible)" value="custom" />
+            <el-option :label="copy.customProvider" value="custom" />
           </el-select>
         </div>
 
@@ -41,13 +41,18 @@
             </div>
             
             <!-- Step 3: Advanced Config Toggle -->
-            <div class="advanced-toggle" @click="showAdvanced = !showAdvanced">
+            <button
+              type="button"
+              class="advanced-toggle"
+              :aria-expanded="showAdvanced"
+              @click="showAdvanced = !showAdvanced"
+            >
               <span class="toggle-text">
                 <el-icon><Setting /></el-icon>
-                {{ showAdvanced ? 'Hide details' : 'Connection details' }}
+                {{ showAdvanced ? copy.hideDetails : copy.connectionDetails }}
               </span>
               <el-icon :class="{ 'rotated': showAdvanced }"><CaretRight /></el-icon>
-            </div>
+            </button>
 
             <!-- Step 3.5: Advanced Config Form -->
             <el-collapse-transition>
@@ -58,7 +63,7 @@
                 </div>
                 
                 <div class="form-group">
-                  <label>Base URL / Endpoint {{ aiProvider === 'custom' ? '(Required)' : '(Optional)' }}</label>
+                  <label>Base URL / Endpoint {{ aiProvider === 'custom' ? copy.required : copy.optional }}</label>
                   <el-input
                     v-model="aiBaseUrl"
                     :placeholder="defaultBaseUrlHint"
@@ -68,7 +73,7 @@
                     <template #prefix><span class="url-prefix-icon">🔗</span></template>
                   </el-input>
                   <p class="field-hint">
-                    {{ aiProvider === 'custom' ? 'Full completions endpoint URL' : 'Leave blank to use official API' }}
+                    {{ aiProvider === 'custom' ? copy.endpointHint : copy.officialApiHint }}
                   </p>
                 </div>
               </div>
@@ -82,14 +87,14 @@
             <div class="status-indicator" v-if="validationState.status !== 'idle'">
               <el-alert
                 v-if="validationState.status === 'success'"
-                title="Connection Verified"
+                :title="copy.connectionVerified"
                 type="success"
                 show-icon
                 :closable="false"
               />
               <el-alert
                 v-else-if="validationState.status === 'error'"
-                :title="validationState.errorMessage || 'Connection Failed'"
+                :title="validationState.errorMessage || copy.connectionFailed"
                 type="error"
                 show-icon
                 :closable="false"
@@ -105,7 +110,7 @@
                 :loading="validationState.status === 'testing'"
                 :disabled="!canTest"
               >
-                Test Connection
+                {{ copy.testConnection }}
               </el-button>
               
               <el-button 
@@ -115,7 +120,7 @@
                 :loading="startingMatch" 
                 :disabled="validationState.status !== 'success'"
               >
-                Start Match
+                {{ copy.startMatch }}
               </el-button>
             </div>
           </div>
@@ -131,6 +136,7 @@ import { useRouter } from 'vue-router'
 import { useOnlineStore } from '@/stores/online'
 import { ElMessage } from 'element-plus'
 import { Setting, CaretRight } from '@element-plus/icons-vue'
+import { isZh } from '@/i18n/locale.js'
 
 const router = useRouter()
 const onlineStore = useOnlineStore()
@@ -148,6 +154,54 @@ const validationState = ref({
   status: 'idle', // 'idle' | 'testing' | 'success' | 'error'
   errorMessage: null
 })
+
+const copy = computed(() => isZh.value
+  ? {
+      title: '创建 AI 对局',
+      displayName: '显示名称',
+      namePlaceholder: '输入你的名称',
+      aiProvider: 'AI Provider',
+      providerPlaceholder: '选择 Provider',
+      customProvider: '自定义（兼容 OpenAI）',
+      hideDetails: '收起连接详情',
+      connectionDetails: '连接详情',
+      required: '（必填）',
+      optional: '（可选）',
+      endpointHint: '填写完整的 completions endpoint URL',
+      officialApiHint: '留空则使用官方 API',
+      connectionVerified: '连接验证成功',
+      connectionFailed: '连接失败',
+      testConnection: '测试连接',
+      startMatch: '开始对局',
+      nameRequired: '请输入显示名称。',
+      verifyFirst: '请先测试连接。',
+      createFailed: '创建房间失败。',
+      apiKeyPlaceholder: (provider) => `输入 ${provider} API Key`,
+      customEndpoint: '自定义 endpoint URL'
+    }
+  : {
+      title: 'Host AI Match',
+      displayName: 'Display Name',
+      namePlaceholder: 'Enter your name',
+      aiProvider: 'AI Provider',
+      providerPlaceholder: 'Select Provider',
+      customProvider: 'Custom (OpenAI-compatible)',
+      hideDetails: 'Hide details',
+      connectionDetails: 'Connection details',
+      required: '(Required)',
+      optional: '(Optional)',
+      endpointHint: 'Full completions endpoint URL',
+      officialApiHint: 'Leave blank to use official API',
+      connectionVerified: 'Connection Verified',
+      connectionFailed: 'Connection Failed',
+      testConnection: 'Test Connection',
+      startMatch: 'Start Match',
+      nameRequired: 'Display name is required.',
+      verifyFirst: 'Please test connection first.',
+      createFailed: 'Failed to create room.',
+      apiKeyPlaceholder: (provider) => `Enter your ${provider} API key`,
+      customEndpoint: 'Custom endpoint URL'
+    })
 
 // Load cached config on mount
 onMounted(() => {
@@ -174,7 +228,7 @@ onMounted(() => {
 
 // Computed placeholders
 const apiKeyLabel = computed(() => aiProvider.value === 'gemini' ? 'Gemini API Key' : 'API Key')
-const apiKeyPlaceholder = computed(() => `Enter your ${aiProvider.value} API key`)
+const apiKeyPlaceholder = computed(() => copy.value.apiKeyPlaceholder(aiProvider.value))
 
 const modelPlaceholder = computed(() => {
   const hints = {
@@ -196,7 +250,7 @@ const defaultBaseUrlHint = computed(() => {
     qwen: 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',
     gemini: 'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent'
   }
-  return defaults[aiProvider.value] || 'Custom endpoint URL'
+  return defaults[aiProvider.value] || copy.value.customEndpoint
 })
 
 const canTest = computed(() => {
@@ -266,7 +320,7 @@ const handleTestConnection = async () => {
     })
     const data = await res.json()
     if (!res.ok || !data.ok) {
-      throw new Error(data.message || 'Connection failed')
+      throw new Error(data.message || copy.value.connectionFailed)
     }
     validationState.value = { status: 'success', errorMessage: null }
   } catch (err) {
@@ -275,8 +329,8 @@ const handleTestConnection = async () => {
 }
 
 const handleStartMatch = async () => {
-  if (!displayName.value) return ElMessage.warning("Display name is required")
-  if (validationState.value.status !== 'success') return ElMessage.warning("Please test connection first")
+  if (!displayName.value) return ElMessage.warning(copy.value.nameRequired)
+  if (validationState.value.status !== 'success') return ElMessage.warning(copy.value.verifyFirst)
   
   startingMatch.value = true
   cacheConfig()
@@ -297,7 +351,7 @@ const handleStartMatch = async () => {
     
     router.replace(`/room/${roomId}`)
   } catch (err) {
-    ElMessage.error(err.message || 'Failed to create room')
+    ElMessage.error(err.message || copy.value.createFailed)
     startingMatch.value = false
   }
 }
@@ -380,19 +434,27 @@ const handleStartMatch = async () => {
 }
 
 .advanced-toggle {
+  width: 100%;
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0.75rem;
   background: var(--bg-muted);
+  border: 0;
   border-radius: var(--radius-sm);
   cursor: pointer;
   user-select: none;
   transition: background 0.2s;
+  font: inherit;
 }
 
 .advanced-toggle:hover {
   background: rgba(255, 255, 255, 0.08);
+}
+
+.advanced-toggle:focus-visible {
+  outline: 2px solid var(--text-primary);
+  outline-offset: 2px;
 }
 
 .toggle-text {
