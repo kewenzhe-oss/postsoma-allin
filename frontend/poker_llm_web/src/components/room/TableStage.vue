@@ -96,16 +96,22 @@ const winningCardsList = computed(() => {
 
 const isHeroDealer = computed(() => {
   if (!onlineStore.publicState || !onlineStore.heroPlayer) return false
+  if (onlineStore.publicState.dealer_player_id) {
+    return onlineStore.publicState.dealer_player_id === onlineStore.heroPlayer.player_id
+  }
   const dealerIdx = onlineStore.publicState.dealer_position
-  return onlineStore.publicState.players.findIndex(
+  return onlineStore.publicState.players?.findIndex(
     p => p.player_id === onlineStore.heroPlayer.player_id
   ) === dealerIdx
 })
 
 const isOpponentDealer = computed(() => {
   if (!onlineStore.publicState || !onlineStore.opponentPlayer) return false
+  if (onlineStore.publicState.dealer_player_id) {
+    return onlineStore.publicState.dealer_player_id === onlineStore.opponentPlayer.player_id
+  }
   const dealerIdx = onlineStore.publicState.dealer_position
-  return onlineStore.publicState.players.findIndex(
+  return onlineStore.publicState.players?.findIndex(
     p => p.player_id === onlineStore.opponentPlayer.player_id
   ) === dealerIdx
 })

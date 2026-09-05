@@ -44,6 +44,7 @@ class PublicGameState:
     match_winner: Optional[Dict[str, Any]] = None
     # True when hand is over AND both players still have chips
     can_start_next_hand: bool = False
+    dealer_player_id: Optional[str] = None
 
 @dataclass
 class PrivateGameState:

@@ -38,7 +38,10 @@
     <!-- ── Info panel ──────────────────────────────── -->
     <div class="info-card">
       <div class="name-row">
-        <span class="dealer-btn" v-if="isDealer" title="Dealer">D</span>
+        <span class="dealer-btn" v-if="isDealer" title="Dealer (Button)">D</span>
+        <span class="blind-tag" :class="isDealer ? 'is-sb' : 'is-bb'" :title="isDealer ? 'Small Blind' : 'Big Blind'">
+          {{ isDealer ? 'SB' : 'BB' }}
+        </span>
         <span class="ai-badge" v-if="player.player_id === 'ai_seat'" title="AI Opponent">AI</span>
         <span class="name">{{ player.display_name }}</span>
       </div>
@@ -202,6 +205,30 @@ const shouldShowCards = computed(() => true)
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+}
+
+.blind-tag {
+  font-weight: 800;
+  font-size: 9px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  letter-spacing: 0.04em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.blind-tag.is-sb {
+  background: rgba(245, 158, 11, 0.18);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+}
+
+.blind-tag.is-bb {
+  background: rgba(96, 165, 250, 0.18);
+  color: #93c5fd;
+  border: 1px solid rgba(96, 165, 250, 0.35);
 }
 
 .ai-badge {

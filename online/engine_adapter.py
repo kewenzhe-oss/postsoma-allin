@@ -68,13 +68,23 @@ class OnlinePokerEngineAdapter:
         self.table.start_new_hand()
         
         events = []
-        events.append(self._add_event("hand_started", {"hand_number": self.table.hand_number}))
         sb_player = self.table.players[self.table.dealer_position]
         bb_player = self.table.players[(self.table.dealer_position + 1) % len(self.table.players)]
+        dealer_player = sb_player
+
+        events.append(self._add_event("hand_started", {
+            "hand_number": self.table.hand_number,
+            "dealer_position": self.table.dealer_position,
+            "dealer_player_id": dealer_player.name,
+            "small_blind_player_id": sb_player.name,
+            "big_blind_player_id": bb_player.name,
+        }))
         
         events.append(self._add_event("blinds_posted", {
             "small_blind": self.table.small_blind,
             "big_blind": self.table.big_blind,
+            "dealer_position": self.table.dealer_position,
+            "dealer_player_id": dealer_player.name,
             "small_blind_player_id": sb_player.name,
             "big_blind_player_id": bb_player.name,
             "pot": self.table.pot
@@ -159,6 +169,12 @@ class OnlinePokerEngineAdapter:
             and self.table.is_round_complete()
         )
 
+        dealer_player_id = (
+            self.table.players[self.table.dealer_position].name
+            if self.table.players and 0 <= self.table.dealer_position < len(self.table.players)
+            else None
+        )
+
         return PublicGameState(
             seats=self.seats,
             players=players,
@@ -168,6 +184,7 @@ class OnlinePokerEngineAdapter:
             stage=self.table.stage.value,
             current_turn_player_id=self.current_turn_player_id(),
             dealer_position=self.table.dealer_position,
+            dealer_player_id=dealer_player_id,
             small_blind=self.table.small_blind,
             big_blind=self.table.big_blind,
             game_status=game_status,
@@ -463,7 +480,8 @@ class OnlinePokerEngineAdapter:
             "amount": actual_amount,
             "bet_in_round": player.bet_in_round,
             "chips": player.chips,
-            "pot_after": self.table.pot
+            "pot_after": self.table.pot,
+            "stage": self.table.stage.value,
         }))
 
         # Advance betting round / progress stages

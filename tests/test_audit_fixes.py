@@ -65,6 +65,11 @@ def test_heads_up_blinds_and_positions():
     assert non_dealer_player.bet_in_round == 10
     assert non_dealer_player.chips == 990
 
+    # Verify public state exposes dealer_player_id
+    pub = adapter.get_public_state()
+    assert pub.dealer_position == 0
+    assert pub.dealer_player_id == "p1"
+
     # Preflop: Dealer (SB) acts first
     assert adapter.current_turn_player_id() == dealer_player.name
 
@@ -76,6 +81,13 @@ def test_heads_up_blinds_and_positions():
     # Now on Flop: BB (non-dealer) must act first!
     assert adapter.table.stage == GameStage.FLOP
     assert adapter.current_turn_player_id() == non_dealer_player.name
+
+    # Check that in hand 2, dealer rotates to p2
+    adapter.submit_action(non_dealer_player.name, "FOLD")  # finish hand 1
+    adapter.start_hand()  # hand 2
+    pub2 = adapter.get_public_state()
+    assert pub2.dealer_position == 1
+    assert pub2.dealer_player_id == "p2"
 
 
 def test_straight_high_wheel_precedence():

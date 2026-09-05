@@ -9,7 +9,7 @@
       <el-tabs v-model="activeTab" class="side-tabs">
         <el-tab-pane label="Hand History" name="history">
           <div class="history-scroll-area">
-            <HandLog :events="rawEventLog" :isGameOver="isGameOver" />
+            <HandHistoryPanel />
           </div>
         </el-tab-pane>
         <el-tab-pane label="AI Insights" name="insights">
@@ -38,7 +38,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { ArrowLeft, ArrowRight } from '@element-plus/icons-vue'
-import HandLog from '@/components/online/HandLog.vue'
+import HandHistoryPanel from '@/components/online/HandHistoryPanel.vue'
 
 const props = defineProps({
   rawEventLog: { type: Array, default: () => [] },

@@ -12,6 +12,16 @@ export const useOnlineStore = defineStore('online', () => {
   const rawEventLog = ref([])
   const aiThoughts = ref([])  // ai_thought events for HandLog / DebugPanel
 
+  /**
+   * Decoupled Hand History state:
+   * - activeHand: Real-time ongoing hand
+   * - archivedHands: Completed past hands (newest first)
+   * - userReviewHandNumber: Tracks if user intentionally locked view on a past hand
+   */
+  const activeHand = ref(null)
+  const archivedHands = ref([])
+  const userReviewHandNumber = ref(null)
+
   const connectionStatus = ref('disconnected') // disconnected, connecting, connected, error
   const errorMessage = ref('')
 
@@ -118,6 +128,218 @@ export const useOnlineStore = defineStore('online', () => {
     }
   }
 
+  function formatCardHtml(cardStr) {
+    if (!cardStr) return ''
+    const suitSymbols = ['♠', '♥', '♦', '♣']
+    const firstChar = cardStr.charAt(0)
+    let rank = cardStr
+    let suit = ''
+    if (suitSymbols.includes(firstChar)) {
+      rank = cardStr.slice(1)
+      suit = firstChar
+    } else {
+      const lastChar = cardStr.slice(-1)
+      if (suitSymbols.includes(lastChar)) {
+        rank = cardStr.slice(0, -1)
+        suit = lastChar
+      }
+    }
+    const isRed = suit === '♥' || suit === '♦'
+    const suitClass = isRed ? 'card-red' : 'card-black'
+    return `<span class="card-pill ${suitClass}">${rank}${suit}</span>`
+  }
+
+  function formatCardsHtml(text) {
+    if (!text) return ''
+    return text.split(' ').map(formatCardHtml).join(' ')
+  }
+
+  function getPlayerDisplayName(pId, explicitName) {
+    if (explicitName) return explicitName
+    const p = publicState.value?.players?.find(pl => pl.player_id === pId)
+    if (p && p.display_name) return p.display_name
+    return pId?.substring(0, 8) || 'Player'
+  }
+
+  function handleEngineEventForHistory(ev) {
+    if (!ev || !ev.type) return
+
+    switch (ev.type) {
+      case 'hand_started': {
+        const handNum = ev.payload.hand_number
+        if (activeHand.value && activeHand.value.hand_number !== handNum) {
+          activeHand.value.status = 'finished'
+          const existingIdx = archivedHands.value.findIndex(h => h.hand_number === activeHand.value.hand_number)
+          if (existingIdx >= 0) {
+            archivedHands.value[existingIdx] = { ...activeHand.value }
+          } else {
+            archivedHands.value.unshift({ ...activeHand.value })
+          }
+        }
+        activeHand.value = {
+          hand_number: handNum,
+          status: 'active',
+          dealer_player_id: ev.payload.dealer_player_id || '',
+          streets: [
+            { name: 'Preflop', cards: '', actions: [] }
+          ],
+          result_summary: null
+        }
+        break
+      }
+
+      case 'blinds_posted': {
+        if (!activeHand.value) {
+          activeHand.value = {
+            hand_number: 1,
+            status: 'active',
+            dealer_player_id: ev.payload.dealer_player_id || '',
+            streets: [{ name: 'Preflop', cards: '', actions: [] }],
+            result_summary: null
+          }
+        }
+        const preflop = activeHand.value.streets[0]
+        const sbName = getPlayerDisplayName(ev.payload.small_blind_player_id)
+        const bbName = getPlayerDisplayName(ev.payload.big_blind_player_id)
+        preflop.actions.push({
+          text: `<b>${sbName}</b> posts small blind <span class="log-pot">${ev.payload.small_blind}</span>`,
+          isWager: true
+        })
+        preflop.actions.push({
+          text: `<b>${bbName}</b> posts big blind <span class="log-pot">${ev.payload.big_blind}</span>`,
+          isWager: true
+        })
+        break
+      }
+
+      case 'player_action_applied': {
+        if (!activeHand.value) {
+          activeHand.value = {
+            hand_number: 1,
+            status: 'active',
+            streets: [{ name: 'Preflop', cards: '', actions: [] }],
+            result_summary: null
+          }
+        }
+        const currentStreet = activeHand.value.streets[activeHand.value.streets.length - 1]
+        const name = getPlayerDisplayName(ev.payload.player_id, ev.payload.display_name)
+        const act = ev.payload.action
+        const amt = ev.payload.amount || 0
+        const betInRound = ev.payload.bet_in_round || 0
+
+        let text = ''
+        let isWager = false
+        if (act === 'FOLD') {
+          text = `<b>${name}</b> folds`
+        } else if (act === 'CHECK') {
+          text = `<b>${name}</b> checks`
+        } else if (act === 'CALL') {
+          text = `<b>${name}</b> calls <span class="log-pot">${amt}</span>`
+        } else if (act === 'RAISE') {
+          const hasWagers = currentStreet.actions.some(a => a.isWager)
+          if (!hasWagers && currentStreet.name !== 'Preflop') {
+            text = `<b>${name}</b> bets <span class="log-pot">${betInRound}</span>`
+          } else {
+            text = `<b>${name}</b> raises to <span class="log-pot">${betInRound}</span>`
+          }
+          isWager = true
+        } else if (act === 'ALL_IN' || act === 'ALL-IN') {
+          text = `<b>${name}</b> goes all-in for <span class="log-pot">${betInRound}</span>`
+          isWager = true
+        } else {
+          text = `<b>${name}</b> ${act.toLowerCase()}`
+        }
+
+        currentStreet.actions.push({ text, isWager })
+        break
+      }
+
+      case 'community_cards_dealt': {
+        if (!activeHand.value) return
+        const stage = ev.payload.stage
+        const stageMap = {
+          FLOP: 'Flop',
+          TURN: 'Turn',
+          RIVER: 'River',
+          SHOWDOWN: 'Showdown'
+        }
+        const stageLabel = stageMap[stage] || stage
+        const cardsFormatted = formatCardsHtml((ev.payload.cards || []).join(' '))
+        const exists = activeHand.value.streets.some(s => s.name === stageLabel)
+        if (!exists) {
+          activeHand.value.streets.push({
+            name: stageLabel,
+            cards: cardsFormatted,
+            actions: []
+          })
+        }
+        break
+      }
+
+      case 'ai_thought': {
+        if (!activeHand.value) return
+        const currentStreet = activeHand.value.streets[activeHand.value.streets.length - 1]
+        const rawSummary = ev.payload.thought_summary || ''
+        const summary = rawSummary.replace(/^Thinking:\s*/i, '').trim()
+        if (summary) {
+          currentStreet.actions.push({
+            text: `<span class="log-accent">AI Note:</span> <span class="ai-thought-text">${summary}</span>`,
+            isAi: true
+          })
+        }
+        break
+      }
+
+      case 'hand_finished': {
+        const handNum = ev.payload.hand_number
+        if (!activeHand.value) {
+          activeHand.value = {
+            hand_number: handNum,
+            status: 'active',
+            streets: [{ name: 'Preflop', cards: '', actions: [] }],
+            result_summary: null
+          }
+        }
+        const winners = ev.payload.winners || []
+        const endedBy = ev.payload.ended_by || ''
+        const showdownInfo = ev.payload.showdown_info || null
+
+        let text = ''
+        if (winners.length === 0) {
+          text = `Hand finished with no winners.`
+        } else {
+          const lines = winners.map(w => {
+            const name = getPlayerDisplayName(w.player_id, w.display_name)
+            return `<b>${name}</b> wins <span class="log-success">+${w.amount}</span>`
+          })
+          const how = endedBy === 'fold' ? ' (by fold)' : endedBy === 'showdown' ? ' (at showdown)' : ''
+          const reason = showdownInfo?.winning_reason || showdownInfo?.winningHandName || ''
+          const winningCards = (showdownInfo?.winning_cards && showdownInfo.winning_cards.length > 0)
+            ? ` [${showdownInfo.winning_cards.join(' ')}]`
+            : ''
+          const desc = reason ? `<br><span class="log-accent small">Winning hand: ${reason}${winningCards}</span>` : ''
+          text = lines.join('<br>') + `<span class="log-muted small">${how}</span>` + desc
+        }
+
+        activeHand.value.streets.push({
+          name: 'Result',
+          actions: [{ text }]
+        })
+        activeHand.value.status = 'finished'
+        activeHand.value.result_summary = text
+
+        const finishedCopy = JSON.parse(JSON.stringify(activeHand.value))
+        const existingIdx = archivedHands.value.findIndex(h => h.hand_number === finishedCopy.hand_number)
+        if (existingIdx >= 0) {
+          archivedHands.value[existingIdx] = finishedCopy
+        } else {
+          archivedHands.value.unshift(finishedCopy)
+        }
+        break
+      }
+    }
+  }
+
   function connectWebSocket() {
     if (!roomId.value || !playerToken.value) {
       errorMessage.value = 'Missing room ID or token'
@@ -188,6 +410,7 @@ export const useOnlineStore = defineStore('online', () => {
       } else if (data.type === 'engine_event') {
         const ev = data.event
         rawEventLog.value.push(ev)
+        handleEngineEventForHistory(ev)
 
         // ── game_over ─────────────────────────────────────
         if (ev.type === 'game_over') {
@@ -294,6 +517,9 @@ export const useOnlineStore = defineStore('online', () => {
     latestGameResult.value = null
     revealedCards.value = {}
     aiThoughts.value = []
+    activeHand.value = null
+    archivedHands.value = []
+    userReviewHandNumber.value = null
     if (gameOverTimer) {
       clearTimeout(gameOverTimer)
       gameOverTimer = null
@@ -343,6 +569,33 @@ export const useOnlineStore = defineStore('online', () => {
     return false
   })
 
+  const allHands = computed(() => {
+    if (activeHand.value && activeHand.value.status === 'active') {
+      const archived = archivedHands.value.filter(h => h.hand_number !== activeHand.value.hand_number)
+      return [activeHand.value, ...archived]
+    }
+    return archivedHands.value
+  })
+
+  const activeHandNumber = computed(() => activeHand.value?.hand_number || null)
+
+  const isReviewingPastHand = computed(() => {
+    return (
+      userReviewHandNumber.value !== null &&
+      activeHand.value !== null &&
+      activeHand.value.status === 'active' &&
+      userReviewHandNumber.value !== activeHand.value.hand_number
+    )
+  })
+
+  function lockReviewHand(handNum) {
+    userReviewHandNumber.value = handNum
+  }
+
+  function returnToLiveHand() {
+    userReviewHandNumber.value = null
+  }
+
   return {
     roomId,
     playerId,
@@ -356,6 +609,14 @@ export const useOnlineStore = defineStore('online', () => {
     latestGameResult,
     isGameOverPending,
     revealedCards,
+    activeHand,
+    archivedHands,
+    userReviewHandNumber,
+    allHands,
+    activeHandNumber,
+    isReviewingPastHand,
+    lockReviewHand,
+    returnToLiveHand,
     connectionStatus,
     errorMessage,
     heroPlayer,

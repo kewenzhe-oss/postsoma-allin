@@ -774,13 +774,14 @@ class PokerTable:
 
     def start_new_hand(self):
         """开始新的一手牌"""
-        # 移动庄家位置到下一个活跃玩家
-        current_pos = self.dealer_position
-        while True:
-            current_pos = (current_pos + 1) % len(self.players)
-            if self.players[current_pos].is_active:
-                self.dealer_position = current_pos
-                break
+        # 移动庄家位置到下一个活跃玩家 (第1手牌保持初始庄家0，后续手牌顺时针轮转)
+        if self.hand_number > 0 and len(self.players) > 0:
+            current_pos = self.dealer_position
+            while True:
+                current_pos = (current_pos + 1) % len(self.players)
+                if self.players[current_pos].is_active:
+                    self.dealer_position = current_pos
+                    break
         self.hand_number += 1
 
         # 重置牌桌状态

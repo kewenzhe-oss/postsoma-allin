@@ -124,9 +124,9 @@ async def test_game_over_carries_deciding_hand_data():
     # BB calls all-in, step_all_in advances to showdown via _run_all_in_runout or loop
     session.submit_action(bb_id, "ALL_IN")
 
-    # Let asynchronous all-in runout complete
+    # Let asynchronous all-in runout complete (4 streets * 1.2s = 4.8s)
     import asyncio
-    await asyncio.sleep(4.0)
+    await asyncio.sleep(5.5)
 
     # Check that game_over event was fired with deciding_hand
     game_over_events = [e for e in captured_events if e.type == "game_over"]
