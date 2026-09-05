@@ -1,6 +1,5 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { buildShowdownResult } from '@/utils/pokerEvaluator'
 
 export const useOnlineStore = defineStore('online', () => {
   const roomId = ref('')
@@ -32,6 +31,8 @@ export const useOnlineStore = defineStore('online', () => {
    * }
    */
   const latestGameResult = ref(null)
+  const isGameOverPending = ref(false)
+  let gameOverTimer = null
 
   /**
    * revealedCards — map of player_id -> [cardStr, ...]
@@ -193,7 +194,20 @@ export const useOnlineStore = defineStore('online', () => {
           const p = ev.payload || {}
           latestGameResult.value = {
             winner: p.winner || null,
-            final_stacks: p.final_stacks || []
+            final_stacks: p.final_stacks || [],
+            deciding_hand: p.deciding_hand || null
+          }
+
+          // If a hand just concluded, defer the game over modal popup by 3.5 seconds
+          // so the decisive showdown and chip movements can be appreciated by the player.
+          if (latestHandResult.value) {
+            isGameOverPending.value = true
+            if (gameOverTimer) clearTimeout(gameOverTimer)
+            gameOverTimer = setTimeout(() => {
+              isGameOverPending.value = false
+            }, 3500)
+          } else {
+            isGameOverPending.value = false
           }
         }
 
@@ -202,27 +216,7 @@ export const useOnlineStore = defineStore('online', () => {
           const p = ev.payload || {}
           const winners = p.winners || []
           const endedBy = p.ended_by || (publicState.value?.stage === 'showdown' ? 'showdown' : 'fold')
-          
           const finalStage = publicState.value?.stage || 'river'
-          
-          let showdownResult = null
-          if (endedBy === 'showdown') {
-            // Determine hero/villain IDs
-            const hId = playerId.value
-            const opPlayer = publicState.value?.players?.find(pl => pl.player_id !== hId)
-            const vId = opPlayer ? opPlayer.player_id : null
-            
-            if (hId && vId) {
-              const heroHoles = privateState.value?.hole_cards || []
-              // Use newly extracted revealedCards
-              const newRevealedMap = revealedCards.value || {}
-              const villainHoles = newRevealedMap[vId] || []
-              const boardCards = publicState.value?.community_cards || []
-              
-              showdownResult = buildShowdownResult(hId, heroHoles, vId, villainHoles, boardCards)
-              ev.payload.showdown_info = showdownResult
-            }
-          }
 
           latestHandResult.value = {
             hand_number: p.hand_number,
@@ -230,7 +224,7 @@ export const useOnlineStore = defineStore('online', () => {
             awarded_pot: p.awarded_pot ?? 0,
             ended_by: endedBy,
             stage: finalStage,
-            showdown_info: showdownResult
+            showdown_info: p.showdown_info || null
           }
         }
 
@@ -300,6 +294,11 @@ export const useOnlineStore = defineStore('online', () => {
     latestGameResult.value = null
     revealedCards.value = {}
     aiThoughts.value = []
+    if (gameOverTimer) {
+      clearTimeout(gameOverTimer)
+      gameOverTimer = null
+    }
+    isGameOverPending.value = false
   }
 
   /** Alias kept for backward compat */
@@ -355,6 +354,7 @@ export const useOnlineStore = defineStore('online', () => {
     aiThoughts,
     latestHandResult,
     latestGameResult,
+    isGameOverPending,
     revealedCards,
     connectionStatus,
     errorMessage,

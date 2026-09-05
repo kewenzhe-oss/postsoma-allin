@@ -20,6 +20,59 @@
         </div>
       </div>
 
+      <!-- Deciding Hand Recap -->
+      <div class="deciding-hand-recap" v-if="result.deciding_hand">
+        <div class="recap-header">
+          <span class="recap-badge">DECIDING HAND #{{ result.deciding_hand.hand_number }}</span>
+          <span class="recap-ended-by">{{ result.deciding_hand.ended_by === 'showdown' ? 'Showdown' : 'Fold' }}</span>
+        </div>
+
+        <div class="recap-winning-reason" v-if="result.deciding_hand.winning_reason">
+          {{ result.deciding_hand.winning_reason }}
+        </div>
+
+        <!-- Community Cards -->
+        <div class="recap-board" v-if="result.deciding_hand.community_cards && result.deciding_hand.community_cards.length > 0">
+          <div class="recap-label">BOARD</div>
+          <div class="recap-cards-row">
+            <CardView
+              v-for="(card, cIdx) in result.deciding_hand.community_cards"
+              :key="cIdx"
+              :cardStr="card"
+              :visible="true"
+              :highlighted="isDecidingWinningCard(card)"
+              class="recap-card"
+            />
+          </div>
+        </div>
+
+        <!-- Showdown Players Comparison -->
+        <div class="recap-players-grid" v-if="result.deciding_hand.showdown_info?.players">
+          <div
+            v-for="p in result.deciding_hand.showdown_info.players"
+            :key="p.player_id"
+            class="recap-player-card"
+            :class="{ 'is-winner': isDecidingPlayerWinner(p.player_id) }"
+          >
+            <div class="recap-player-name">
+              <span>{{ p.display_name }}</span>
+              <span v-if="isDecidingPlayerWinner(p.player_id)" class="recap-winner-tag">Winner</span>
+            </div>
+            <div class="recap-hole-cards">
+              <CardView
+                v-for="(card, cIdx) in p.hole_cards"
+                :key="cIdx"
+                :cardStr="card"
+                :visible="true"
+                :highlighted="isDecidingWinningCard(card)"
+                class="recap-mini-card"
+              />
+            </div>
+            <div class="recap-player-desc">{{ p.hand_description || p.hand_name }}</div>
+          </div>
+        </div>
+      </div>
+
       <!-- Final stacks -->
       <div class="final-stacks" v-if="result.final_stacks && result.final_stacks.length">
         <div class="stacks-label">Final stacks</div>
@@ -48,12 +101,16 @@
 </template>
 
 <script setup>
-defineProps({
+import CardView from './CardView.vue'
+import { normalizeCard } from '@/utils/cardFormat'
+
+const props = defineProps({
   /**
    * latestGameResult from online.js store:
    * {
    *   winner: { player_id, display_name, chips } | null,
-   *   final_stacks: [{ player_id, display_name, chips }]
+   *   final_stacks: [{ player_id, display_name, chips }],
+   *   deciding_hand: { ... } | null
    * }
    */
   result: {
@@ -63,6 +120,22 @@ defineProps({
 })
 
 const emit = defineEmits(['rematch', 'back-to-lobby'])
+
+const isDecidingWinningCard = (cardStr) => {
+  const winningCards = props.result.deciding_hand?.winning_cards
+  if (!winningCards || winningCards.length === 0 || !cardStr) return false
+  const norm = normalizeCard(cardStr)
+  if (!norm.valid) return false
+  return winningCards.some(wc => {
+    const wNorm = normalizeCard(wc)
+    return wNorm.valid && wNorm.code === norm.code
+  })
+}
+
+const isDecidingPlayerWinner = (playerId) => {
+  const winners = props.result.deciding_hand?.winners || []
+  return winners.some(w => w.player_id === playerId)
+}
 </script>
 
 <style scoped>
@@ -241,5 +314,128 @@ const emit = defineEmits(['rematch', 'back-to-lobby'])
   background-color: rgba(255, 255, 255, 0.08);
   color: var(--text-primary);
   border: 1px solid var(--border-strong);
+}
+
+/* ── Deciding hand recap ─────────────────────────── */
+.deciding-hand-recap {
+  background-color: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(241, 199, 106, 0.2);
+  border-radius: var(--radius-md);
+  padding: 1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  text-align: left;
+}
+
+.recap-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.recap-badge {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--accent-turn);
+}
+
+.recap-ended-by {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+}
+
+.recap-winning-reason {
+  font-size: 13px;
+  font-weight: 700;
+  color: #79d890;
+  background-color: rgba(121, 216, 144, 0.08);
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(121, 216, 144, 0.18);
+}
+
+.recap-board {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.recap-label {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--text-tertiary);
+}
+
+.recap-cards-row {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  margin: 4px 0;
+}
+
+.recap-card {
+  width: 44px !important;
+}
+
+.recap-players-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.recap-player-card {
+  background-color: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.recap-player-card.is-winner {
+  border-color: rgba(121, 216, 144, 0.35);
+  background-color: rgba(121, 216, 144, 0.06);
+}
+
+.recap-player-name {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.recap-winner-tag {
+  font-size: 9px;
+  font-weight: 800;
+  color: #79d890;
+  background-color: rgba(121, 216, 144, 0.15);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.recap-hole-cards {
+  display: flex;
+  gap: 4px;
+  justify-content: center;
+}
+
+.recap-mini-card {
+  width: 38px !important;
+}
+
+.recap-player-desc {
+  font-size: 11px;
+  color: var(--text-secondary);
+  text-align: center;
+  line-height: 1.25;
 }
 </style>

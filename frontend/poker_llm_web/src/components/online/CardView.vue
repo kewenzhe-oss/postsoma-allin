@@ -10,7 +10,7 @@
   </div>
 
   <!-- Normal face-up card -->
-  <div v-else class="card-view card-face" :class="card.color">
+  <div v-else class="card-view card-face" :class="[card.color, { 'is-highlighted': highlighted }]">
     <div class="card-corner top-left">
       <div class="corner-rank">{{ card.rank }}</div>
       <div class="corner-suit">{{ card.suitSymbol }}</div>
@@ -44,6 +44,13 @@ const props = defineProps({
   visible: {
     type: Boolean,
     default: true
+  },
+  /**
+   * Whether to highlight the card (e.g. part of winning 5-card combination)
+   */
+  highlighted: {
+    type: Boolean,
+    default: false
   }
 })
 
@@ -61,6 +68,7 @@ const card = computed(() => normalizeCard(props.cardStr))
   flex-shrink: 0;
   position: relative;
   overflow: hidden;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
 }
 
 /* ── Face-up card ─────────────────────────────────── */
@@ -71,6 +79,13 @@ const card = computed(() => normalizeCard(props.cardStr))
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.card-face.is-highlighted {
+  border: 2px solid #f1c76a !important;
+  box-shadow: 0 0 16px rgba(241, 199, 106, 0.85), 0 0 6px rgba(241, 199, 106, 0.5), 0 8px 20px rgba(0, 0, 0, 0.45) !important;
+  transform: translateY(-5px) scale(1.05);
+  z-index: 5;
 }
 
 .card-corner {

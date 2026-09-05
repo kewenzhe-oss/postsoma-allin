@@ -171,6 +171,9 @@ async def websocket_endpoint(websocket: WebSocket, room_id: str, token: str):
     await connection_manager.connect(websocket, room_id, player_id)
     session.players_connected[player_id] = True
     
+    # Replay past events to newly connected client to hydrate hand history & thoughts
+    await connection_manager.replay_events_for_player(websocket, room_id, player_id)
+
     # Send initial state
     await connection_manager.broadcast_state(room_id)
     

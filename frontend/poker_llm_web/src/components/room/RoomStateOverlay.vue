@@ -1,8 +1,8 @@
 <template>
   <div class="overlay-container" v-if="isVisible">
-    <!-- Game Over State -->
+    <!-- Game Over State: only show after isGameOverPending completes -->
     <GameOverOverlay
-      v-if="onlineStore.isGameOver && onlineStore.latestGameResult"
+      v-if="onlineStore.isGameOver && !onlineStore.isGameOverPending && onlineStore.latestGameResult"
       :result="onlineStore.latestGameResult"
       @rematch="$emit('rematch')"
       @back-to-lobby="$emit('back-to-lobby')"
@@ -36,7 +36,7 @@ defineEmits(['rematch', 'back-to-lobby'])
 const onlineStore = useOnlineStore()
 
 const isVisible = computed(() => {
-  if (onlineStore.isGameOver) return true
+  if (onlineStore.isGameOver && !onlineStore.isGameOverPending) return true
   if (onlineStore.connectionStatus === 'connecting') return true
   // Initial loading before stage is set
   if (props.perceptualState === 'waiting_for_ai' && !onlineStore.publicState?.stage) return true

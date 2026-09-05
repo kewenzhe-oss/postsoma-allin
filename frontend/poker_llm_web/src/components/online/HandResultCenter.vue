@@ -54,6 +54,7 @@
             :key="cIdx"
             :card-str="card"
             :visible="true"
+            :highlighted="true"
             class="mini-card"
           />
         </div>
@@ -186,7 +187,8 @@ const comparedPlayers = computed(() => {
         player_id: p.player_id,
         display_name: isHero ? 'Hero' : (p.display_name || 'AI'),
         hole_cards: p.hole_cards,
-        hand_description: p.hand_name,
+        hand_description: p.hand_description || p.hand_name,
+        best_five_cards: p.best_five_cards || [],
         isWinner
       }
     })
@@ -198,6 +200,7 @@ const comparedPlayers = computed(() => {
 const winningHandCards = computed(() => {
   const info = props.result.showdown_info
   if (!info) return []
+  if (info.winning_cards && info.winning_cards.length > 0) return info.winning_cards
   
   const winnerId = props.result.winners?.[0]?.player_id
   if (!winnerId) return []

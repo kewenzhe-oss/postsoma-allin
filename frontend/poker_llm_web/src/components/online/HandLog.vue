@@ -82,7 +82,18 @@ const groupedHands = computed(() => {
       return
     }
 
-    if (!currentHand) return
+    if (!currentHand) {
+      // Self-healing recovery: if hand_started was missed, synthesize a hand bucket
+      // so actions and results are NEVER dropped
+      const handNum = ev.payload?.hand_number || (hands.length + 1)
+      currentHand = {
+        hand_number: handNum,
+        streets: [
+          { name: 'Preflop', actions: [] }
+        ]
+      }
+      hands.push(currentHand)
+    }
 
     switch (ev.type) {
       case 'blinds_posted': {
@@ -162,7 +173,11 @@ const groupedHands = computed(() => {
             return `<b>${name}</b> wins <span class="log-success">+${w.amount}</span>`
           })
           const how = endedBy === 'fold' ? ' (by fold)' : endedBy === 'showdown' ? ' (at showdown)' : ''
-          const desc = showdownInfo ? `<br><span class="log-accent small">Winning hand: ${showdownInfo.winning_reason || showdownInfo.winningHandName}</span>` : ''
+          const reason = showdownInfo?.winning_reason || showdownInfo?.winningHandName || ''
+          const winningCards = (showdownInfo?.winning_cards && showdownInfo.winning_cards.length > 0)
+            ? ` [${showdownInfo.winning_cards.join(' ')}]`
+            : ''
+          const desc = reason ? `<br><span class="log-accent small">Winning hand: ${reason}${winningCards}</span>` : ''
           text = lines.join('<br>') + `<span class="log-muted small">${how}</span>` + desc
         }
         

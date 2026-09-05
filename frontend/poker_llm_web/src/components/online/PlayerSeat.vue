@@ -23,6 +23,7 @@
           :key="idx"
           :cardStr="card"
           :visible="true"
+          :highlighted="isCardHighlighted(card)"
           class="hole-card"
           :class="`card-slot-${idx}`"
         />
@@ -63,6 +64,7 @@
 <script setup>
 import { computed } from 'vue'
 import CardView from './CardView.vue'
+import { normalizeCard } from '@/utils/cardFormat'
 
 const props = defineProps({
   player: {
@@ -91,8 +93,25 @@ const props = defineProps({
   isOpponent: {
     type: Boolean,
     default: false
+  },
+  /**
+   * Cards to highlight if they form part of winning combination
+   */
+  highlightCards: {
+    type: Array,
+    default: () => []
   }
 })
+
+const isCardHighlighted = (cardStr) => {
+  if (!props.highlightCards || props.highlightCards.length === 0 || !cardStr) return false
+  const norm = normalizeCard(cardStr)
+  if (!norm.valid) return false
+  return props.highlightCards.some(hc => {
+    const hNorm = normalizeCard(hc)
+    return hNorm.valid && hNorm.code === norm.code
+  })
+}
 
 // Always show card area — folded seats show greyed-out backs still
 const shouldShowCards = computed(() => true)

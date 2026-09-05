@@ -21,6 +21,7 @@
           v-if="cards[i - 1]"
           :cardStr="cards[i - 1]"
           :visible="true"
+          :highlighted="isCardHighlighted(cards[i - 1])"
           class="community-card"
         />
         <div v-else class="card-placeholder"></div>
@@ -32,6 +33,7 @@
 <script setup>
 import { computed } from 'vue'
 import CardView from './CardView.vue'
+import { normalizeCard } from '@/utils/cardFormat'
 
 const props = defineProps({
   cards: {
@@ -50,8 +52,23 @@ const props = defineProps({
   awardedPot: {
     type: Number,
     default: null
+  },
+  /** Cards to highlight as part of winning combination */
+  highlightCards: {
+    type: Array,
+    default: () => []
   }
 })
+
+const isCardHighlighted = (cardStr) => {
+  if (!props.highlightCards || props.highlightCards.length === 0 || !cardStr) return false
+  const norm = normalizeCard(cardStr)
+  if (!norm.valid) return false
+  return props.highlightCards.some(hc => {
+    const hNorm = normalizeCard(hc)
+    return hNorm.valid && hNorm.code === norm.code
+  })
+}
 
 const stageLabel = computed(() => {
   if (!props.stage) return ''

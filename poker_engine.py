@@ -4,6 +4,7 @@
 import random
 import json
 import os
+import itertools
 from typing import List, Dict, Any, Tuple, Optional
 from enum import Enum
 from game_info import GameAction, GameResult, GameWinnerInfo
@@ -43,6 +44,7 @@ class PokerTable:
         self.action_history: List[GameAction] = []  # 行动历史
         self.game_log: List[Dict[str, Any]] = []  # 游戏日志
         self.game_result_log: Dict[int, GameResult] = {}
+        self.last_awarded_pot = 0  # 记录最近一次结算的奖池额度
 
     def add_player(self, player: Player) -> bool:
         """添加玩家到牌桌"""
@@ -85,19 +87,25 @@ class PokerTable:
         if len(active_players) < 2:
             return
 
-        # 从庄家位置开始，找到第一个活跃玩家作为小盲
-        sb_pos = self.dealer_position
-        while True:
-            sb_pos = (sb_pos + 1) % len(self.players)
-            if self.players[sb_pos].is_active:
-                break
+        if len(active_players) == 2:
+            # 1v1 Heads-Up 规则：庄家 (dealer_position) 为小盲 SB，非庄家为大盲 BB
+            sb_pos = self.dealer_position
+            bb_pos = (self.dealer_position + 1) % len(self.players)
+            first_actor_pos = sb_pos  # 翻前小盲/庄家先行动
+        else:
+            # 多人桌规则：从庄家后开始找 SB 和 BB
+            sb_pos = self.dealer_position
+            while True:
+                sb_pos = (sb_pos + 1) % len(self.players)
+                if self.players[sb_pos].is_active:
+                    break
 
-        # 从小盲位置开始，找到第一个活跃玩家作为大盲
-        bb_pos = sb_pos
-        while True:
-            bb_pos = (bb_pos + 1) % len(self.players)
-            if self.players[bb_pos].is_active:
-                break
+            bb_pos = sb_pos
+            while True:
+                bb_pos = (bb_pos + 1) % len(self.players)
+                if self.players[bb_pos].is_active:
+                    break
+            first_actor_pos = (bb_pos + 1) % len(self.players)
 
         # 下小盲注
         sb_player = self.players[sb_pos]
@@ -112,12 +120,12 @@ class PokerTable:
         self.current_bet = self.big_blind
         self.log_action(bb_player, Action.BIG_BLIND, bb_amount, "")
 
-        # 设置当前行动玩家为大盲注后的第一个活跃玩家
-        self.current_player_idx = bb_pos
+        # 设置当前行动玩家
+        self.current_player_idx = first_actor_pos
         while True:
-            self.current_player_idx = (self.current_player_idx + 1) % len(self.players)
             if self.players[self.current_player_idx].is_active:
                 break
+            self.current_player_idx = (self.current_player_idx + 1) % len(self.players)
 
     def next_player(self) -> Optional[Player]:
         """获取下一个应该行动的玩家"""
@@ -162,11 +170,25 @@ class PokerTable:
             return True
 
         elif action == Action.RAISE:
-            min_raise = self.current_bet * 2
-            if amount < min_raise or amount > player.chips:
-                return False  # 加注金额无效
+            # 统一采用 Raise To（目标总注额）规范
+            target_total = amount
+            additional_chips = target_total - player.bet_in_round
 
-            bet_amount = player.place_bet(amount)
+            # 计算最小加注目标额
+            if self.current_bet == 0:
+                min_raise_target = self.big_blind
+            else:
+                min_raise_target = self.current_bet + max(self.big_blind, self.current_bet - player.bet_in_round)
+
+            # 校验追加筹码必须大于0且不超过玩家剩余筹码
+            if additional_chips <= 0 or additional_chips > player.chips:
+                return False
+
+            # 非全押情况下，总注额必须满足最小加注目标
+            if additional_chips < player.chips and target_total < min_raise_target:
+                return False
+
+            bet_amount = player.place_bet(additional_chips)
             self.pot += bet_amount
             self.current_bet = player.bet_in_round
             self.log_action(player, action, bet_amount, behavior)
@@ -298,6 +320,97 @@ class PokerTable:
         all_cards = player.hand + self.community_cards
         return self.find_best_hand(all_cards)
 
+    def evaluate_player_best_five(self, player: Player) -> Tuple[HandRank, List[Card], str, List[int]]:
+        """
+        从玩家手牌和公共牌中，评估并返回最佳的5张Card对象组合及文字描述。
+        返回: (HandRank, List[Card], 描述字符串, 比较权重数值列表)
+        """
+        all_cards = player.hand + self.community_cards
+        if len(all_cards) <= 5:
+            rank, values = self.find_best_hand(all_cards)
+            desc = self.describe_hand(rank, values)
+            return (rank, all_cards, desc, values)
+
+        best_rank = None
+        best_values = None
+        best_combo = None
+
+        for combo in itertools.combinations(all_cards, 5):
+            combo_list = list(combo)
+            rank, values = self.find_best_hand(combo_list)
+            if best_rank is None or self.compare_hands((rank, values), (best_rank, best_values)) > 0:
+                best_rank = rank
+                best_values = values
+                best_combo = combo_list
+
+        desc = self.describe_hand(best_rank, best_values)
+        return (best_rank, best_combo or all_cards[:5], desc, best_values)
+
+    def describe_hand(self, rank: HandRank, values: List[int]) -> str:
+        """生成详细清晰的成牌与踢脚牌描述"""
+        rank_names = {
+            14: "Ace", 13: "King", 12: "Queen", 11: "Jack", 10: "10",
+            9: "9", 8: "8", 7: "7", 6: "6", 5: "5", 4: "4", 3: "3", 2: "2"
+        }
+        rank_plurals = {
+            14: "Aces", 13: "Kings", 12: "Queens", 11: "Jacks", 10: "Tens",
+            9: "9s", 8: "8s", 7: "7s", 6: "6s", 5: "5s", 4: "4s", 3: "3s", 2: "2s"
+        }
+
+        if rank == HandRank.ROYAL_FLUSH:
+            return "Royal Flush"
+        elif rank == HandRank.STRAIGHT_FLUSH:
+            r0 = rank_names.get(values[0], str(values[0])) if values else ""
+            return f"{r0}-High Straight Flush"
+        elif rank == HandRank.FOUR_OF_A_KIND:
+            quad = values[0] if len(values) > 0 else 0
+            kicker = values[4] if len(values) > 4 else 0
+            p_quad = rank_plurals.get(quad, str(quad))
+            r_kicker = rank_names.get(kicker, str(kicker))
+            kicker_str = f" with {r_kicker} kicker" if kicker else ""
+            return f"Four of a Kind, {p_quad}{kicker_str}"
+        elif rank == HandRank.FULL_HOUSE:
+            trip = values[0] if len(values) > 0 else 0
+            pair = values[3] if len(values) > 3 else (values[1] if len(values) > 1 else 0)
+            p_trip = rank_plurals.get(trip, str(trip))
+            p_pair = rank_plurals.get(pair, str(pair))
+            return f"Full House, {p_trip} full of {p_pair}"
+        elif rank == HandRank.FLUSH:
+            r0 = rank_names.get(values[0], str(values[0])) if values else ""
+            return f"Flush, {r0} High"
+        elif rank == HandRank.STRAIGHT:
+            r0 = rank_names.get(values[0], str(values[0])) if values else ""
+            return f"Straight, {r0} High"
+        elif rank == HandRank.THREE_OF_A_KIND:
+            trip = values[0] if len(values) > 0 else 0
+            kicker = values[3] if len(values) > 3 else 0
+            p_trip = rank_plurals.get(trip, str(trip))
+            r_kicker = rank_names.get(kicker, str(kicker))
+            kicker_str = f" with {r_kicker} kicker" if kicker else ""
+            return f"Three of a Kind, {p_trip}{kicker_str}"
+        elif rank == HandRank.TWO_PAIR:
+            p1 = values[0] if len(values) > 0 else 0
+            p2 = values[2] if len(values) > 2 else 0
+            kicker = values[4] if len(values) > 4 else 0
+            p_pair1 = rank_plurals.get(p1, str(p1))
+            p_pair2 = rank_plurals.get(p2, str(p2))
+            r_kicker = rank_names.get(kicker, str(kicker))
+            kicker_str = f" ({r_kicker} kicker)" if kicker else ""
+            return f"Two Pair, {p_pair1} and {p_pair2}{kicker_str}"
+        elif rank == HandRank.ONE_PAIR:
+            pair = values[0] if len(values) > 0 else 0
+            kicker = values[2] if len(values) > 2 else 0
+            p_pair = rank_plurals.get(pair, str(pair))
+            r_kicker = rank_names.get(kicker, str(kicker))
+            kicker_str = f" ({r_kicker} kicker)" if kicker else ""
+            return f"Pair of {p_pair}{kicker_str}"
+        elif rank == HandRank.HIGH_CARD:
+            r0 = rank_names.get(values[0], str(values[0])) if len(values) > 0 else ""
+            r1 = rank_names.get(values[1], str(values[1])) if len(values) > 1 else ""
+            kicker_str = f" ({r1} kicker)" if r1 else ""
+            return f"High Card {r0}{kicker_str}"
+        return rank.name
+
     def find_best_hand(self, cards: List[Card]) -> Tuple[HandRank, List[int]]:
         """从给定的牌中找出最佳牌型"""
         # 检查是否有皇家同花顺
@@ -360,19 +473,20 @@ class PokerTable:
         return []
 
     def check_straight_flush(self, cards: List[Card]) -> List[int]:
-        """检查是否有同花顺"""
+        """检查是否有同花顺（优先从高到低扫描常规同花顺，最后检查A-5）"""
         for suit in Suit:
             suit_cards = [card for card in cards if card.suit == suit]
             if len(suit_cards) >= 5:
-                values = sorted([card.value for card in suit_cards], reverse=True)
-                # 检查A-5顺子
-                if 14 in values and 2 in values and 3 in values and 4 in values and 5 in values:
-                    return [5, 4, 3, 2, 1]  # 5高顺子
+                values = sorted(set(card.value for card in suit_cards), reverse=True)
 
-                # 检查常规顺子
+                # 1. 优先扫描常规同花顺 (高到低)
                 for i in range(len(values) - 4):
-                    if values[i] - values[i + 4] == 4 and len(set(values[i:i + 5])) == 5:
+                    if values[i] - values[i + 4] == 4:
                         return values[i:i + 5]
+
+                # 2. 兜底检查 A-2-3-4-5 轮转同花顺 (5高)
+                if 14 in values and {2, 3, 4, 5}.issubset(values):
+                    return [5, 4, 3, 2, 1]
         return []
 
     def check_four_of_a_kind(self, cards: List[Card]) -> List[int]:
@@ -419,17 +533,20 @@ class PokerTable:
         return []
 
     def check_straight(self, cards: List[Card]) -> List[int]:
-        """检查是否有顺子"""
+        """检查是否有顺子（优先从高到低扫描常规顺子，最后检查A-5）"""
         values = sorted(set(card.value for card in cards), reverse=True)
+        if len(values) < 5:
+            return []
 
-        # 检查A-5顺子
-        if 14 in values and 2 in values and 3 in values and 4 in values and 5 in values:
-            return [5, 4, 3, 2, 1]  # 5高顺子
-
-        # 检查常规顺子
+        # 1. 优先扫描常规顺子 (高到低)
         for i in range(len(values) - 4):
-            if values[i] - values[i + 4] == 4 and len(set(values[i:i + 5])) == 5:
+            if values[i] - values[i + 4] == 4:
                 return values[i:i + 5]
+
+        # 2. 兜底检查 A-2-3-4-5 轮转顺子 (5高顺子)
+        if 14 in values and {2, 3, 4, 5}.issubset(values):
+            return [5, 4, 3, 2, 1]
+
         return []
 
     def check_three_of_a_kind(self, cards: List[Card]) -> List[int]:
@@ -651,6 +768,7 @@ class PokerTable:
         )
 
         self.game_log.append(pot_award_record)
+        self.last_awarded_pot = self.pot
         self.pot = 0
 
 
@@ -668,6 +786,7 @@ class PokerTable:
         # 重置牌桌状态
         self.pot = 0
         self.current_bet = 0
+        self.last_awarded_pot = 0
         self.community_cards = []
         self.stage = GameStage.PREFLOP
 

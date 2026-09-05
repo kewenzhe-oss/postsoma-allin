@@ -53,6 +53,7 @@ class PrivateGameState:
 @dataclass
 class AvailableAction:
     action: str
+    amount: Optional[int] = None
     min_amount: Optional[int] = None
     max_amount: Optional[int] = None
 

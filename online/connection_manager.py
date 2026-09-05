@@ -26,6 +26,22 @@ class ConnectionManager:
             if player_id in self.active_connections[room_id]:
                 del self.active_connections[room_id][player_id]
 
+    async def replay_events_for_player(self, websocket: WebSocket, room_id: str, player_id: str):
+        """Replay room event history to newly connected or reconnected client."""
+        session = room_manager.get_room(room_id)
+        if not session:
+            return
+        events = session.adapter.event_log()
+        for ev in events:
+            if ev.type == "private_hole_cards":
+                target_id = ev.payload.get("player_id")
+                if target_id != player_id:
+                    continue
+            try:
+                await websocket.send_json({"type": "engine_event", "event": asdict(ev)})
+            except Exception as e:
+                print(f"Error replaying event to {player_id}: {e}")
+
     async def broadcast_state(self, room_id: str):
         session = room_manager.get_room(room_id)
         if not session:

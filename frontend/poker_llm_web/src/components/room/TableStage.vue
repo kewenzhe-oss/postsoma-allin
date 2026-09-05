@@ -11,6 +11,7 @@
           :isDealer="isOpponentDealer"
           :holeCards="opponentRevealedCards"
           :isOpponent="true"
+          :highlightCards="winningCardsList"
         />
         <div v-else class="waiting-seat">Waiting for opponent</div>
 
@@ -25,16 +26,20 @@
         <div class="center-status" v-if="centerStatus">
           {{ centerStatus }}
         </div>
-        <HandResultCenter
-          v-if="onlineStore.latestHandResult"
-          :result="onlineStore.latestHandResult"
-        />
         <CommunityCards
-          v-else
           :cards="onlineStore.publicState?.community_cards || []"
           :pot="liveDisplayPot"
           :stage="onlineStore.publicState?.stage"
+          :highlightCards="winningCardsList"
+          :class="{ 'board-dimmed': !!onlineStore.latestHandResult }"
         />
+        <transition name="fade">
+          <HandResultCenter
+            v-if="onlineStore.latestHandResult"
+            :result="onlineStore.latestHandResult"
+            class="result-floating-overlay"
+          />
+        </transition>
       </div>
 
       <!-- ── Hero Seat (Bottom) ────────────────────────── -->
@@ -46,6 +51,7 @@
           :isDealer="isHeroDealer"
           :holeCards="onlineStore.privateState?.hole_cards || []"
           :isOpponent="false"
+          :highlightCards="winningCardsList"
         />
         <div v-else class="waiting-seat">Taking your seat</div>
 
@@ -80,6 +86,12 @@ const opponentRevealedCards = computed(() => {
   const opponentId = onlineStore.opponentPlayer?.player_id
   if (!opponentId) return []
   return onlineStore.revealedCards[opponentId] || []
+})
+
+const winningCardsList = computed(() => {
+  const result = onlineStore.latestHandResult
+  if (!result || !result.showdown_info) return []
+  return result.showdown_info.winning_cards || []
 })
 
 const isHeroDealer = computed(() => {
@@ -202,6 +214,21 @@ const centerStatus = computed(() => {
 .center-zone.dimmed {
   opacity: 0.5;
   filter: saturate(0.82);
+}
+
+.board-dimmed {
+  opacity: 0.35;
+  filter: blur(1px);
+  transition: opacity 0.3s ease, filter 0.3s ease;
+}
+
+.result-floating-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 30;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.75), 0 0 24px rgba(241, 199, 106, 0.2);
 }
 
 .waiting-seat {

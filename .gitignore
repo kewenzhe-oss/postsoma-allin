@@ -186,3 +186,9 @@ main_test.py
 .claude/
 **/tmpclaude-*-cwd/
 nul
+
+# OS files
+.DS_Store
+*/.DS_Store
+**/.DS_Store
+

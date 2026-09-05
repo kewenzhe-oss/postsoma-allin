@@ -59,15 +59,43 @@ export function useAIInteraction(onlineStore) {
     }
   }, { immediate: true })
 
+  // Error recovery: reset submitting_action if server reports an error
+  watch(() => onlineStore.errorMessage, (err) => {
+    if (err && perceptualState.value === 'submitting_action') {
+      console.warn('Action rejected or connection error, restoring player_turn:', err)
+      if (watchdogTimer) {
+        clearTimeout(watchdogTimer)
+        watchdogTimer = null
+      }
+      perceptualState.value = 'player_turn'
+    }
+  })
+
+  let watchdogTimer = null
+
   // Method to be called by ActionPanel when user submits
   const submitHeroAction = async (action, amount) => {
     if (perceptualState.value !== 'player_turn') return
     
     perceptualState.value = 'submitting_action'
+
+    // Watchdog timer: if backend fails to respond within 2.5s, restore panel
+    if (watchdogTimer) clearTimeout(watchdogTimer)
+    watchdogTimer = setTimeout(() => {
+      if (perceptualState.value === 'submitting_action' && onlineStore.isMyTurn) {
+        console.warn('Action submission timed out, restoring player_turn')
+        perceptualState.value = 'player_turn'
+      }
+    }, 2500)
+
     try {
       await onlineStore.submitAction(action, amount)
       // The watch will automatically transition to ai_thinking once backend updates turn
     } catch (e) {
+      if (watchdogTimer) {
+        clearTimeout(watchdogTimer)
+        watchdogTimer = null
+      }
       perceptualState.value = 'player_turn' // Revert on error
       throw e
     }
@@ -115,6 +143,10 @@ export function useAIInteraction(onlineStore) {
     if (actionRevealTimeout) {
       clearTimeout(actionRevealTimeout)
       actionRevealTimeout = null
+    }
+    if (watchdogTimer) {
+      clearTimeout(watchdogTimer)
+      watchdogTimer = null
     }
   })
 

@@ -94,7 +94,7 @@ class GameSession:
     # ── Action submission ─────────────────────────────────────────────────────
 
     def submit_action(self, player_id: str, action: str, amount: Optional[int] = None) -> bool:
-        result = self.adapter.submit_action(player_id, action, amount)
+        result = self.adapter.submit_action(player_id, action, amount, step_all_in=True)
         if not result.accepted:
             return False
 
@@ -118,11 +118,42 @@ class GameSession:
             active_players = [p for p in self.adapter.table.players if p.chips > 0]
 
             if len(active_players) < 2:
-                self._end_game()
+                hf_ev = next((e for e in result.events if e.type == "hand_finished"), None)
+                self._end_game(self._extract_deciding_hand(hf_ev))
             else:
                 asyncio.create_task(self._delayed_start_next_hand())
+        elif self.adapter.can_advance_street():
+            if self.turn_timer_task:
+                self.turn_timer_task.cancel()
+            asyncio.create_task(self._run_all_in_runout())
 
         return True
+
+    async def _run_all_in_runout(self):
+        """Asynchronously advance community cards with 1.2s delay during all-in lockdown."""
+        try:
+            while self.adapter.can_advance_street():
+                await asyncio.sleep(1.2)
+                events = self.adapter.advance_single_street()
+                self._dispatch_events(events)
+                for ev in events:
+                    if ev.type == "hand_finished":
+                        self._on_hand_finished(ev)
+
+                if any(e.type == "hand_finished" for e in events):
+                    if self.turn_timer_task:
+                        self.turn_timer_task.cancel()
+                    active_players = [p for p in self.adapter.table.players if p.chips > 0]
+                    if len(active_players) < 2:
+                        hf_ev = next((e for e in events if e.type == "hand_finished"), None)
+                        self._end_game(self._extract_deciding_hand(hf_ev))
+                    else:
+                        asyncio.create_task(self._delayed_start_next_hand())
+                    break
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            logger.error("Error during all-in runout: %s", e, exc_info=True)
 
     # ── Event observers ───────────────────────────────────────────────────────
 
@@ -364,7 +395,24 @@ class GameSession:
 
     # ── Game end ──────────────────────────────────────────────────────────────
 
-    def _end_game(self):
+    def _extract_deciding_hand(self, hand_finished_ev: Optional[EngineEvent]) -> Optional[Dict[str, Any]]:
+        """Extract rich snapshot of the decisive hand for game_over recap."""
+        if not hand_finished_ev or not hand_finished_ev.payload:
+            return None
+        payload = hand_finished_ev.payload
+        showdown_info = payload.get("showdown_info") or {}
+        return {
+            "hand_number": payload.get("hand_number"),
+            "ended_by": payload.get("ended_by"),
+            "awarded_pot": payload.get("awarded_pot"),
+            "community_cards": [str(c) for c in self.adapter.table.community_cards],
+            "showdown_info": showdown_info,
+            "winners": payload.get("winners") or [],
+            "winning_reason": showdown_info.get("winning_reason", ""),
+            "winning_cards": showdown_info.get("winning_cards", []),
+        }
+
+    def _end_game(self, deciding_hand_data: Optional[Dict[str, Any]] = None):
         self.adapter._game_over = True
 
         final_stacks = []
@@ -387,6 +435,7 @@ class GameSession:
         game_over_ev = self.adapter._add_event("game_over", {
             "winner": winner_payload,
             "final_stacks": final_stacks,
+            "deciding_hand": deciding_hand_data,
         })
         self._dispatch_events([game_over_ev])
         state_ev = self.adapter._add_event("state_updated", {"trigger": "game_over"})
