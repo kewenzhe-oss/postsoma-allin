@@ -2,8 +2,6 @@ from dataclasses import dataclass, field
 from engine_info import Card, Action, GameStage, Player
 from typing import List, Dict, Optional
 
-import prompts
-
 
 @dataclass
 class GameAction:
