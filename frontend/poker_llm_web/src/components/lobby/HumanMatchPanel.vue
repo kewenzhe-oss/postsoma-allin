@@ -18,17 +18,33 @@
         
         <el-tab-pane :label="copy.joinTab" name="join">
           <div class="tab-content">
+            <div v-if="props.prefilledRoomId" class="invite-banner">
+              <div class="invite-badge">{{ copy.invitedBadge }}</div>
+              <div class="invite-desc">{{ copy.invitedDesc }}: <code>{{ props.prefilledRoomId }}</code></div>
+            </div>
+
             <div class="form-group">
               <label>{{ copy.displayName }}</label>
-              <el-input v-model="joinDisplayName" :placeholder="copy.namePlaceholder" class="panel-input" />
+              <el-input
+                v-model="joinDisplayName"
+                :placeholder="copy.namePlaceholder"
+                class="panel-input"
+                @keyup.enter="handleJoin"
+              />
             </div>
             <div class="form-group">
               <label>Room ID</label>
-              <el-input v-model="joinRoomId" :placeholder="copy.roomPlaceholder" class="panel-input" />
+              <el-input
+                v-model="joinRoomId"
+                :placeholder="copy.roomPlaceholder"
+                class="panel-input"
+                :disabled="Boolean(props.prefilledRoomId)"
+                @keyup.enter="handleJoin"
+              />
             </div>
             <div class="action-wrapper">
               <el-button class="panel-btn join-btn" @click="handleJoin" :loading="loading" :disabled="!joinRoomId">
-                {{ copy.joinRoom }}
+                {{ props.prefilledRoomId ? copy.joinInvitedRoom : copy.joinRoom }}
               </el-button>
             </div>
           </div>
@@ -39,11 +55,18 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, watchEffect } from 'vue'
 import { useRouter } from 'vue-router'
 import { useOnlineStore } from '@/stores/online'
 import { ElMessage } from 'element-plus'
 import { isZh } from '@/i18n/locale.js'
+
+const props = defineProps({
+  prefilledRoomId: {
+    type: String,
+    default: ''
+  }
+})
 
 const router = useRouter()
 const onlineStore = useOnlineStore()
@@ -55,32 +78,50 @@ const displayName = ref(localStorage.getItem('poker_hvh_name') || 'Player 1')
 const joinDisplayName = ref(localStorage.getItem('poker_hvh_name') || 'Player 2')
 const joinRoomId = ref('')
 
+// When an invite link provides a room ID, switch to Join tab and pre-fill it
+watchEffect(() => {
+  if (props.prefilledRoomId) {
+    joinRoomId.value = props.prefilledRoomId
+    activeTab.value = 'join'
+  }
+})
+
 const copy = computed(() => isZh.value
   ? {
       hostTab: '创建房间',
       joinTab: '加入房间',
       displayName: '显示名称',
       namePlaceholder: '输入你的名称',
-      roomPlaceholder: '输入 6 位 Room ID',
+      roomPlaceholder: '输入 8 位 Room ID',
       createRoom: '创建房间',
       joinRoom: '加入房间',
+      joinInvitedRoom: '立即进入房间',
+      invitedBadge: '邀请函',
+      invitedDesc: '受邀加入对局房间',
       nameRequired: '请输入显示名称。',
       createFailed: '创建房间失败。',
       joinRequired: '请输入名称和 Room ID。',
-      joinFailed: '加入房间失败。'
+      joinFailed: '加入房间失败。',
+      roomNotFound: '房间不存在或已过期解散。',
+      roomFull: '房间已满（仅限 2 人 Heads-Up）。'
     }
   : {
       hostTab: 'Host a Game',
       joinTab: 'Join a Game',
       displayName: 'Display Name',
       namePlaceholder: 'Enter your name',
-      roomPlaceholder: 'Enter 6-character room ID',
+      roomPlaceholder: 'Enter 8-character room ID',
       createRoom: 'Create Room',
       joinRoom: 'Join Room',
+      joinInvitedRoom: 'Join Match Now',
+      invitedBadge: 'Invite',
+      invitedDesc: 'Invited to match room',
       nameRequired: 'Display name is required.',
       createFailed: 'Failed to create room.',
       joinRequired: 'Name and Room ID are required.',
-      joinFailed: 'Failed to join room.'
+      joinFailed: 'Failed to join room.',
+      roomNotFound: 'Room not found or expired.',
+      roomFull: 'Room is full (2 players max).'
     })
 
 const handleCreate = async () => {
@@ -107,7 +148,13 @@ const handleJoin = async () => {
     await onlineStore.joinRoom(joinRoomId.value, joinDisplayName.value)
     router.replace(`/room/${joinRoomId.value}`)
   } catch (err) {
-    ElMessage.error(err.message || copy.value.joinFailed)
+    let msg = err.message || copy.value.joinFailed
+    if (msg.includes('Room not found')) {
+      msg = copy.value.roomNotFound
+    } else if (msg.includes('Room is full')) {
+      msg = copy.value.roomFull
+    }
+    ElMessage.error(msg)
   } finally {
     loading.value = false
   }
@@ -137,6 +184,42 @@ const handleJoin = async () => {
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
+}
+
+.invite-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: rgba(217, 173, 88, 0.12);
+  border: 1px solid rgba(217, 173, 88, 0.35);
+  border-radius: var(--radius-md);
+}
+
+.invite-badge {
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.2rem 0.5rem;
+  background: var(--accent-primary);
+  color: var(--text-inverse);
+  border-radius: var(--radius-pill);
+  white-space: nowrap;
+}
+
+.invite-desc {
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.invite-desc code {
+  color: var(--accent-primary-strong);
+  font-weight: 800;
+  padding: 0.15rem 0.35rem;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
 }
 
 .form-group {

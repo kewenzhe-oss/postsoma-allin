@@ -163,7 +163,7 @@
           </aside>
 
           <!-- Layer 2A: Human vs Human -->
-          <HumanMatchPanel v-if="currentMode === 'hvh'" />
+          <HumanMatchPanel v-if="currentMode === 'hvh'" :prefilledRoomId="pendingInviteRoomId" />
 
           <!-- Layer 2B: Human vs AI -->
           <AIMatchPanel v-else />
@@ -367,7 +367,23 @@ const TRAINING_SOURCE_CONTEXTS = Object.freeze({
 const route = useRoute()
 const router = useRouter()
 
-watch([() => route.query.mode, () => route.query.training], ([mode, training]) => {
+// Prefilled room ID from ?room= invite link
+const pendingInviteRoomId = ref('')
+
+watch([() => route.query.mode, () => route.query.room, () => route.query.training], ([mode, roomParam, training]) => {
+  // If an invite link with ?room=ID was opened, auto-switch to hvh join flow
+  if (roomParam && typeof roomParam === 'string' && roomParam.trim()) {
+    pendingInviteRoomId.value = roomParam.trim()
+    if (mode !== 'hvh') {
+      router.replace({ name: 'Home', query: { ...route.query, mode: 'hvh' } })
+    }
+    activeTrainingPath.value = null
+    return
+  }
+
+  // Clear prefilled ID when room param is removed
+  pendingInviteRoomId.value = ''
+
   if (mode === 'hvh' || mode === 'hva') {
     activeTrainingPath.value = null
     return

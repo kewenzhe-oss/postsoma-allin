@@ -44,8 +44,7 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted, computed } from 'vue'
-import { useRouter } from 'vue-router'
-import { onBeforeRouteLeave } from 'vue-router'
+import { useRouter, useRoute, onBeforeRouteLeave } from 'vue-router'
 import { useOnlineStore } from '@/stores/online'
 import { useAIInteraction } from '@/composables/useAIInteraction'
 import { ElMessage } from 'element-plus'
@@ -59,6 +58,7 @@ import DebugPanel from '@/components/online/DebugPanel.vue'
 import RangeViewerModal from '@/components/tools/RangeViewerModal.vue'
 
 const router = useRouter()
+const route = useRoute()
 const onlineStore = useOnlineStore()
 const { perceptualState, latestAIAction, submitHeroAction } = useAIInteraction(onlineStore)
 
@@ -86,7 +86,15 @@ const actionSummary = computed(() => {
 })
 
 onMounted(() => {
+  const targetRoomId = route.params.id
   onlineStore.initFromSession()
+
+  // If user has no valid session or token is for a different room, redirect to join flow
+  if (!onlineStore.playerToken || onlineStore.roomId !== targetRoomId) {
+    router.replace({ name: 'Home', query: { room: targetRoomId } })
+    return
+  }
+
   onlineStore.connectWebSocket()
   
   // Dynamic SEO exclusion: mark transient room page as noindex
