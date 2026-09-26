@@ -1,6 +1,15 @@
 <template>
   <div class="header-section">
-    <div class="brand-signature">POSTSOMA-2050</div>
+    <div class="brand-header-badge">
+      <img
+        src="/favicon.svg?v=2"
+        alt="POSTSOMA · ALLIN"
+        class="brand-header-logo"
+        width="44"
+        height="44"
+      />
+      <div class="brand-signature">POSTSOMA-2050</div>
+    </div>
     <div class="eyebrow">{{ headerContent.eyebrow }}</div>
     <h1 class="main-title">{{ headerContent.title }}</h1>
     <p class="subtitle">{{ headerContent.subtitle }}</p>
@@ -106,6 +115,28 @@ const headerContent = computed(() => {
   position: relative;
   max-width: 920px;
   z-index: 1;
+}
+
+.brand-header-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  margin: 0 auto 0.45rem;
+}
+
+.brand-header-logo {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 14px rgba(212, 165, 74, 0.45));
+  transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), filter 0.3s ease;
+}
+
+.brand-header-logo:hover {
+  transform: scale(1.08) translateY(-1px);
+  filter: drop-shadow(0 0 20px rgba(240, 205, 122, 0.65));
 }
 
 .brand-signature {

@@ -1,6 +1,15 @@
 <template>
   <header class="room-top-bar">
     <div class="left">
+      <router-link to="/" class="room-brand-link" title="POSTSOMA · ALLIN">
+        <img
+          src="/favicon.svg?v=2"
+          alt="POSTSOMA · ALLIN"
+          class="room-brand-logo"
+          width="26"
+          height="26"
+        />
+      </router-link>
       <div class="connection-indicator" :class="connectionClass" :title="onlineStore.connectionStatus"></div>
       <h2 class="room-id"><span>{{ copy.room }}</span> {{ onlineStore.roomId }}</h2>
     </div>
@@ -168,6 +177,26 @@ function stageLabel(value) {
   align-items: center;
   gap: 0.75rem;
   flex: 1;
+}
+
+.room-brand-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  margin-right: 0.2rem;
+  transition: transform 0.2s ease;
+}
+
+.room-brand-link:hover {
+  transform: scale(1.1);
+}
+
+.room-brand-logo {
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 8px rgba(212, 165, 74, 0.45));
 }
 
 .right {

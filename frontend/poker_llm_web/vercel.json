@@ -38,7 +38,7 @@
       "destination": "/about/index.html"
     },
     {
-      "source": "/((?!assets/|favicon|app_icon).*)",
+      "source": "/((?!assets/|favicon|app_icon|og-image|apple-touch-icon|icon-|manifest|site\\.webmanifest).*)",
       "destination": "/index.html"
     }
   ]

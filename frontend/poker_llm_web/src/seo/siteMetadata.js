@@ -202,7 +202,7 @@ export const getPageSeo = ({ routeName, locale = 'en' }) => {
       ),
       canonical: ABOUT_URL,
       robots: 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1',
-      image: `${SITE_ORIGIN}/app_icon.png`,
+      image: `${SITE_ORIGIN}/og-image.png`,
       imageAlt: BRAND_NAME,
       type: 'website',
       structuredData: buildAboutStructuredData(locale)
@@ -221,15 +221,15 @@ export const getPageSeo = ({ routeName, locale = 'en' }) => {
   }
 
   return {
-    title: localized(locale, 'Poker Decision Thinking Tool | POSTSOMA · ALLIN', '扑克决策思考工具 | POSTSOMA · ALLIN'),
+    title: localized(locale, 'Poker Decision Thinking Tool | POSTSOMA · ALLIN', 'POSTSOMA · ALLIN - 扑克决策思考工具'),
     description: localized(
       locale,
       'Understand the spot before searching for an answer. Use Hand, Context, Range, Price, and Risk to build a repeatable poker decision habit.',
-      '先看懂局面，再寻找答案。用 Hand、Context、Range、Price、Risk 建立可重复的扑克决策习惯。'
+      '用 Hand、Context、Range、Price、Risk 五个问题，建立每次德州扑克决定前的量化思考习惯。先看懂局面，再寻找答案。'
     ),
     canonical: SITE_URL,
     robots: 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1',
-    image: `${SITE_ORIGIN}/app_icon.png`,
+    image: `${SITE_ORIGIN}/og-image.png`,
     imageAlt: BRAND_NAME,
     type: 'website',
     structuredData: buildHomeStructuredData(locale)

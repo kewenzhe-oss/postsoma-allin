@@ -62,7 +62,7 @@ export const applyPageSeo = (page) => {
   setMetaContent('meta[property="og:description"]', { property: 'og:description' }, page.description)
   setMetaContent('meta[property="og:image"]', { property: 'og:image' }, page.image)
   setMetaContent('meta[property="og:image:alt"]', { property: 'og:image:alt' }, page.imageAlt)
-  setMetaContent('meta[name="twitter:card"]', { name: 'twitter:card' }, page.image ? 'summary' : null)
+  setMetaContent('meta[name="twitter:card"]', { name: 'twitter:card' }, page.image ? 'summary_large_image' : null)
   setMetaContent('meta[name="twitter:title"]', { name: 'twitter:title' }, page.title)
   setMetaContent('meta[name="twitter:description"]', { name: 'twitter:description' }, page.description)
   setMetaContent('meta[name="twitter:image"]', { name: 'twitter:image' }, page.image)

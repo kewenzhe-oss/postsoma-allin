@@ -43,7 +43,7 @@ const staleSourceRepository = ['github.com', 'kewenzhe-oss', 'postsoma-allin'].j
 assert(!controlledText.includes(staleSourceRepository), 'stale source repository remains')
 
 assert(indexHtml.includes(`<link rel="canonical" href="${SITE_URL}"`), 'home canonical is missing or incorrect')
-assert(indexHtml.includes(`content="${SITE_ORIGIN}/app_icon.png"`), 'absolute social image URL is missing')
+assert(indexHtml.includes(`content="${SITE_ORIGIN}/og-image.png"`), 'absolute social image URL is missing')
 assert(indexHtml.includes(`"codeRepository": "${SOURCE_REPOSITORY_URL}"`), 'home codeRepository is missing or incorrect')
 assert(!indexHtml.includes('display: none'), 'hidden SEO fallback content must not be used')
 assert(!indexHtml.includes('SearchAction'), 'SearchAction must not be added without real site search')
@@ -118,6 +118,13 @@ assert(vercel.includes('/about/index.html'), 'Vercel About static rewrite is mis
 const favicon = await readFile(resolve(rootDir, 'public/favicon.png'))
 const pngSignature = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
 assert(pngSignature.every((byte, index) => favicon[index] === byte), 'favicon.png bytes are not PNG')
+
+const ogImage = await readFile(resolve(rootDir, 'public/og-image.png'))
+assert(pngSignature.every((byte, index) => ogImage[index] === byte), 'og-image.png bytes are not PNG')
+assert(existsSync(resolve(rootDir, 'public/favicon.svg')), 'favicon.svg is missing')
+assert(existsSync(resolve(rootDir, 'public/favicon.ico')), 'favicon.ico is missing')
+assert(existsSync(resolve(rootDir, 'public/apple-touch-icon.png')), 'apple-touch-icon.png is missing')
+assert(existsSync(resolve(rootDir, 'public/site.webmanifest')), 'site.webmanifest is missing')
 
 if (shouldCheckDist) {
   const distIndexPath = resolve(rootDir, 'dist/index.html')

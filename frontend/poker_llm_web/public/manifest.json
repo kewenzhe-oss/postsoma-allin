@@ -1,0 +1,29 @@
+{
+  "name": "POSTSOMA · ALLIN",
+  "short_name": "POSTSOMA",
+  "description": "Poker Decision Thinking Tool - Hand · Context · Range · Price · Risk",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#07090e",
+  "theme_color": "#d4a54a",
+  "icons": [
+    {
+      "src": "/icon-192x192.png?v=2",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512x512.png?v=2",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/app_icon.png?v=2",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

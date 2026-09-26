@@ -1,7 +1,18 @@
 <template>
   <main class="about-page">
     <header class="about-hero">
-      <span class="brand-signature">POSTSOMA-2050</span>
+      <div class="about-brand-badge">
+        <RouterLink to="/" class="about-brand-link" title="POSTSOMA · ALLIN">
+          <img
+            src="/favicon.svg?v=2"
+            alt="POSTSOMA · ALLIN"
+            class="about-brand-logo"
+            width="44"
+            height="44"
+          />
+        </RouterLink>
+        <span class="brand-signature">POSTSOMA-2050</span>
+      </div>
       <p class="eyebrow">{{ copy.eyebrow }}</p>
       <h1>{{ copy.title }}</h1>
       <p class="lede">{{ copy.lede }}</p>
@@ -195,6 +206,34 @@ const citationExample = computed(() => isZh.value
   font-weight: 800;
   letter-spacing: 0.13em;
   text-transform: uppercase;
+}
+
+.about-brand-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  margin: 0 auto 0.45rem;
+}
+
+.about-brand-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.about-brand-link:hover {
+  transform: scale(1.08) translateY(-1px);
+}
+
+.about-brand-logo {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 14px rgba(212, 165, 74, 0.45));
 }
 
 .brand-signature {
