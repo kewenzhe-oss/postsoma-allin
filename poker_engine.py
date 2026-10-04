@@ -256,6 +256,8 @@ class PokerTable:
 
     def is_round_complete(self) -> bool:
         """检查当前回合是否结束"""
+        if self.stage == GameStage.SHOWDOWN:
+            return True
         active_players = [p for p in self.players if p.is_active and not p.folded]
         if len(active_players) <= 1:
             return True  # 只剩一个玩家，回合结束
@@ -434,6 +436,57 @@ class PokerTable:
             kicker_str = f" ({r1} kicker)" if r1 else ""
             return f"High Card {r0}{kicker_str}"
         return rank.name
+
+    def describe_hand_zh(self, rank: HandRank, values: List[int]) -> str:
+        """生成准确地道的中文成牌与踢脚描述"""
+        card_names = {
+            14: "A", 13: "K", 12: "Q", 11: "J", 10: "10",
+            9: "9", 8: "8", 7: "7", 6: "6", 5: "5", 4: "4", 3: "3", 2: "2"
+        }
+        if rank == HandRank.ROYAL_FLUSH:
+            return "皇家同花顺"
+        elif rank == HandRank.STRAIGHT_FLUSH:
+            r0 = card_names.get(values[0], str(values[0])) if values else ""
+            return f"同花顺 ({r0}高)"
+        elif rank == HandRank.FOUR_OF_A_KIND:
+            quad = card_names.get(values[0], str(values[0])) if values else ""
+            kicker = card_names.get(values[4], str(values[4])) if len(values) > 4 else ""
+            k_str = f" (带 {kicker} 踢脚)" if kicker else ""
+            return f"四条 {quad}{k_str}"
+        elif rank == HandRank.FULL_HOUSE:
+            trip = card_names.get(values[0], str(values[0])) if values else ""
+            pair_val = values[3] if len(values) > 3 else (values[1] if len(values) > 1 else 0)
+            pair = card_names.get(pair_val, str(pair_val))
+            return f"葫芦 ({trip} 带 {pair})"
+        elif rank == HandRank.FLUSH:
+            r0 = card_names.get(values[0], str(values[0])) if values else ""
+            return f"同花 ({r0}高)"
+        elif rank == HandRank.STRAIGHT:
+            r0 = card_names.get(values[0], str(values[0])) if values else ""
+            return f"顺子 ({r0}高)"
+        elif rank == HandRank.THREE_OF_A_KIND:
+            trip = card_names.get(values[0], str(values[0])) if values else ""
+            kicker = card_names.get(values[3], str(values[3])) if len(values) > 3 else ""
+            k_str = f" (带 {kicker} 踢脚)" if kicker else ""
+            return f"三条 {trip}{k_str}"
+        elif rank == HandRank.TWO_PAIR:
+            p1 = card_names.get(values[0], str(values[0])) if values else ""
+            p2 = card_names.get(values[2], str(values[2])) if len(values) > 2 else ""
+            kicker = card_names.get(values[4], str(values[4])) if len(values) > 4 else ""
+            k_str = f" (带 {kicker} 踢脚)" if kicker else ""
+            return f"两对 ({p1} 和 {p2}){k_str}"
+        elif rank == HandRank.ONE_PAIR:
+            pair = card_names.get(values[0], str(values[0])) if values else ""
+            kicker = card_names.get(values[2], str(values[2])) if len(values) > 2 else ""
+            k_str = f" (带 {kicker} 踢脚)" if kicker else ""
+            return f"一对 {pair}{k_str}"
+        elif rank == HandRank.HIGH_CARD:
+            r0 = card_names.get(values[0], str(values[0])) if values else ""
+            r1 = card_names.get(values[1], str(values[1])) if len(values) > 1 else ""
+            k_str = f" (带 {r1} 踢脚)" if r1 else ""
+            return f"高牌 {r0}{k_str}"
+        return rank.name
+
 
     def find_best_hand(self, cards: List[Card]) -> Tuple[HandRank, List[int]]:
         """从给定的牌中找出最佳牌型"""

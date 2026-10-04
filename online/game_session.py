@@ -48,6 +48,7 @@ class GameSession:
         self.players_connected: Dict[str, bool] = {}
         self.absent_players = {}
         self.turn_timer_task: Optional[asyncio.Task] = None
+        self._delayed_start_task: Optional[asyncio.Task] = None
         self.turn_timeout_seconds = 60
         self.tokens: Dict[str, str] = {}  # token -> player_id
 
@@ -127,7 +128,7 @@ class GameSession:
                 hf_ev = next((e for e in result.events if e.type == "hand_finished"), None)
                 self._end_game(self._extract_deciding_hand(hf_ev))
             else:
-                asyncio.create_task(self._delayed_start_next_hand())
+                self._delayed_start_task = asyncio.create_task(self._delayed_start_next_hand())
         elif self.adapter.can_advance_street():
             if self.turn_timer_task:
                 self.turn_timer_task.cancel()
@@ -154,7 +155,7 @@ class GameSession:
                         hf_ev = next((e for e in events if e.type == "hand_finished"), None)
                         self._end_game(self._extract_deciding_hand(hf_ev))
                     else:
-                        asyncio.create_task(self._delayed_start_next_hand())
+                        self._delayed_start_task = asyncio.create_task(self._delayed_start_next_hand())
                     break
         except asyncio.CancelledError:
             pass
@@ -231,7 +232,7 @@ class GameSession:
             self.absent_players.pop(player_id, None)
             if not self.absent_players:
                 if self.adapter.get_public_state().can_start_next_hand:
-                    asyncio.create_task(self._delayed_start_next_hand())
+                    self._delayed_start_task = asyncio.create_task(self._delayed_start_next_hand())
                 else:
                     self._restart_turn_timer()
         else:
@@ -432,9 +433,25 @@ class GameSession:
 
     # ── Next hand ─────────────────────────────────────────────────────────────
 
+    def trigger_next_hand(self):
+        """Immediately trigger next hand if the previous hand is finished, skipping remaining delay."""
+        if self._delayed_start_task and not self._delayed_start_task.done():
+            self._delayed_start_task.cancel()
+        asyncio.create_task(self._start_hand_now())
+
     async def _delayed_start_next_hand(self):
-        await asyncio.sleep(5)
-        if self.absent_players or not self.adapter.get_public_state().can_start_next_hand:
+        try:
+            await asyncio.sleep(3.5)
+            await self._start_hand_now()
+        except asyncio.CancelledError:
+            pass
+
+    async def _start_hand_now(self):
+        if self.absent_players:
+            logger.info("Cannot start next hand: absent players %s", self.absent_players)
+            return
+        if not self.adapter.get_public_state().can_start_next_hand:
+            logger.info("Cannot start next hand: can_start_next_hand is False")
             return
         try:
             events = self.adapter.start_hand()
@@ -443,8 +460,8 @@ class GameSession:
                 if ev.type == "hand_started":
                     self._on_hand_started(ev)
             self._restart_turn_timer()
-        except ValueError:
-            pass
+        except ValueError as e:
+            logger.warning("ValueError while starting next hand: %s", e)
 
     # ── Event dispatch ────────────────────────────────────────────────────────
 

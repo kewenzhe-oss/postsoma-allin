@@ -485,6 +485,12 @@ export const useOnlineStore = defineStore('online', () => {
     socket.send(JSON.stringify(payload))
   }
 
+  function startNextHand() {
+    if (socket && socket.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify({ type: 'start_next_hand' }))
+    }
+  }
+
   /**
    * leaveRoom — clean up all session state and close socket.
    * Call before navigating away. Does NOT clear sessionStorage player name
@@ -627,6 +633,7 @@ export const useOnlineStore = defineStore('online', () => {
     absentPlayers,
     connectWebSocket,
     submitAction,
+    startNextHand,
     leaveRoom,
     disconnect
   }

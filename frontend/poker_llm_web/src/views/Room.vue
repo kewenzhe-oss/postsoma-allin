@@ -227,6 +227,17 @@ function cleanupRoomState() {
   background: rgba(0, 0, 0, 0.9);
 }
 
+/* Desktop: same flow as mobile — table row + action row, no overlap.
+   Short windows fall back to scrolling (like mobile) instead of clipping,
+   and the table yields height when the raise panel opens. */
+@media (min-width:721px) {
+ .main-viewport { display:grid; grid-template-rows:minmax(0,1fr) auto; overflow-y:auto; overflow-x:hidden; }
+ .table-container { min-height:440px; }
+ .sizing-open .table-container { min-height:360px; }
+ .action-panel-zone { position:relative; padding:.25rem 1.5rem max(.85rem, env(safe-area-inset-bottom)); }
+ .action-panel-zone:empty { display:none; }
+}
+
 @media (max-width:720px) {
  .main-viewport { display:grid; grid-template-rows:minmax(0,1fr) auto; overflow-y:auto; overflow-x:hidden; }
  .table-container { min-height:380px; }

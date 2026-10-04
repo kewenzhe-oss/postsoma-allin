@@ -313,6 +313,15 @@ const submit = (action, amount = null) => {
     font-size: 0.95rem;
   }
 }
+/* Desktop: same structure as mobile — prompt, main actions, then All-in
+   kept apart below a divider; only sizes are a touch larger. */
+@media (min-width:721px) {
+ .action-panel-container { padding:0; }
+ .action-card { padding:.75rem .85rem; }
+ .turn-prompt { margin-bottom:.5rem; }
+ .act-btn { height:50px; }
+ .secondary-actions { margin-top:.5rem; padding-top:.5rem; }
+}
 @media (max-width:720px) {
  .action-card { padding:.7rem; }
  .act-btn { height:48px; font-size:.92rem; }

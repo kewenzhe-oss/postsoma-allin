@@ -246,7 +246,7 @@ const centerStatus = computed(() => {
   transition: opacity 0.3s ease, filter 0.3s ease;
 }
 
-.result-floating-overlay { position:absolute; bottom:0; left:0; width:100%; min-height:2.5rem; z-index:30; }
+.result-floating-overlay { position:absolute; bottom:0; left:50%; transform:translateX(-50%); width:auto; max-width:calc(100% - 1rem); min-height:2.5rem; z-index:30; }
 
 
 .waiting-seat {
@@ -296,6 +296,43 @@ const centerStatus = computed(() => {
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
+}
+
+/* ── Desktop / tablet landscape ───────────────────────────
+   Same interaction model as mobile (≤720px): action bar sits *below* the
+   table in normal flow, the hand result appears in the reserved slot under
+   the board, nothing floats over the seats. Only the geometry differs:
+   the felt keeps its oval aspect and scales to the available height
+   (size container), and seats put cards beside the info card so a
+   720p laptop still fits everything without scrolling. */
+@media (min-width:721px) {
+ .table-stage-container {
+  container-type:size;
+  padding:1.6rem 2.5rem 1.6rem;
+ }
+ .table-surface {
+  /* felt height = width / 1.75, capped by available height */
+  --felt-h:min(100cqw / 1.75, 100cqh, 680px);
+  --c:clamp(38px, calc((var(--felt-h) - 210px) / 3.6), 80px);
+  width:min(100%, 100cqh * 1.75, 1190px);
+  max-width:none;
+  min-height:0;
+  max-height:none;
+  aspect-ratio:1.75 / 1;
+  padding:1.1rem clamp(1.5rem, 6cqw, 4.5rem);
+ }
+ .seat-top { margin-top:calc(var(--c) * -0.3); gap:0; }
+ .seat-bottom { margin-bottom:calc(var(--c) * -0.3); }
+ /* AI pulse shows only while center-status is empty, so it takes that spot */
+ .thinking-slot { position:absolute; top:calc(100% + .35rem); left:50%; transform:translateX(-50%); height:auto; z-index:20; }
+ /* Mobile structure: status → stage/pot → board → result slot (3rem) */
+ .center-zone { gap:.5rem; padding:.35rem 0 3rem; }
+ .center-zone :deep(.community-area) { flex-direction:row; flex-wrap:wrap; justify-content:center; align-items:center; gap:.65rem .6rem; }
+ .center-zone :deep(.cards-row) { flex-basis:100%; justify-content:center; gap:calc(var(--c) * .14); }
+ .center-zone :deep(.pot-container) { flex-direction:row; gap:.55rem; padding:.3rem 1rem; }
+ .center-zone :deep(.card-view), .center-zone :deep(.card-placeholder) { width:var(--c); }
+ .seat-zone :deep(.cards-area .card-view) { width:calc(var(--c) * .92); }
+ .result-floating-overlay { max-width:calc(100% - 1rem); }
 }
 
 @media (max-width:720px) {

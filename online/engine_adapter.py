@@ -166,7 +166,7 @@ class OnlinePokerEngineAdapter:
             not self._game_over
             and has_started
             and solvent_count == 2
-            and self.table.is_round_complete()
+            and (self.table.is_round_complete() or self.table.stage == GameStage.SHOWDOWN or is_showdown)
         )
 
         dealer_player_id = (
@@ -331,6 +331,19 @@ class OnlinePokerEngineAdapter:
             HandRank.ROYAL_FLUSH: "Royal Flush",
         }
 
+        hand_rank_names_zh = {
+            HandRank.HIGH_CARD: "高牌",
+            HandRank.ONE_PAIR: "一对",
+            HandRank.TWO_PAIR: "两对",
+            HandRank.THREE_OF_A_KIND: "三条",
+            HandRank.STRAIGHT: "顺子",
+            HandRank.FLUSH: "同花",
+            HandRank.FULL_HOUSE: "葫芦",
+            HandRank.FOUR_OF_A_KIND: "四条",
+            HandRank.STRAIGHT_FLUSH: "同花顺",
+            HandRank.ROYAL_FLUSH: "皇家同花顺",
+        }
+
         def card_to_code(card):
             suit_char = {
                 Suit.SPADE: "S",
@@ -349,15 +362,19 @@ class OnlinePokerEngineAdapter:
                     (s.display_name for s in self.seats if s.player_id == p.name),
                     p.name
                 )
-                hand_rank_enum, best_combo, hand_desc, _ = self.table.evaluate_player_best_five(p)
+                hand_rank_enum, best_combo, hand_desc, best_vals = self.table.evaluate_player_best_five(p)
+                hand_desc_zh = self.table.describe_hand_zh(hand_rank_enum, best_vals)
                 hand_name = hand_rank_names.get(hand_rank_enum, hand_rank_enum.name)
+                hand_name_zh = hand_rank_names_zh.get(hand_rank_enum, hand_name)
 
                 players_list.append({
                     "player_id": p.name,
                     "display_name": display_name,
                     "hole_cards": [str(c) for c in p.hand],
                     "hand_name": hand_name,
+                    "hand_name_zh": hand_name_zh,
                     "hand_description": hand_desc,
+                    "hand_description_zh": hand_desc_zh,
                     "best_five_cards": [str(c) for c in best_combo],
                 })
 
@@ -366,21 +383,28 @@ class OnlinePokerEngineAdapter:
         first_winner_id = winners_payload[0]["player_id"] if winners_payload else None
         winning_cards = []
         winning_hand_desc = ""
+        winning_hand_desc_zh = ""
         for p_info in players_list:
             if p_info["player_id"] == first_winner_id:
                 winning_cards = p_info["best_five_cards"]
                 winning_hand_desc = p_info["hand_description"]
+                winning_hand_desc_zh = p_info["hand_description_zh"]
                 break
 
         if winning_hand_desc:
             winning_reason = f"Split pot: {winners_str}." if len(winners_payload) > 1 else f"{winners_str} wins with {winning_hand_desc}."
+            winning_reason_zh = f"分池：{winners_str}。" if len(winners_payload) > 1 else f"{winners_str} 凭 {winning_hand_desc_zh} 获胜。"
         else:
             winning_reason = f"{winners_str} wins."
+            winning_reason_zh = f"{winners_str} 获胜。"
 
         showdown_info = {
             "players": players_list,
             "winning_reason": winning_reason,
-            "winning_cards": winning_cards
+            "winning_reason_zh": winning_reason_zh,
+            "winning_cards": winning_cards,
+            "winning_hand_desc": winning_hand_desc,
+            "winning_hand_desc_zh": winning_hand_desc_zh,
         }
 
         events.append(self._add_event("hand_finished", {
@@ -416,6 +440,9 @@ class OnlinePokerEngineAdapter:
                     "display_name": display_name,
                     "amount": wi.amount
                 })
+
+        winner_names = [w["display_name"] for w in winners_payload]
+        winners_str = " and ".join(winner_names)
 
         events.append(self._add_event("hand_finished", {
             "hand_number": hand_number,

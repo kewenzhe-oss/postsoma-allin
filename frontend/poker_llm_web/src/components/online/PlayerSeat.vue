@@ -356,6 +356,18 @@ const shouldShowCards = computed(() => true)
   bottom: calc(100% - 18px);
   right: -12px;
 }
+
+/* Desktop: cards sit beside the info card so each seat costs one card-height */
+@media (min-width:721px) {
+ .seat-wrapper { flex-direction:row; align-items:center; gap:.85rem; }
+ /* Same as mobile: transient tags (Acting / Your turn / Folded…) are hidden —
+    turn is shown by the seat glow + center status; the winner tag stays. */
+ .status-tag { display:none; }
+ .seat-wrapper:not(.is-opponent) .cards-area,
+ .seat-wrapper.is-opponent .cards-area { margin:0; }
+ .seat-wrapper:not(.is-opponent) .bet-chip,
+ .seat-wrapper.is-opponent .bet-chip { top:50%; bottom:auto; right:auto; left:calc(100% + .6rem); transform:translateY(-50%); width:auto; min-width:40px; height:40px; padding:0 .55rem; border-radius:var(--radius-pill); font-size:12px; }
+}
 @media (max-width:720px) {
  .seat-wrapper { flex-direction:column; gap:0; }
  .info-card { padding:.25rem .65rem; min-width:125px; }

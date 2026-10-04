@@ -145,6 +145,12 @@ watch(()=>props.maxRaise,value=>{ if(amount.value>value) amount.value=value })
   from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
 }
+/* Desktop: same vertical flow as mobile, slightly tighter than the default */
+@media (min-width:721px) {
+ .raise-control { padding:.9rem 1rem; gap:.7rem; }
+ .size-grid button { min-height:50px; }
+ .actions { margin-top:.25rem; }
+}
 @media (max-width:720px) {
  .raise-control { padding:.75rem; gap:.6rem; }
  .size-grid button { min-height:48px; }

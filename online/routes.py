@@ -185,6 +185,9 @@ async def websocket_endpoint(websocket: WebSocket, room_id: str, token: str):
                 await connection_manager.broadcast_state(room_id)
                 await websocket.close()
                 break
+            if data.get('type') == 'start_next_hand':
+                session.trigger_next_hand()
+                continue
             # Expecting WSPlayerAction shape: {"action": "CALL", "amount": 10}
             action_req = WSPlayerAction(**data)
             

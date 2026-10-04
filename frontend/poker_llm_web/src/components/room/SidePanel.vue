@@ -220,6 +220,13 @@ const actionLabel = (action) => {
   line-height: 1.5;
 }
 
+/* Desktop: single entry point like mobile — the top-bar 记录 button toggles
+   the drawer; the floating edge tab is hidden. */
+@media (min-width: 721px) {
+  .toggle-tab { display:none; }
+  .side-panel-container { position:fixed; top:58px; height:calc(100% - 58px); height:calc(100dvh - 58px); }
+}
+
 @media (max-width: 720px) {
   .mobile-history-toggle { display:block; position:fixed; right:.5rem; top:66px; z-index:110; min-height:44px; padding:.5rem .75rem; color:var(--text-primary); background:var(--bg-panel-solid); border:1px solid var(--border-strong); border-radius:var(--radius-md); font:inherit; }
   .side-panel-container { position:fixed !important; }
