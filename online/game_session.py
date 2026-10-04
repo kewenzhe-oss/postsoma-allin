@@ -269,7 +269,10 @@ class GameSession:
         before acquiring the lock.  This prevents two concurrent routines from each
         submitting an action for the same turn.
         """
+        queued_version = (self._current_hand_number, self.adapter.table.stage, len(self.adapter.event_log()))
         async with self._ai_lock:
+            if (self._current_hand_number, self.adapter.table.stage, len(self.adapter.event_log())) != queued_version:
+                return
             # Re-check whether it is still the AI's turn after acquiring the lock.
             # The prior routine may have already submitted an action that advanced the turn.
             current_turn = self.adapter.current_turn_player_id()
@@ -395,10 +398,11 @@ class GameSession:
             "ended_by": payload.get("ended_by"),
             "awarded_pot": payload.get("awarded_pot"),
             "settlements": payload.get("settlements", []),
-            "community_cards": [str(c) for c in self.adapter.table.community_cards],
+            "community_cards": list(payload.get("community_cards", [str(c) for c in self.adapter.table.community_cards])),
             "showdown_info": showdown_info,
             "winners": payload.get("winners") or [],
             "winning_reason": showdown_info.get("winning_reason", ""),
+            "winning_reason_zh": showdown_info.get("winning_reason_zh", ""),
             "winning_cards": showdown_info.get("winning_cards", []),
         }
 

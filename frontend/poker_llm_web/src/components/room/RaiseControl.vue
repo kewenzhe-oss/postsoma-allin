@@ -1,27 +1,29 @@
 <template>
   <div class="raise-control">
     <div class="raise-header">
-      <span class="raise-label">{{ currentBet ? (isZh ? '加到' : 'Raise to') : (isZh ? '下注' : 'Bet') }}</span>
+      <span class="raise-label">{{ isZh ? '本次投入' : 'Pay now' }}</span>
       <span class="raise-value">{{ amount }}</span>
     </div>
     
-    <p class="size-context">{{ isZh ? '选择底池比例' : 'Choose a pot fraction' }} · {{ currentBet > heroBet ? (isZh ? '按跟注后的底池计算加注' : 'Raise based on the pot after calling') : (isZh ? '按当前底池计算' : 'Based on the current pot') }}</p>
+    <div class="amount-breakdown">
+      <span>{{ isZh ? '需跟注' : 'To call' }} <b>{{ breakdown.toCall }}</b></span>
+      <span>{{ isZh ? '本轮已投入' : 'Already committed' }} <b>{{ heroBet }}</b></span>
+      <span>{{ isZh ? '底池' : 'Pot' }} <b>{{ potAmount }}</b></span>
+    </div>
     <div class="size-grid" role="group" :aria-label="isZh ? '下注尺度' : 'Bet sizes'">
-      <button v-for="size in sizes" :key="size.label" type="button" :disabled="!size.legal" :aria-pressed="amount === size.target" @click="amount = size.target">
-        <strong>{{ size.label }}</strong><span>{{ size.target }}</span>
+      <button v-for="size in sizes" :key="size.label" type="button" :disabled="!size.legal" :aria-pressed="amount === size.invest" :title="size.legal ? '' : (isZh ? '不满足加注范围' : 'Outside raise limits')" @click="amount = size.invest">
+        <strong>{{ size.label }}</strong><span>{{ isZh ? '投入' : 'Pay' }} {{ size.invest }}</span>
       </button>
-      <button type="button" :aria-pressed="amount === minRaise" @click="amount = minRaise">{{ isZh ? '最小' : 'Minimum' }}<span>{{ minRaise }}</span></button>
-      <button type="button" :aria-pressed="amount === maxRaise" @click="amount = maxRaise">{{ isZh ? '最大' : 'Maximum' }}<span>{{ maxRaise }}</span></button>
     </div>
     <details class="custom-size">
       <summary>{{ isZh ? '自定义金额' : 'Custom amount' }}</summary>
-      <el-input-number v-model="amount" :min="minRaise" :max="maxRaise" :step="1" :precision="0" :aria-label="isZh ? '目标下注总额' : 'Total bet target'" />
-      <el-slider v-model="amount" :min="minRaise" :max="maxRaise" :step="1" />
+      <el-input-number v-model="amount" :min="minInvest" :max="maxInvest" :step="1" :precision="0" :aria-label="isZh ? '本次投入筹码' : 'Chips to pay now'" />
+      <el-slider v-model="amount" :min="minInvest" :max="maxInvest" :step="1" />
     </details>
     <div class="actions">
       <el-button class="cancel-btn" text @click="$emit('cancel')">{{ isZh ? '取消' : 'Cancel' }}</el-button>
-      <el-button class="confirm-btn" :disabled="!Number.isInteger(amount) || amount < minRaise || amount > maxRaise" @click="$emit('confirm', amount)">
-        {{ isZh ? '确认' : 'Confirm' }} {{ currentBet ? (isZh ? '加到' : 'raise to') : (isZh ? '下注' : 'bet') }} {{ amount }} · {{ isZh ? '投入' : 'invest' }} {{ amount - heroBet }}
+      <el-button class="confirm-btn" :disabled="!Number.isInteger(amount) || amount < minInvest || amount > maxInvest" @click="$emit('confirm', target)">
+        {{ isZh ? '确认投入' : 'Confirm payment' }} {{ amount }}
       </el-button>
     </div>
   </div>
@@ -29,7 +31,7 @@
 
 <script setup>
 import { isZh } from '@/i18n/locale.js'
-import { POT_SIZES, potRaiseTarget } from '@/utils/poker/betSizing.js'
+import { POT_SIZES, potBetAmount, raiseTarget, raiseAmounts } from '@/utils/poker/betSizing.js'
 import { computed, ref, watch } from 'vue'
 
 const props = defineProps({
@@ -42,22 +44,28 @@ const props = defineProps({
 
 defineEmits(['cancel', 'confirm'])
 
-const amount = ref(props.minRaise)
-
-watch(() => props.minRaise, (newVal) => {
-  if (amount.value < newVal) amount.value = newVal
-})
-
-const sizes = computed(()=>POT_SIZES.map((fraction,index)=>{
- const target=potRaiseTarget({pot:props.potAmount,currentBet:props.currentBet,heroBet:props.heroBet},fraction)
- return {label:['⅓','½','¾','1×','1.5×','2×'][index],target,legal:target>=props.minRaise&&target<=props.maxRaise}
+const minInvest = computed(() => Math.max(0, props.minRaise - props.heroBet))
+const maxInvest = computed(() => Math.max(0, props.maxRaise - props.heroBet))
+const amount = ref(minInvest.value)
+const target = computed(() => raiseTarget(amount.value, props.heroBet))
+const breakdown = computed(() => raiseAmounts({pot:props.potAmount, currentBet:props.currentBet, heroBet:props.heroBet}, target.value))
+const sizes = computed(() => POT_SIZES.map((fraction, index) => {
+  const invest = potBetAmount(props.potAmount, fraction)
+  const label = isZh.value
+    ? ['⅓ 底池', '½ 底池', '¾ 底池', '1 倍底池', '1.5 倍底池', '2 倍底池'][index]
+    : ['⅓ pot', '½ pot', '¾ pot', '1× pot', '1.5× pot', '2× pot'][index]
+  return {label, invest, legal:invest >= minInvest.value && invest <= maxInvest.value}
 }))
-watch(()=>props.maxRaise,value=>{ if(amount.value>value) amount.value=value })
+watch([minInvest, maxInvest], ([minimum, maximum]) => {
+  amount.value = Math.max(minimum, Math.min(maximum, amount.value))
+})
 </script>
 
 <style scoped>
+.amount-breakdown { display:flex; flex-wrap:wrap; justify-content:space-between; gap:.35rem; color:var(--text-secondary); font-size:.8rem; }
+.amount-breakdown b { color:var(--text-primary); font-variant-numeric:tabular-nums; }
 .size-context { margin:0; color:var(--text-secondary); font-size:.85rem; }
-.size-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.5rem; }
+.size-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.5rem; }
 .size-grid button { min-height:54px; border:1px solid var(--border-strong); border-radius:var(--radius-md); background:var(--bg-panel-solid); color:var(--text-primary); cursor:pointer; font:inherit; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.2rem; }
 .size-grid button span { font-size:.8rem; color:var(--text-secondary); }
 .size-grid button[aria-pressed="true"] { border-color:var(--accent-primary); background:var(--bg-panel-raised); }

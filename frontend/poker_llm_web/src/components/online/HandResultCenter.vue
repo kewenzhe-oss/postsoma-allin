@@ -5,6 +5,12 @@
       <span v-if="winningReason" class="winning-reason">· {{ winningReason }}</span>
     </div>
     
+    <div v-if="result.ended_by === 'showdown'" class="result-comparison">
+      <div v-for="player in result.showdown_info?.players || []" :key="player.player_id" class="result-player">
+        <strong>{{ player.display_name || player.player_id }}</strong>
+        <span>{{ isZh ? (player.hand_description_zh || player.hand_name_zh || player.hand_description) : (player.hand_description || player.hand_name) }}</span>
+      </div>
+    </div>
     <div class="subline-row" v-if="amounts">
       <span class="amounts-tag">{{ amounts }}</span>
     </div>
@@ -74,7 +80,11 @@ const winningReason = computed(() => {
 })
 
 const amounts = computed(() =>
-  (props.result.winners || []).map(w => `${w.display_name || w.player_id} +${w.amount}`).join(' · ')
+  (props.result.winners || []).map(w => {
+    const net = props.result.settlements?.find(p => p.player_id === w.player_id)?.net_change
+    const received = `${w.display_name || w.player_id} ${isZh.value ? '获发' : 'awarded'} ${w.amount}`
+    return net == null ? received : `${received} · ${isZh.value ? '本手净变化' : 'net'} ${net > 0 ? '+' : ''}${net}`
+  }).join(' · ')
 )
 </script>
 
@@ -96,8 +106,15 @@ const amounts = computed(() =>
   backdrop-filter: blur(10px);
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
   pointer-events: none;
-  white-space: nowrap;
+  width:min(680px,100%);
+  white-space:normal;
+  overflow-wrap:anywhere;
+  pointer-events:auto;
 }
+
+.result-comparison { width:100%; display:grid; gap:.35rem; margin:.4rem 0; }
+.result-player { display:flex; justify-content:space-between; gap:.65rem; color:var(--text-secondary); font-size:.8rem; text-align:left; }
+.result-player strong { flex-shrink:0; color:var(--text-primary); }
 
 .headline-row {
   display: flex;

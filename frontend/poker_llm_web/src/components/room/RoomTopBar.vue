@@ -140,6 +140,7 @@ function stageLabel(value) {
         river: '河牌',
         showdown: '摊牌',
         game_over: '牌局结束',
+        between_hands: '等待下一手',
         in_hand: '牌局中',
         in_progress: '牌局中'
       }
@@ -150,6 +151,7 @@ function stageLabel(value) {
         river: 'River',
         showdown: 'Showdown',
         game_over: 'Game over',
+        between_hands: 'Next hand',
         in_hand: 'In hand',
         in_progress: 'In hand'
       }

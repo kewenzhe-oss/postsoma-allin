@@ -46,10 +46,10 @@
         </div>
 
         <!-- Stage 2: Raise Control Panel -->
-        <div v-else class="raise-stage" key="raise">
+        <div v-else-if="raiseAction && !disabled" class="raise-stage" key="raise">
           <RaiseControl 
-            :minRaise="raiseAction.min_amount || 0"
-            :maxRaise="raiseAction.max_amount || 9999"
+            :minRaise="raiseAction.min_amount ?? 0"
+            :maxRaise="raiseAction.max_amount ?? 0"
             :potAmount="potAmount"
             :currentBet="currentBet"
             :heroBet="heroBet"
@@ -75,6 +75,7 @@ import { isZh } from '@/i18n/locale.js'
 import RaiseControl from './RaiseControl.vue'
 
 const props = defineProps({
+  turnKey: { type:String, default:'' },
   currentBet: { type:Number, default:0 },
   heroBet: { type:Number, default:0 },
   actions: {
@@ -100,6 +101,8 @@ const emit = defineEmits(['submit-action', 'raise-state'])
 const isRaising = ref(false)
 watch(isRaising, value=>emit('raise-state',value))
 
+watch(() => props.turnKey, () => { isRaising.value = false })
+
 const raiseAction = computed(() => props.actions.find(a => a.action === 'RAISE'))
 const allInAction = computed(() => props.actions.find(a => a.action === 'ALL_IN'))
 const primaryActions = computed(() => props.actions.filter(a => a.action !== 'RAISE' && a.action !== 'ALL_IN'))
@@ -109,10 +112,13 @@ const allInAmount = computed(() => {
   return value ? `${value}` : ''
 })
 
-// Reset raising state if actions change (e.g. new turn)
-watch(() => props.actions, () => {
-  isRaising.value = false
-}, { deep: true })
+// Equivalent state broadcasts must not close a player's amount selection.
+watch(() => [props.disabled, !!raiseAction.value, props.currentBet, props.heroBet],
+  ([disabled, canRaise, currentBet, heroBet], previous) => {
+    if (disabled || !canRaise || (previous && (currentBet !== previous[2] || heroBet !== previous[3]))) {
+      isRaising.value = false
+    }
+  })
 
 const actionClass = (action) => {
   if (action === 'FOLD') return 'secondary-btn'
@@ -128,6 +134,9 @@ const actionLabel = (action, amount) => {
 }
 
 const submit = (action, amount = null) => {
+  if (props.disabled) return
+  if (action === 'RAISE' && (!raiseAction.value || !Number.isInteger(amount) ||
+      amount < raiseAction.value.min_amount || amount > raiseAction.value.max_amount)) return
   isRaising.value = false
   emit('submit-action', action, amount)
 }
@@ -305,7 +314,7 @@ const submit = (action, amount = null) => {
   }
 
   .action-buttons {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .act-btn {

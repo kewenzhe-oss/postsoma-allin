@@ -16,24 +16,24 @@
         <span class="winner-label">{{ isZh ? '对局获胜者' : 'Match winner' }}</span>
         <div class="winner-row">
           <span class="winner-name">{{ result.winner.display_name || result.winner.player_id }}</span>
-          <span class="winner-chips">{{ result.winner.chips }} chips</span>
+          <span class="winner-chips">{{ result.winner.chips }} {{ isZh ? '筹码' : 'chips' }}</span>
         </div>
       </div>
 
       <!-- Deciding Hand Recap -->
       <div class="deciding-hand-recap" v-if="result.deciding_hand">
         <div class="recap-header">
-          <span class="recap-badge">DECIDING HAND #{{ result.deciding_hand.hand_number }}</span>
-          <span class="recap-ended-by">{{ result.deciding_hand.ended_by === 'showdown' ? 'Showdown' : 'Fold' }}</span>
+          <span class="recap-badge">{{ isZh ? '决定胜负的一手' : 'DECIDING HAND' }} #{{ result.deciding_hand.hand_number }}</span>
+          <span class="recap-ended-by">{{ result.deciding_hand.ended_by === 'showdown' ? (isZh ? '摊牌' : 'Showdown') : (isZh ? '弃牌结束' : 'Fold') }}</span>
         </div>
 
-        <div class="recap-winning-reason" v-if="result.deciding_hand.winning_reason">
-          {{ result.deciding_hand.winning_reason }}
+        <div class="recap-winning-reason" v-if="result.deciding_hand.winning_reason || result.deciding_hand.ended_by === 'fold'">
+          {{ result.deciding_hand.ended_by === 'fold' ? (isZh ? '对手弃牌，未摊牌' : 'Opponent folded; no showdown') : (isZh ? (result.deciding_hand.winning_reason_zh || result.deciding_hand.showdown_info?.winning_reason_zh || result.deciding_hand.winning_reason) : result.deciding_hand.winning_reason) }}
         </div>
 
         <!-- Community Cards -->
         <div class="recap-board" v-if="result.deciding_hand.community_cards && result.deciding_hand.community_cards.length > 0">
-          <div class="recap-label">BOARD</div>
+          <div class="recap-label">{{ isZh ? '公共牌' : 'BOARD' }}</div>
           <div class="recap-cards-row">
             <CardView
               v-for="(card, cIdx) in result.deciding_hand.community_cards"
@@ -56,7 +56,7 @@
           >
             <div class="recap-player-name">
               <span>{{ p.display_name }}</span>
-              <span v-if="isDecidingPlayerWinner(p.player_id)" class="recap-winner-tag">{{ result.deciding_hand?.winners?.length > 1 ? 'Split' : 'Winner' }}</span>
+              <span v-if="isDecidingPlayerWinner(p.player_id)" class="recap-winner-tag">{{ result.deciding_hand?.winners?.length > 1 ? (isZh ? '分池' : 'Split') : (isZh ? '获胜' : 'Winner') }}</span>
             </div>
             <div class="recap-hole-cards">
               <CardView
@@ -68,7 +68,7 @@
                 class="recap-mini-card"
               />
             </div>
-            <div class="recap-player-desc">{{ p.hand_description || p.hand_name }}</div>
+            <div class="recap-player-desc">{{ isZh ? (p.hand_description_zh || p.hand_name_zh || p.hand_description) : (p.hand_description || p.hand_name) }}</div>
           </div>
         </div>
       </div>
@@ -164,8 +164,11 @@ const isDecidingPlayerWinner = (playerId) => {
   background-color: var(--bg-panel-solid);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-xl);
-  padding: 2.5rem 2.5rem 2rem;
-  min-width: 320px;
+  padding:clamp(1rem,3vw,2rem);
+  min-width:0;
+  max-height:calc(100dvh - 2rem);
+  overflow-y:auto;
+  margin:1rem;
   max-width: 420px;
   width: 100%;
   display: flex;
@@ -444,4 +447,6 @@ const isDecidingPlayerWinner = (playerId) => {
   text-align: center;
   line-height: 1.25;
 }
+.go-actions button { min-height:44px; }
+.go-actions { position:sticky; bottom:-1rem; background:var(--bg-panel-solid); padding:.5rem 0; }
 </style>

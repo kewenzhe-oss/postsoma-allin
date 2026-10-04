@@ -1,0 +1,161 @@
+{
+  "state": {
+    "seats": [
+      {
+        "player_id": "hero",
+        "display_name": "Player 1"
+      },
+      {
+        "player_id": "ai_seat",
+        "display_name": "Custom AI"
+      }
+    ],
+    "players": [
+      {
+        "player_id": "hero",
+        "display_name": "Player 1",
+        "chips": 1180,
+        "bet_in_round": 0,
+        "total_bet": 40,
+        "folded": false,
+        "all_in": false,
+        "is_active": true,
+        "revealed_hole_cards": [
+          "♥7",
+          "♥2"
+        ]
+      },
+      {
+        "player_id": "ai_seat",
+        "display_name": "Custom AI",
+        "chips": 800,
+        "bet_in_round": 0,
+        "total_bet": 40,
+        "folded": false,
+        "all_in": false,
+        "is_active": true,
+        "revealed_hole_cards": [
+          "♠A",
+          "♦K"
+        ]
+      }
+    ],
+    "community_cards": [
+      "♥3",
+      "♠J",
+      "♦6",
+      "♠7",
+      "♣2"
+    ],
+    "pot": 0,
+    "current_bet": 10,
+    "stage": "showdown",
+    "current_turn_player_id": null,
+    "dealer_position": 0,
+    "small_blind": 5,
+    "big_blind": 10,
+    "game_status": "showdown",
+    "match_winner": null,
+    "can_start_next_hand": true,
+    "dealer_player_id": "hero"
+  },
+  "result": {
+    "hand_number": 1,
+    "awarded_pot": 80,
+    "settlements": [
+      {
+        "player_id": "hero",
+        "invested": 40,
+        "received": 80,
+        "returned": 0,
+        "net_change": 40,
+        "final_stack": 1180,
+        "display_name": "Player 1"
+      },
+      {
+        "player_id": "ai_seat",
+        "invested": 40,
+        "received": 0,
+        "returned": 0,
+        "net_change": -40,
+        "final_stack": 800,
+        "display_name": "Custom AI"
+      }
+    ],
+    "winners": [
+      {
+        "player_id": "hero",
+        "display_name": "Player 1",
+        "amount": 80
+      }
+    ],
+    "ended_by": "showdown",
+    "community_cards": [
+      "♥3",
+      "♠J",
+      "♦6",
+      "♠7",
+      "♣2"
+    ],
+    "stage": "showdown",
+    "showdown_info": {
+      "players": [
+        {
+          "player_id": "hero",
+          "display_name": "Player 1",
+          "hole_cards": [
+            "♥7",
+            "♥2"
+          ],
+          "hand_name": "Two Pair",
+          "hand_name_zh": "两对",
+          "hand_description": "Two Pair, 7s and 2s (Jack kicker)",
+          "hand_description_zh": "两对 (7 和 2) (带 J 踢脚)",
+          "best_five_cards": [
+            "♥7",
+            "♥2",
+            "♠J",
+            "♠7",
+            "♣2"
+          ]
+        },
+        {
+          "player_id": "ai_seat",
+          "display_name": "Custom AI",
+          "hole_cards": [
+            "♠A",
+            "♦K"
+          ],
+          "hand_name": "High Card",
+          "hand_name_zh": "高牌",
+          "hand_description": "High Card Ace (King, Jack, 7, 6 kickers)",
+          "hand_description_zh": "高牌 A (踢脚 K、J、7、6)",
+          "best_five_cards": [
+            "♠A",
+            "♦K",
+            "♠J",
+            "♦6",
+            "♠7"
+          ]
+        }
+      ],
+      "winning_reason": "Player 1 wins with Two Pair, 7s and 2s (Jack kicker).",
+      "winning_reason_zh": "Player 1 凭 两对 (7 和 2) (带 J 踢脚) 获胜。",
+      "winning_cards": [
+        "♥7",
+        "♥2",
+        "♠J",
+        "♠7",
+        "♣2"
+      ],
+      "winning_hand_desc": "Two Pair, 7s and 2s (Jack kicker)",
+      "winning_hand_desc_zh": "两对 (7 和 2) (带 J 踢脚)"
+    }
+  },
+  "private": {
+    "hole_cards": [
+      "♥7",
+      "♥2"
+    ]
+  }
+}

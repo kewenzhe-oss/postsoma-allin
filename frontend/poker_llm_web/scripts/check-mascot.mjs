@@ -24,6 +24,8 @@ import { mascotConfig as config } from '../src/mascot.config.js';
     pet.tick(0, [tap(0)], false); pet.tick(100, [tap(100)], false); pet.tick(200, [tap(200)], false);
     assert.equal(pet.snapshot().mode, 'shy');
     pet.tick(1180, [], false); assert.equal(pet.snapshot().mode, 'shy_hide');
+    pet.tick(1280, [], false); assert.equal(pet.snapshot().mode, 'shy_hide');
+    pet.tick(1500, [{ type: 'hover', anchorX: 40 }, { type: 'scroll' }], false); assert.equal(pet.snapshot().mode, 'shy_hide');
     pet.tick(1830, [{ type: 'transition_end' }], false); assert.equal(pet.snapshot().mode, 'shy_wait');
     pet.tick(4230, [{ type: 'scroll' }], false); assert.equal(pet.snapshot().mode, 'rest');
   });

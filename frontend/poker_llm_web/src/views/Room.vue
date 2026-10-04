@@ -10,17 +10,22 @@
 
       <!-- ── Action Area (Bottom) ── -->
       <div class="action-panel-zone">
+        <HandResultCenter v-if="onlineStore.latestHandResult" :result="onlineStore.latestHandResult" />
         <ActionPanel
-          v-if="onlineStore.publicState?.game_status === 'in_hand'"
+          v-else-if="onlineStore.publicState?.game_status === 'in_hand'"
           :actions="onlineStore.availableActions"
           :disabled="perceptualState !== 'player_turn'"
           :potAmount="onlineStore.publicState.pot || 0"
           :currentBet="onlineStore.publicState.current_bet || 0"
           :heroBet="onlineStore.heroPlayer?.bet_in_round || 0"
           :actionSummary="actionSummary"
+          :turnKey="turnKey"
           @submit-action="submitHeroAction"
           @raise-state="sizingOpen = $event"
         />
+        <div v-if="!onlineStore.latestHandResult && onlineStore.publicState?.game_status !== 'in_hand'" class="between-hands" role="status">
+          {{ onlineStore.latestHandResult ? (isZh ? '等待下一手' : 'Waiting for next hand') : (isZh ? '等待对手入座' : 'Waiting for opponent') }}
+        </div>
       </div>
 
       <!-- ── Side Panels (Drawer) ── -->
@@ -51,10 +56,12 @@ import { useRouter, useRoute, onBeforeRouteLeave } from 'vue-router'
 import { useOnlineStore } from '@/stores/online'
 import { useAIInteraction } from '@/composables/useAIInteraction'
 import { ElMessage } from 'element-plus'
+import { isZh } from '@/i18n/locale.js'
 
 import RoomTopBar from '@/components/room/RoomTopBar.vue'
 import TableStage from '@/components/room/TableStage.vue'
 import ActionPanel from '@/components/room/ActionPanel.vue'
+import HandResultCenter from '@/components/online/HandResultCenter.vue'
 import SidePanel from '@/components/room/SidePanel.vue'
 import RoomStateOverlay from '@/components/room/RoomStateOverlay.vue'
 import DebugPanel from '@/components/online/DebugPanel.vue'
@@ -64,6 +71,8 @@ const router = useRouter()
 const route = useRoute()
 const onlineStore = useOnlineStore()
 const { perceptualState, latestAIAction, submitHeroAction } = useAIInteraction(onlineStore)
+
+const turnKey = computed(() => `${onlineStore.activeHand?.hand_number ?? ''}:${onlineStore.publicState?.stage}:${onlineStore.publicState?.current_turn_player_id}`)
 
 const showDebug = ref(false) // Toggleable via hotkey or settings later
 const showDecisionGuide = ref(false)
@@ -186,35 +195,25 @@ function cleanupRoomState() {
 }
 
 .main-viewport {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  position: relative;
-  overflow: hidden;
+  flex:1;
+  min-height:0;
+  display:grid;
+  grid-template-rows:minmax(0,1fr) var(--action-height);
+  --action-height:310px;
+  position:relative;
+  overflow:auto;
+  overflow-anchor:none;
 }
-
-.table-container {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-
+.table-container { min-height:340px; display:flex; flex-direction:column; }
 .action-panel-zone {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  padding: 0 1rem max(1rem, env(safe-area-inset-bottom));
-  display: flex;
-  justify-content: center;
-  z-index: 50;
-  pointer-events: none;
+  height:100%; min-height:0; overflow-y:auto; overflow-x:hidden;
+  padding:.35rem 1rem max(.5rem,env(safe-area-inset-bottom));
+  display:flex; flex-direction:column; align-items:center;
+  position:relative; z-index:50;
 }
-
-.action-panel-zone > * {
-  pointer-events: auto; /* Re-enable clicks on the panel itself */
-}
+.action-panel-zone > * { flex-shrink:0; margin-top:auto; }
+.action-panel-zone > .hand-result-center { margin-top:0; }
+.between-hands { width:min(680px,100%); text-align:center; color:var(--text-secondary); padding:1rem; }
 
 .debug-overlay {
   position: absolute;
@@ -227,26 +226,26 @@ function cleanupRoomState() {
   background: rgba(0, 0, 0, 0.9);
 }
 
-/* Desktop: same flow as mobile — table row + action row, no overlap.
-   Short windows fall back to scrolling (like mobile) instead of clipping,
-   and the table yields height when the raise panel opens. */
 @media (min-width:721px) {
- .main-viewport { display:grid; grid-template-rows:minmax(0,1fr) auto; overflow-y:auto; overflow-x:hidden; }
- .table-container { min-height:440px; }
- .sizing-open .table-container { min-height:360px; }
- .action-panel-zone { position:relative; padding:.25rem 1.5rem max(.85rem, env(safe-area-inset-bottom)); }
- .action-panel-zone:empty { display:none; }
+ .main-viewport { --action-height:300px; }
+ .table-container { min-height:360px; }
 }
-
 @media (max-width:720px) {
- .main-viewport { display:grid; grid-template-rows:minmax(0,1fr) auto; overflow-y:auto; overflow-x:hidden; }
- .table-container { min-height:380px; }
- .sizing-open .table-container { min-height:300px; }
- .action-panel-zone { position:relative; padding:.3rem .5rem max(.5rem,env(safe-area-inset-bottom)); }
+ .main-viewport { --action-height:clamp(280px,36dvh,310px); }
+ .table-container { min-height:300px; }
+ .action-panel-zone { padding:.3rem .5rem max(.5rem,env(safe-area-inset-bottom)); }
  .action-panel-zone :deep(.action-panel-container) { padding:0; }
  .action-panel-zone :deep(.action-card) { padding:.6rem; }
  .action-panel-zone :deep(.secondary-actions) { margin-top:.4rem; padding-top:.4rem; }
  .action-panel-zone :deep(.act-btn) { height:44px; }
  .action-panel-zone :deep(.raise-control) { gap:.45rem; padding:.55rem; }
+}
+@media (min-width:721px) and (max-height:500px) {
+ .main-viewport { grid-template-columns:minmax(0,1fr) minmax(300px,42%); grid-template-rows:minmax(0,1fr); }
+ .table-container { min-height:300px; }
+ .action-panel-zone { padding:.35rem .5rem max(.5rem,env(safe-area-inset-bottom)); }
+}
+@media (prefers-reduced-motion:reduce) {
+ .room-shell :deep(*) { animation:none!important; transition:none!important; }
 }
 </style>

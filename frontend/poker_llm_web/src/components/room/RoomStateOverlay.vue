@@ -14,7 +14,7 @@
     </div>
     <div v-else-if="Object.keys(onlineStore.absentPlayers).length" class="blocking-state" role="status">
       <h3>{{ Object.values(onlineStore.absentPlayers).includes('left') ? (isZh ? '对手已离开房间' : 'Opponent left the room') : (isZh ? '对手连接中断' : 'Opponent disconnected') }}</h3>
-      <p>{{ isZh ? '牌局已暂停，等待对手重新连接。' : 'Play is paused while waiting for reconnection.' }}</p>
+      <p>{{ isZh ? (Object.values(onlineStore.absentPlayers).includes('left') ? '牌局已暂停。' : '牌局已暂停，等待对手重新连接。') : 'Play is paused.' }}</p>
       <button type="button" @click="$emit('back-to-lobby')">{{ isZh ? '返回大厅' : 'Back to lobby' }}</button>
     </div>
     <!-- Waiting for Opponent State -->
@@ -24,9 +24,10 @@
     </div>
 
     <!-- Reconnecting State -->
-    <div v-else-if="onlineStore.connectionStatus === 'connecting'" class="blocking-state error">
+    <div v-else-if="onlineStore.connectionStatus !== 'connected'" class="blocking-state error" role="alert">
       <div class="spinner"></div>
-      <h3>Reconnecting to the table</h3>
+      <h3>{{ onlineStore.connectionStatus === 'connecting' ? (isZh ? '正在连接牌桌' : 'Connecting to the table') : (isZh ? '与牌桌的连接已中断' : 'Connection lost') }}</h3>
+      <button v-if="onlineStore.connectionStatus !== 'connecting'" type="button" @click="onlineStore.connectWebSocket()">{{ isZh ? '重新连接' : 'Reconnect' }}</button>
     </div>
   </div>
 </template>
@@ -49,7 +50,7 @@ const isVisible = computed(() => {
   if (onlineStore.isGameOver && !onlineStore.isGameOverPending) return true
   if (onlineStore.errorMessage?.includes('AI')) return true
   if (Object.keys(onlineStore.absentPlayers).length) return true
-  if (onlineStore.connectionStatus === 'connecting') return true
+  if (onlineStore.connectionStatus !== 'connected') return true
   // Initial loading before stage is set
   if (props.perceptualState === 'waiting_for_ai' && !onlineStore.publicState?.stage) return true
   return false
@@ -73,16 +74,22 @@ const isVisible = computed(() => {
 }
 
 .blocking-state {
+  max-width:calc(100% - 2rem);
+  max-height:calc(100% - 2rem);
+  overflow:auto;
+  text-align:center;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 1.5rem;
   background: var(--bg-panel);
-  padding: 3rem 4rem;
+  padding: clamp(1rem, 4vw, 3rem);
   border-radius: var(--radius-lg);
   border: 1px solid var(--border-subtle);
   box-shadow: var(--shadow-lg);
 }
+
+.blocking-state button { min-height:44px; padding:.5rem 1rem; cursor:pointer; }
 
 .blocking-state h3 {
   margin: 0;

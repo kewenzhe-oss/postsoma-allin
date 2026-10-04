@@ -124,7 +124,7 @@ const shouldShowCards = computed(() => true)
 </script>
 
 <style scoped>
-.result-tag { color:var(--accent-primary); font-size:.8rem; font-weight:700; }
+.result-tag { position:absolute; right:.3rem; top:-.65rem; padding:.1rem .35rem; border-radius:6px; background:var(--bg-panel-solid); color:var(--accent-primary); font-size:.8rem; font-weight:700; }
 /* ── Wrapper: stacking context ────────────────────── */
 .seat-wrapper {
   position: relative;
@@ -376,5 +376,14 @@ const shouldShowCards = computed(() => true)
  .seat-wrapper:not(.is-opponent) .cards-area { margin:0 0 .25rem; }
  .seat-wrapper.is-opponent .cards-area { margin:.25rem 0 0; }
  .status-tag { display:none; }
+}
+@media (max-width:720px) and (max-height:740px) {
+ .seat-wrapper { flex-direction:row; gap:.6rem; }
+ .seat-wrapper:not(.is-opponent) .cards-area, .seat-wrapper.is-opponent .cards-area { margin:0; }
+}
+@media (min-width:721px) and (max-height:500px) {
+ .info-card { padding:.25rem .6rem; min-width:120px; }
+ .name { font-size:12px; }
+ .seat-wrapper { gap:.5rem; }
 }
 </style>

@@ -403,7 +403,7 @@ class PokerTable:
             return f"Full House, {p_trip} full of {p_pair}"
         elif rank == HandRank.FLUSH:
             r0 = rank_names.get(values[0], str(values[0])) if values else ""
-            return f"Flush, {r0} High"
+            return f"Flush, {r0} High ({', '.join(rank_names.get(v, str(v)) for v in values)})"
         elif rank == HandRank.STRAIGHT:
             r0 = rank_names.get(values[0], str(values[0])) if values else ""
             return f"Straight, {r0} High"
@@ -412,7 +412,7 @@ class PokerTable:
             kicker = values[3] if len(values) > 3 else 0
             p_trip = rank_plurals.get(trip, str(trip))
             r_kicker = rank_names.get(kicker, str(kicker))
-            kicker_str = f" with {r_kicker} kicker" if kicker else ""
+            kicker_str = f" with {', '.join(rank_names.get(v, str(v)) for v in values[3:])} kickers" if kicker else ""
             return f"Three of a Kind, {p_trip}{kicker_str}"
         elif rank == HandRank.TWO_PAIR:
             p1 = values[0] if len(values) > 0 else 0
@@ -429,12 +429,12 @@ class PokerTable:
             p_pair = rank_plurals.get(pair, str(pair))
             r_kicker = rank_names.get(kicker, str(kicker))
             kicker_str = f" ({r_kicker} kicker)" if kicker else ""
-            return f"Pair of {p_pair}{kicker_str}"
+            return f"Pair of {p_pair} ({', '.join(rank_names.get(v, str(v)) for v in values[2:])} kickers)"
         elif rank == HandRank.HIGH_CARD:
             r0 = rank_names.get(values[0], str(values[0])) if len(values) > 0 else ""
             r1 = rank_names.get(values[1], str(values[1])) if len(values) > 1 else ""
             kicker_str = f" ({r1} kicker)" if r1 else ""
-            return f"High Card {r0}{kicker_str}"
+            return f"High Card {r0} ({', '.join(rank_names.get(v, str(v)) for v in values[1:])} kickers)"
         return rank.name
 
     def describe_hand_zh(self, rank: HandRank, values: List[int]) -> str:
@@ -460,7 +460,7 @@ class PokerTable:
             return f"葫芦 ({trip} 带 {pair})"
         elif rank == HandRank.FLUSH:
             r0 = card_names.get(values[0], str(values[0])) if values else ""
-            return f"同花 ({r0}高)"
+            return f"同花 ({'、'.join(card_names.get(v, str(v)) for v in values)})"
         elif rank == HandRank.STRAIGHT:
             r0 = card_names.get(values[0], str(values[0])) if values else ""
             return f"顺子 ({r0}高)"
@@ -468,7 +468,7 @@ class PokerTable:
             trip = card_names.get(values[0], str(values[0])) if values else ""
             kicker = card_names.get(values[3], str(values[3])) if len(values) > 3 else ""
             k_str = f" (带 {kicker} 踢脚)" if kicker else ""
-            return f"三条 {trip}{k_str}"
+            return f"三条 {trip} (踢脚 {'、'.join(card_names.get(v, str(v)) for v in values[3:])})"
         elif rank == HandRank.TWO_PAIR:
             p1 = card_names.get(values[0], str(values[0])) if values else ""
             p2 = card_names.get(values[2], str(values[2])) if len(values) > 2 else ""
@@ -479,12 +479,12 @@ class PokerTable:
             pair = card_names.get(values[0], str(values[0])) if values else ""
             kicker = card_names.get(values[2], str(values[2])) if len(values) > 2 else ""
             k_str = f" (带 {kicker} 踢脚)" if kicker else ""
-            return f"一对 {pair}{k_str}"
+            return f"一对 {pair} (踢脚 {'、'.join(card_names.get(v, str(v)) for v in values[2:])})"
         elif rank == HandRank.HIGH_CARD:
             r0 = card_names.get(values[0], str(values[0])) if values else ""
             r1 = card_names.get(values[1], str(values[1])) if len(values) > 1 else ""
             k_str = f" (带 {r1} 踢脚)" if r1 else ""
-            return f"高牌 {r0}{k_str}"
+            return f"高牌 {r0} (踢脚 {'、'.join(card_names.get(v, str(v)) for v in values[1:])})"
         return rank.name
 
 

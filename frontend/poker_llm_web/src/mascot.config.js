@@ -3,13 +3,13 @@ export const mascotConfig = {
     version: "1.0.0-poker-lab",
     storageKey: "postsoma-poker-lab-mascot-v1",
     core: {
-        light: "/mascot/core/plate_light.png",
-        dark: "/mascot/core/plate_dark.png",
+        light: "/mascot/optimized/plate_light.webp",
+        dark: "/mascot/optimized/plate_dark.webp",
         width: 1122,
         height: 1228,
         sprout: {
-            light: "/mascot/core/sprout_light.png",
-            dark: "/mascot/core/sprout_dark.png",
+            light: "/mascot/optimized/sprout_light.webp",
+            dark: "/mascot/optimized/sprout_dark.webp",
             left: "43.94%", top: "0%", displayWidth: "12.03%", displayHeight: "11.16%",
             pivot: "48.74% 85.4%",
         },
@@ -19,8 +19,8 @@ export const mascotConfig = {
         ],
     },
     slots: {
-        cards: { light: '/mascot/skins/poker-lab/cards_clean.png', dark: '/mascot/skins/poker-lab/cards_dark.png', right: '2%', top: '55%', width: '26%', zIndex: 3, pivot: '50% 80%', transform: 'rotate(-6deg)', behavior: { follow_breath: true, on_click: 'cards_fan', on_shock: 'cards_recoil', on_antic: 'cards_review' } },
-        branches: { light: '/mascot/skins/poker-lab/branches_clean.png', dark: '/mascot/skins/poker-lab/branches_dark.png', left: '10%', top: '8%', width: '16%', zIndex: 4, pivot: '50% 85%', transform: 'rotate(8deg)', behavior: { follow_breath: true, on_click: 'branch_focus', on_shock: 'branch_recoil', on_antic: 'branch_review' } },
+        cards: { light: '/mascot/optimized/cards_clean.webp', dark: '/mascot/optimized/cards_dark.webp', right: '2%', top: '55%', width: '26%', zIndex: 3, pivot: '50% 80%', transform: 'rotate(-6deg)', behavior: { follow_breath: true, on_click: 'cards_fan', on_shock: 'cards_recoil', on_antic: 'cards_review' } },
+        branches: { light: '/mascot/optimized/branches_clean.webp', dark: '/mascot/optimized/branches_dark.webp', left: '10%', top: '8%', width: '16%', zIndex: 4, pivot: '50% 85%', transform: 'rotate(8deg)', behavior: { follow_breath: true, on_click: 'branch_focus', on_shock: 'branch_recoil', on_antic: 'branch_review' } },
     },
     animation: { breathMs: 3400, blinkMs: 5200, sproutDegrees: 6 },
     behaviorWheel: [

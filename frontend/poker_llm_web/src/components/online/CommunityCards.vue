@@ -7,7 +7,7 @@
 
     <!-- Pot display -->
     <div class="pot-container">
-      <div class="pot-label">MAIN POT</div>
+      <div class="pot-label">{{ isZh ? '底池' : 'POT' }}</div>
       <div class="pot-value">
         <span class="chip-dot">●</span>
         {{ pot }}
@@ -32,6 +32,7 @@
 
 <script setup>
 import { computed } from 'vue'
+import { isZh } from '@/i18n/locale.js'
 import CardView from './CardView.vue'
 import { normalizeCard } from '@/utils/cardFormat'
 
@@ -72,7 +73,8 @@ const isCardHighlighted = (cardStr) => {
 
 const stageLabel = computed(() => {
   if (!props.stage) return ''
-  return props.stage.charAt(0).toUpperCase() + props.stage.slice(1)
+  const labels = {preflop:'翻前',flop:'翻牌',turn:'转牌',river:'河牌',showdown:'摊牌'}
+  return isZh.value ? (labels[props.stage] || props.stage) : props.stage.charAt(0).toUpperCase() + props.stage.slice(1)
 })
 </script>
 
