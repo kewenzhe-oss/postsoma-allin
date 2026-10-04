@@ -7,16 +7,28 @@
         <p>{{ copy.description }}</p>
       </div>
       <div class="version-stack">
-        <span class="version-badge">pot-odds-v1</span>
+        <span class="version-badge">{{ catalogVersion }}</span>
         <small v-if="phase !== 'intro'">{{ copy.sessionSeed }} {{ session.seed }}</small>
       </div>
     </header>
+
+    <section class="skill-review" :aria-label="isZh ? '按薄弱能力复习' : 'Review by skill'">
+      <h3>{{ isZh ? '按薄弱能力复习' : 'Review by skill' }}</h3>
+      <p>{{ isZh ? '数字表示仍需复习的题目数。混合复习优先安排薄弱能力涉及的题目；每项答对后仅清除该项错误。记录保存在此浏览器。' : 'Counts show unresolved questions. Mixed review prioritizes weak skills; a correct answer clears only that skill. Records stay in this browser.' }}</p>
+      <div class="skill-review-buttons">
+        <button v-for="skill in reviewSkills" :key="skill.id" type="button" class="secondary-button"
+          :disabled="!storageState.skillMistakes[skill.id].length" @click="startMistakeSession(skill.id)">
+          {{ isZh ? skill.zh : skill.en }} · {{ storageState.skillMistakes[skill.id].length }}
+        </button>
+        <button type="button" class="secondary-button" :disabled="!mistakeCount" @click="startMistakeSession()">{{ isZh ? '薄弱能力混合复习' : 'Mixed skill review' }}</button>
+      </div>
+    </section>
 
     <template v-if="phase !== 'complete'">
       <div class="session-progress">
         <div>
           <strong>{{ phase === 'intro' ? copy.fixedExercises(session.questions.length) : copy.questionProgress(currentIndex + 1, session.questions.length) }}</strong>
-          <span>{{ sessionModeLabel }}</span>
+          <span>{{ sessionModeLabel }} · {{ copy.catalogCount(catalogSize) }}</span>
         </div>
         <div class="progress-track" aria-hidden="true">
           <span :style="{ width: `${progressPercent}%` }"></span>
@@ -149,7 +161,7 @@
 
           <aside class="assumption-reveal">
             <span>{{ copy.exerciseAssumption }}</span>
-            <strong>Hero equity = {{ formatPct(currentQuestion.heroEquityPct) }}</strong>
+            <strong>Hero equity = {{ currentQuestion.heroEquityDisplay || formatPct(currentQuestion.heroEquityPct) }}</strong>
             <p>{{ copy.assumptionBoundary }}</p>
           </aside>
 
@@ -177,8 +189,20 @@
         <p>{{ copy.startBoundary }}</p>
       </div>
 
+      <LearningQuestions
+        v-if="evaluation"
+        autofocus
+        :allow-restart="false"
+        @answer="recordFollowup"
+        :key="session.seed + ':' + currentIndex"
+        :questions="followupQuestions"
+        :title="isZh ? '行动之后：理由与条件变化' : 'After your action: reasons and changed conditions'"
+        @complete="followupsComplete = true"
+        @reset="followupsComplete = false"
+      />
+
       <section
-        v-if="trainingStep === 'feedback' && evaluation"
+        v-if="trainingStep === 'feedback' && evaluation && followupsComplete"
         ref="stepFeedbackHeading"
         class="feedback-panel"
         :class="{ aligned: assumptionWasCorrect, review: !assumptionWasCorrect }"
@@ -211,7 +235,7 @@
           <section :class="{ needsReview: !assumptionWasCorrect }">
             <span>3. {{ copy.stepCompare }}</span>
             <p>{{ copy.yourRead }}: <strong>{{ assumptionAnswerLabel }}</strong></p>
-            <p>{{ copy.statedEquity }}: <strong>{{ formatPct(evaluation.heroEquityPct) }}</strong></p>
+            <p>{{ copy.statedEquity }}: <strong>{{ currentQuestion.heroEquityDisplay || formatPct(evaluation.heroEquityPct) }}</strong></p>
             <p>{{ copy.edge }}: <strong :class="evaluation.equityEdgePct >= 0 ? 'positive' : 'negative'">{{ formatSignedPct(evaluation.equityEdgePct) }}</strong></p>
           </section>
         </div>
@@ -312,7 +336,7 @@
     </section>
 
     <footer class="assumption-note">
-      <span>{{ copy.staticSource }}: pot-odds-v1</span>
+      <span>{{ copy.staticSource }}: {{ catalogVersion }}</span>
       <span>{{ copy.modelLimits }}</span>
       <span>{{ copy.localRecord }}: postsoma_pot_odds_training_v1</span>
     </footer>
@@ -322,6 +346,8 @@
 <script setup>
 import { computed, nextTick, ref } from 'vue'
 import ApplyHub from '@/components/lobby/ApplyHub.vue'
+import LearningQuestions from './LearningQuestions.vue'
+import { createReasoningFollowups } from '@/training/lessons/decision-learning.js'
 import { getPotOddsExplanation } from '@/training/explanations/pot-odds-explanations.js'
 import {
   calculateEquityEdge,
@@ -333,9 +359,23 @@ import {
 } from '@/utils/training/potOddsTraining.js'
 import {
   loadPotOddsTrainingState,
+  recordPotOddsSkillAnswer,
+  getPotOddsReviewPriority,
   recordPotOddsTrainingAnswer
 } from '@/utils/training/potOddsTrainingStorage.js'
 import { isZh } from '@/i18n/locale.js'
+import { POT_ODDS_CATALOG_VERSION, POT_ODDS_QUESTION_CATALOG } from '@/training/drills/pot-odds-catalog-v2.js'
+
+const reviewSkills = [
+  { id: 'buildPot', zh: '底池算错', en: 'Pot building' },
+  { id: 'priceCall', zh: '门槛算错', en: 'Price threshold' },
+  { id: 'compare', zh: '权益比较错误', en: 'Equity comparison' },
+  { id: 'reason', zh: '理由选错', en: 'Key reasons' },
+  { id: 'variation', zh: '条件变化错误', en: 'Changed conditions' },
+  { id: 'action', zh: '行动复习', en: 'Action review' }
+]
+const catalogVersion = POT_ODDS_CATALOG_VERSION
+const catalogSize = POT_ODDS_QUESTION_CATALOG.length
 
 const emit = defineEmits(['apply-mode'])
 const phase = ref('intro')
@@ -346,6 +386,10 @@ const buildPotAnswer = ref(null)
 const priceCallAnswer = ref(null)
 const assumptionAnswer = ref(null)
 const evaluation = ref(null)
+const followupsComplete = ref(false)
+const followupQuestions = computed(() => evaluation.value
+  ? createReasoningFollowups('pot-odds', currentQuestion.value, evaluation.value.userAction)
+  : [])
 const stepHeading = ref(null)
 const stepFeedbackHeading = ref(null)
 const completeHeading = ref(null)
@@ -359,7 +403,8 @@ const COPY = Object.freeze({
     title: 'Build the price before you decide',
     description: 'Build the final pot, price the call, then compare a stated equity assumption.',
     sessionSeed: 'Session seed',
-    fixedExercises: (count) => `${count} fixed price exercises`,
+    fixedExercises: (count) => `${count} price exercises this session`,
+    catalogCount: (count) => `${count} questions in the bank`,
     questionProgress: (current, total) => `Question ${current} / ${total}`,
     questionAria: 'Pot odds question',
     potBeforeBet: 'Pot before bet',
@@ -407,7 +452,7 @@ const COPY = Object.freeze({
     edge: 'Edge',
     impliedAction: 'Action implied by your comparison',
     frozenTendency: 'Frozen-assumption tendency',
-    breakEvenCall: 'Break-even → Call in v1',
+    breakEvenCall: 'Break-even → Call by convention',
     meaningTitle: 'What this means',
     potOddsDefinition: 'The price threshold for investing more.',
     requiredEquityDefinition: 'The minimum real equity required by this price.',
@@ -416,7 +461,7 @@ const COPY = Object.freeze({
     evDefinition: 'Long-run value only under the stated assumptions; this exercise prioritizes price.',
     simplifiedCallEv: 'Simplified Call EV',
     potOddsBoundary: 'Pot odds tell you what the price requires. They do not calculate your equity against an opponent range.',
-    breakEvenBoundary: 'Break-even stays distinct here; pot-odds-v1 maps exact equality to Call only for deterministic legacy scoring.',
+    breakEvenBoundary: 'Call and Fold have equal EV at break-even. Scoring maps exact equality to Call by convention.',
     resultBoundary: 'No runout is simulated and no winner or single-hand profit is shown. One result cannot validate or invalidate the decision.',
     viewResults: 'View session results',
     nextDecision: 'Next decision',
@@ -424,13 +469,13 @@ const COPY = Object.freeze({
     completeKicker: 'SESSION COMPLETE',
     priceReviewComplete: 'Price review complete',
     sessionComplete: 'Price Builder session complete',
-    completeIntro: 'Review the three reasoning skills separately. Existing mistake storage still follows the final Fold / Call mapping.',
-    reviewQueue: 'Final-action review queue',
+    completeIntro: 'Review the three reasoning skills separately. Mistakes are tracked separately for each skill.',
+    reviewQueue: 'Unresolved question queue',
     newSession: 'New fixed session',
     staticSource: 'Static source',
     modelLimits: 'No rake, future betting, implied odds, range shifts, or split-pot adjustment',
     localRecord: 'Local record',
-    standardMode: '8-question fixed set',
+    standardMode: '8-question mixed practice',
     mistakeMode: 'Flagged-price review',
     noReview: 'No flagged price questions yet',
     buildCorrect: 'You included the starting pot, Villain’s bet, and Hero’s call.',
@@ -449,7 +494,7 @@ const COPY = Object.freeze({
     title: '先建立价格，再做决定',
     description: '先建立最终底池，再计算权益门槛，最后比较题目给定的权益假设。',
     sessionSeed: '本轮 seed',
-    fixedExercises: (count) => `${count} 道固定价格练习`,
+    fixedExercises: (count) => `本轮 ${count} 道价格练习`,
     questionProgress: (current, total) => `第 ${current} / ${total} 题`,
     questionAria: '底池赔率题目',
     potBeforeBet: '下注前底池',
@@ -497,7 +542,7 @@ const COPY = Object.freeze({
     edge: '权益差',
     impliedAction: '由你的比较推导出的行动',
     frozenTendency: '固定假设下的倾向',
-    breakEvenCall: '刚好持平 → v1 固定映射为 Call',
+    breakEvenCall: '刚好持平 → 评分约定为 Call',
     meaningTitle: '这些概念分别意味着什么',
     potOddsDefinition: '继续投入所需的价格门槛。',
     requiredEquityDefinition: '该价格要求的最低真实权益。',
@@ -506,7 +551,7 @@ const COPY = Object.freeze({
     evDefinition: '只表示已定义假设下的长期价值；本练习优先训练价格。',
     simplifiedCallEv: '简化 Call EV',
     potOddsBoundary: '底池赔率只说明价格要求，不会计算你对对手范围的真实权益。',
-    breakEvenBoundary: '这里单独标记刚好持平；pot-odds-v1 仅为了确定性的旧评分，把严格相等映射为 Call。',
+    breakEvenBoundary: '持平时跟注与弃牌的 EV 相等；评分约定将严格相等映射为 Call。',
     resultBoundary: '本题不模拟实际 runout，也不显示赢家或单手盈亏。一次结果不能证明或否定这次决策。',
     viewResults: '查看本轮结果',
     nextDecision: '下一题',
@@ -514,13 +559,14 @@ const COPY = Object.freeze({
     completeKicker: '本轮完成',
     priceReviewComplete: '价格候选复习完成',
     sessionComplete: '价格计算练习完成',
-    completeIntro: '分别查看三项推理能力。现有复习记录仍沿用最终 Fold / Call 映射。',
-    reviewQueue: '最终行动复习队列',
+    completeIntro: '分别查看三项推理能力，以及上方的理由与条件变化错题。每项错误独立记录，按薄弱能力安排复习。',
+    reviewQueue: '待复习题目',
     newSession: '新一轮固定练习',
     staticSource: '固定数据源',
     modelLimits: '不含抽水、后续下注、隐含赔率、范围变化或分池调整',
     localRecord: '本地记录',
-    standardMode: '8 题固定题库',
+    standardMode: '每轮 8 题混合练习',
+    catalogCount: (count) => `题库共 ${count} 题`,
     mistakeMode: '价格候选复习',
     noReview: '暂无价格复习候选',
     buildCorrect: '你计入了下注前底池、对手下注和 Hero 跟注。',
@@ -550,7 +596,7 @@ const currentQuestion = computed(() => session.value.questions[currentIndex.valu
 const isLastQuestion = computed(() => currentIndex.value === session.value.questions.length - 1)
 const mistakeCount = computed(() => storageState.value.mistakeQuestionIds.length)
 const explanation = computed(() => getPotOddsExplanation(currentQuestion.value.explanationKey))
-const localizedExplanation = computed(() => explanation.value[isZh.value ? 'zh' : 'en'])
+const localizedExplanation = computed(() => (currentQuestion.value.explanation || explanation.value)[isZh.value ? 'zh' : 'en'])
 const correctFinalPot = computed(() => calculateFinalPot(
   currentQuestion.value.potBeforeBetBB,
   currentQuestion.value.villainBetBB,
@@ -675,6 +721,7 @@ const resetQuestionState = () => {
   priceCallAnswer.value = null
   assumptionAnswer.value = null
   evaluation.value = null
+  followupsComplete.value = false
 }
 
 const resetSessionState = () => {
@@ -687,14 +734,15 @@ const resetSessionState = () => {
 }
 
 const startNewStandardSession = () => {
-  session.value = createPotOddsSession({ seed: Date.now(), mode: 'standard' })
+  session.value = createPotOddsSession({ seed: Date.now(), mode: 'standard', previousIds: session.value.questions.map(question=>question.id) })
   resetSessionState()
 }
 
-const startMistakeSession = () => {
+const startMistakeSession = (skill = null) => {
   const latestState = loadPotOddsTrainingState()
   storageState.value = latestState
-  if (!latestState.mistakeQuestionIds.length) {
+  const reviewIds = getPotOddsReviewPriority(latestState, typeof skill === 'string' ? skill : null)
+  if (!reviewIds.length) {
     mistakeNotice.value = copy.value.noReview
     return
   }
@@ -702,7 +750,8 @@ const startMistakeSession = () => {
   session.value = createPotOddsSession({
     seed: Date.now(),
     mode: 'mistakes',
-    questionIds: latestState.mistakeQuestionIds
+    questionIds: reviewIds,
+    prioritizeReview: true
   })
   resetSessionState()
 }
@@ -710,6 +759,7 @@ const startMistakeSession = () => {
 const answerBuildPot = (option) => {
   if (phase.value !== 'active' || buildPotAnswer.value) return
   buildPotAnswer.value = option
+  storageState.value = recordPotOddsSkillAnswer(currentQuestion.value, 'buildPot', option.isCorrect, { selectedId: option.id, value: option.value })
   if (option.isCorrect) sessionScores.value.buildPot += 1
   focusStepFeedback()
 }
@@ -723,6 +773,7 @@ const continueToPriceCall = () => {
 const answerPriceCall = (option) => {
   if (priceCallAnswer.value) return
   priceCallAnswer.value = option
+  storageState.value = recordPotOddsSkillAnswer(currentQuestion.value, 'priceCall', option.isCorrect, { selectedId: option.id, value: option.value })
   if (option.isCorrect) sessionScores.value.priceCall += 1
   focusStepFeedback()
 }
@@ -736,6 +787,7 @@ const continueToCompareAssumption = () => {
 const answerAssumption = (outcome) => {
   if (assumptionAnswer.value) return
   assumptionAnswer.value = outcome
+  storageState.value = recordPotOddsSkillAnswer(currentQuestion.value, 'compare', outcome === expectedAssumptionOutcome.value, { selectedId: outcome })
   if (outcome === expectedAssumptionOutcome.value) sessionScores.value.compare += 1
 
   const action = outcome === 'below' ? 'Fold' : 'Call'
@@ -750,8 +802,12 @@ const answerAssumption = (outcome) => {
   focusStepFeedback()
 }
 
+const recordFollowup = ({ id, isCorrect, selectedId }) => {
+  storageState.value = recordPotOddsSkillAnswer(currentQuestion.value, id, isCorrect, { selectedId })
+}
+
 const advanceQuestion = () => {
-  if (!evaluation.value) return
+  if (!evaluation.value || !followupsComplete.value) return
   if (isLastQuestion.value) {
     phase.value = 'complete'
     focusComplete()
@@ -765,6 +821,10 @@ const advanceQuestion = () => {
 </script>
 
 <style scoped>
+.skill-review { margin-block: 1rem; padding: 1rem; border: 1px solid var(--border-strong); border-radius: var(--radius-md); }
+.skill-review p { line-height: 1.7; margin-block: .7rem; }
+.skill-review-buttons { display: flex; flex-wrap: wrap; gap: .7rem; }
+
 .odds-drill {
   width: 100%;
   max-width: 1040px;

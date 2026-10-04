@@ -1,0 +1,14 @@
+import { mascotConfig } from '../../mascot.config.js';
+export function createMascotSenses(button, emit, theme, routeBusy) {
+ const listeners=[]; const listen=(target,type,fn,options)=>{target.addEventListener(type,fn,options);listeners.push(()=>target.removeEventListener(type,fn,options));};
+ let lastBusy=null,lastTheme=null,lastY=window.scrollY,lastPointer=null,lastActivity=0;
+ const refreshBusy=()=>{const editing=document.activeElement?.closest('input,textarea,select,[contenteditable="true"]');const modal=[...document.querySelectorAll('[role="dialog"],[aria-busy="true"],[data-mascot-busy="true"]')].some(el=>el.getClientRects().length&&getComputedStyle(el).visibility!=='hidden'&&el.getAttribute('aria-hidden')!=='true');const value=Boolean(routeBusy()||editing||modal);if(value!==lastBusy){emit({type:'busy',value});lastBusy=value;}};
+ const readTheme=()=>{const root=document.documentElement;const next=root.dataset.theme==='light'||root.classList.contains('light')?'light':'dark';theme(next);if(lastTheme&&next!==lastTheme)emit({type:'theme'});lastTheme=next;};
+ const observer=new MutationObserver(()=>{refreshBusy();readTheme();});observer.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['aria-busy','aria-hidden','data-mascot-busy']});const rootObserver=new MutationObserver(readTheme);rootObserver.observe(document.documentElement,{attributes:true,attributeFilter:['class','data-theme']});
+ listen(document,'focusin',refreshBusy);listen(document,'focusout',()=>queueMicrotask(refreshBusy));
+ listen(document,'visibilitychange',()=>emit({type:'document_hidden',value:document.hidden}));listen(document,'fullscreenchange',()=>emit({type:'fullscreen',value:Boolean(document.fullscreenElement)}));
+ listen(window,'scroll',()=>{if(Math.abs(window.scrollY-lastY)>=mascotConfig.scheduler.scrollThresholdPx){emit({type:'scroll'});lastY=window.scrollY;}},{passive:true});
+ listen(window,'pointermove',event=>{const now=Date.now(),box=button()?.getBoundingClientRect();const near=Boolean(box&&Math.hypot(event.clientX-box.left-box.width/2,event.clientY-box.top-box.height/2)<mascotConfig.scheduler.nearbyRadiusPx);if(now-lastActivity>=1000){emit({type:'pointer_activity',near});lastActivity=now;}if(lastPointer&&now>lastPointer.at&&near&&Math.hypot(event.clientX-lastPointer.x,event.clientY-lastPointer.y)/(now-lastPointer.at)*1000>mascotConfig.scheduler.rapidPointerSpeedPxPerSecond)emit({type:'nearby'});lastPointer={x:event.clientX,y:event.clientY,at:now};},{passive:true});
+ readTheme();refreshBusy();emit({type:'document_hidden',value:document.hidden});emit({type:'fullscreen',value:Boolean(document.fullscreenElement)});
+ return {refreshBusy,dispose(){listeners.forEach(fn=>fn());observer.disconnect();rootObserver.disconnect();}};
+}

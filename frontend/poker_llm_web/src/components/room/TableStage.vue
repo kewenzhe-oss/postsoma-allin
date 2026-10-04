@@ -1,37 +1,39 @@
 <template>
   <div class="table-stage-container">
     <div class="table-surface" :class="{ 'hero-turn': isMyTurn }">
-      
+
       <!-- ── Opponent Seat (Top) ───────────────────────── -->
       <div class="seat-zone seat-top" :class="{ 'is-active': isOpponentTurn }">
         <PlayerSeat
           v-if="onlineStore.opponentPlayer"
           :player="onlineStore.opponentPlayer"
+          :resultLabel="seatResult(onlineStore.opponentPlayer.player_id)"
           :isCurrentTurn="isOpponentTurn"
           :isDealer="isOpponentDealer"
           :holeCards="opponentRevealedCards"
           :isOpponent="true"
           :highlightCards="winningCardsList"
         />
-        <div v-else class="waiting-seat">Waiting for opponent</div>
+        <div v-else class="waiting-seat">{{ isZh ? '等待对手入座' : 'Waiting for opponent' }}</div>
 
         <!-- AI Perceptual Pulse -->
-        <transition name="fade">
-          <AIStatusPulse v-if="perceptualState === 'ai_thinking'" />
-        </transition>
+        <div class="thinking-slot" :class="{ 'is-hidden': perceptualState !== 'ai_thinking' }"
+          :aria-hidden="perceptualState !== 'ai_thinking'">
+          <AIStatusPulse />
+        </div>
       </div>
 
       <!-- ── Center Area: Board & Pot ──────────────────── -->
-      <div class="center-zone" :class="{ 'dimmed': isDimmed }">
-        <div class="center-status" v-if="centerStatus">
+      <div class="center-zone">
+        <div class="center-status" :class="{ 'is-hidden': !centerStatus }" :aria-hidden="!centerStatus">
           {{ centerStatus }}
         </div>
         <CommunityCards
-          :cards="onlineStore.publicState?.community_cards || []"
+          :cards="onlineStore.latestHandResult?.community_cards || onlineStore.publicState?.community_cards || []"
           :pot="liveDisplayPot"
           :stage="onlineStore.publicState?.stage"
           :highlightCards="winningCardsList"
-          :class="{ 'board-dimmed': !!onlineStore.latestHandResult }"
+
         />
         <transition name="fade">
           <HandResultCenter
@@ -47,13 +49,14 @@
         <PlayerSeat
           v-if="onlineStore.heroPlayer"
           :player="onlineStore.heroPlayer"
+          :resultLabel="seatResult(onlineStore.heroPlayer.player_id)"
           :isCurrentTurn="isMyTurn"
           :isDealer="isHeroDealer"
-          :holeCards="onlineStore.privateState?.hole_cards || []"
+          :holeCards="onlineStore.latestHandResult?.showdown_info?.players?.find(p=>p.player_id === onlineStore.playerId)?.hole_cards || onlineStore.privateState?.hole_cards || []"
           :isOpponent="false"
           :highlightCards="winningCardsList"
         />
-        <div v-else class="waiting-seat">Taking your seat</div>
+        <div v-else class="waiting-seat">{{ isZh ? '正在入座' : 'Taking your seat' }}</div>
 
         <!-- Turn Indicator Glow (Hero) -->
         <div class="turn-glow" v-if="isMyTurn"></div>
@@ -64,6 +67,7 @@
 </template>
 
 <script setup>
+import { isZh } from '@/i18n/locale.js'
 import { computed } from 'vue'
 import { useOnlineStore } from '@/stores/online'
 import PlayerSeat from '@/components/online/PlayerSeat.vue'
@@ -79,10 +83,17 @@ const props = defineProps({
 })
 
 const onlineStore = useOnlineStore()
+function seatResult(id) {
+ const result=onlineStore.latestHandResult
+ if(!result?.winners?.some(w=>w.player_id===id)) return ''
+ return result.winners.length>1 ? (isZh.value?'分池':'Split') : (isZh.value?'获胜':'Winner')
+}
 
-const liveDisplayPot = computed(() => onlineStore.publicState?.pot ?? 0)
+const liveDisplayPot = computed(() => onlineStore.latestHandResult?.awarded_pot ?? onlineStore.publicState?.pot ?? 0)
 
 const opponentRevealedCards = computed(() => {
+  const frozen = onlineStore.latestHandResult?.showdown_info?.players?.find(p=>p.player_id === onlineStore.opponentPlayer?.player_id)
+  if (frozen) return frozen.hole_cards
   const opponentId = onlineStore.opponentPlayer?.player_id
   if (!opponentId) return []
   return onlineStore.revealedCards[opponentId] || []
@@ -117,9 +128,9 @@ const isOpponentDealer = computed(() => {
 })
 
 const isMyTurn = computed(() => props.perceptualState === 'player_turn')
-const isOpponentTurn = computed(() => 
-  props.perceptualState === 'ai_thinking' || 
-  props.perceptualState === 'waiting_for_ai' || 
+const isOpponentTurn = computed(() =>
+  props.perceptualState === 'ai_thinking' ||
+  props.perceptualState === 'waiting_for_ai' ||
   props.perceptualState === 'ai_action_revealed'
 )
 
@@ -127,9 +138,9 @@ const isDimmed = computed(() => props.perceptualState === 'ai_thinking')
 
 const centerStatus = computed(() => {
   if (onlineStore.latestHandResult) return null
-  if (props.perceptualState === 'player_turn') return 'Your turn'
-  if (props.perceptualState === 'ai_thinking') return 'AI is choosing a move'
-  if (props.perceptualState === 'ai_action_revealed') return 'Move played'
+  if (props.perceptualState === 'player_turn') return isZh.value ? '轮到你行动' : 'Your turn'
+  if (props.perceptualState === 'ai_thinking') return null
+  if (props.perceptualState === 'ai_action_revealed') return isZh.value ? '对手已行动' : 'Move played'
   if (!onlineStore.opponentPlayer) return 'Invite a friend to sit down'
   if (onlineStore.publicState?.game_status === 'waiting') return 'Waiting for opponent'
   return null
@@ -196,7 +207,12 @@ const centerStatus = computed(() => {
   filter: saturate(0.88);
 }
 
+.is-hidden { visibility: hidden; }
+.thinking-slot { height: 2rem; display:flex; align-items:center; justify-content:center; }
+
 .seat-top {
+  flex-direction:column;
+  gap:.5rem;
   align-self: flex-start;
   margin-top: -28px;
 }
@@ -207,6 +223,8 @@ const centerStatus = computed(() => {
 }
 
 .center-zone {
+  position:relative;
+  padding-bottom:3rem;
   flex: 1;
   display: flex;
   align-items: center;
@@ -228,14 +246,8 @@ const centerStatus = computed(() => {
   transition: opacity 0.3s ease, filter 0.3s ease;
 }
 
-.result-floating-overlay {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 30;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.75), 0 0 24px rgba(241, 199, 106, 0.2);
-}
+.result-floating-overlay { position:absolute; bottom:0; left:0; width:100%; min-height:2.5rem; z-index:30; }
+
 
 .waiting-seat {
   background-color: rgba(18, 27, 33, 0.78);
@@ -286,27 +298,18 @@ const centerStatus = computed(() => {
   opacity: 0;
 }
 
-@media (max-width: 720px) {
-  .table-stage-container {
-    align-items: flex-start;
-    padding-top: 1rem;
-    padding-bottom: 11.25rem;
-  }
-
-  .table-surface {
-    min-height: 480px;
-    aspect-ratio: auto;
-    border-radius: 34px;
-    padding-left: 1rem;
-    padding-right: 1rem;
-  }
-
-  .seat-top {
-    margin-top: -18px;
-  }
-
-  .seat-bottom {
-    margin-bottom: -22px;
-  }
+@media (max-width:720px) {
+ .table-stage-container { height:100%; padding:.35rem .5rem; align-items:stretch; }
+ .table-surface { min-height:0; max-height:none; height:100%; aspect-ratio:auto; border-radius:34px; border-width:6px; padding:.5rem; gap:.25rem; }
+ .seat-top,.seat-bottom { margin:0; }
+ .seat-top { gap:.2rem; }
+ .center-zone { gap:.3rem; padding:.25rem 0 3rem; }
+ .center-status { font-size:.75rem; padding:.2rem .6rem; }
+ .center-zone :deep(.card-view), .center-zone :deep(.card-placeholder) { width:40px; }
+ .center-zone :deep(.cards-row) { gap:4px; }
+ .result-floating-overlay { max-width:calc(100% - 1rem); }
+ .seat-top :deep(.ai-status-pulse) { padding:.2rem .6rem; }
+ .seat-top :deep(.status-content) { font-size:.75rem; }
+ .seat-top :deep(.pulse-ring) { display:none; }
 }
 </style>

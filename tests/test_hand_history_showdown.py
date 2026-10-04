@@ -24,7 +24,10 @@ def test_fold_hand_history_safety():
     assert payload["ended_by"] == "fold"
     assert len(payload["winners"]) == 1
     assert payload["winners"][0]["player_id"] == bb_id
-    assert payload["awarded_pot"] == 15  # 5 small blind + 10 big blind
+    assert payload["awarded_pot"] == 10  # matched blinds; unmatched 5 returned
+    winner = next(p for p in payload["settlements"] if p["player_id"] == bb_id)
+    assert winner["returned"] == 5
+    assert winner["net_change"] == 5
     assert payload["showdown_info"] is None
     
     # Verify that folded player's hidden cards are NOT revealed in public payload

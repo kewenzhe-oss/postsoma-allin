@@ -192,3 +192,6 @@ nul
 */.DS_Store
 **/.DS_Store
 
+# Books / large binaries
+*.epub
+

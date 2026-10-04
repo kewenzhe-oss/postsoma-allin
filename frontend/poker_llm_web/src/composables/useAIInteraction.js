@@ -1,63 +1,27 @@
-import { ref, watch, computed, onScopeDispose } from 'vue'
+import { ref, watch, onScopeDispose } from 'vue'
 
-/**
- * Manages the "Perceptual State Machine" for AI interactions.
- * Translates instantaneous backend state changes into human-friendly 
- * paced experiences (e.g., adding artificial delays for AI actions).
- */
+/** Action feedback follows the authoritative turn, without delayed turn overrides. */
 export function useAIInteraction(onlineStore) {
   const perceptualState = ref('idle')
-  // 'idle' | 'waiting_for_ai' | 'player_turn' | 'submitting_action' | 'ai_thinking' | 'ai_action_revealed' | 'hand_resolved'
-
   const latestAIAction = ref(null)
-  let actionRevealTimeout = null
+  const isAI = id => typeof id === 'string' && id.startsWith('ai')
+  const resolveState = () => {
+    if (onlineStore.connectionStatus !== 'connected') return 'idle'
+    if (onlineStore.isGameOver || onlineStore.latestHandResult) return 'hand_resolved'
+    if (onlineStore.publicState?.game_status !== 'in_hand' ||
+        Object.keys(onlineStore.absentPlayers || {}).length) return 'idle'
+    const turnId = onlineStore.publicState?.current_turn_player_id
+    if (!turnId) return 'idle'
+    if (onlineStore.isMyTurn) return 'player_turn'
+    return isAI(turnId) ? 'ai_thinking' : 'waiting_for_ai'
+  }
 
-  // Helper computed properties
-  const isMyTurnTrue = computed(() => onlineStore.isMyTurn)
-  const currentTurnPlayerId = computed(() => onlineStore.publicState?.current_turn_player_id)
-  const isGameOver = computed(() => onlineStore.isGameOver)
-  const connectionStatus = computed(() => onlineStore.connectionStatus)
-  const currentStage = computed(() => onlineStore.publicState?.stage)
-  const handNumber = computed(() => onlineStore.publicState?.hand_number)
-  const eventCount = computed(() => onlineStore.rawEventLog.length)
-
-  watch([
-    isMyTurnTrue,
-    currentTurnPlayerId,
-    isGameOver,
-    connectionStatus,
-    currentStage,
-    handNumber,
-    eventCount
-  ], ([isMine, turnId, over, conn]) => {
-    // If not connected, default to idle or waiting
-    if (conn !== 'connected') {
-      perceptualState.value = 'idle'
-      return
-    }
-
-    if (over) {
-      perceptualState.value = 'hand_resolved'
-      return
-    }
-
-    if (!turnId) {
-      perceptualState.value = 'idle'
-      return
-    }
-
-    if (isMine) {
-      perceptualState.value = 'player_turn'
-    } else if (turnId === 'ai_seat' || turnId.startsWith('ai')) {
-      // AI's turn
-      if (perceptualState.value !== 'ai_action_revealed') {
-        perceptualState.value = 'ai_thinking'
-      }
-    } else {
-      // Opponent human turn
-      perceptualState.value = 'waiting_for_ai' // or opponent
-    }
-  }, { immediate: true })
+  watch(() => [onlineStore.isMyTurn, onlineStore.publicState,
+    onlineStore.isGameOver, onlineStore.latestHandResult,
+    onlineStore.connectionStatus, onlineStore.absentPlayers,
+    onlineStore.rawEventLog.length], () => {
+    perceptualState.value = resolveState()
+  }, { immediate: true, deep: true })
 
   // Error recovery: reset submitting_action if server reports an error
   watch(() => onlineStore.errorMessage, (err) => {
@@ -67,7 +31,7 @@ export function useAIInteraction(onlineStore) {
         clearTimeout(watchdogTimer)
         watchdogTimer = null
       }
-      perceptualState.value = 'player_turn'
+      perceptualState.value = resolveState()
     }
   })
 
@@ -96,54 +60,26 @@ export function useAIInteraction(onlineStore) {
         clearTimeout(watchdogTimer)
         watchdogTimer = null
       }
-      perceptualState.value = 'player_turn' // Revert on error
+      perceptualState.value = resolveState() // Restore the current authoritative turn
       throw e
     }
   }
 
-  // Intercept the AI action from the raw event log to trigger 'ai_action_revealed'
-  watch(() => onlineStore.rawEventLog.length, () => {
-    const newLogs = onlineStore.rawEventLog
-    if (!newLogs || newLogs.length === 0) return
-    
-    const lastEvent = newLogs[newLogs.length - 1]
-    
-    // If the last event is an action from the AI
-    if (lastEvent.type === 'player_action_applied' && 
-        (lastEvent.payload?.player_id === 'ai_seat' || lastEvent.payload?.player_id?.startsWith('ai'))) {
-      
-      latestAIAction.value = {
-        action: lastEvent.payload.action,
-        amount: lastEvent.payload.amount,
-        reasoning: null
-      }
-
-      // Transition to revealing state
-      perceptualState.value = 'ai_action_revealed'
-
-      // Clear any existing timeout
-      if (actionRevealTimeout) clearTimeout(actionRevealTimeout)
-
-      // Hold the revealed state for 1.5 seconds before letting it go back to player_turn or hand_resolved
-      actionRevealTimeout = setTimeout(() => {
-        if (onlineStore.isGameOver) {
-          perceptualState.value = 'hand_resolved'
-        } else if (onlineStore.isMyTurn) {
-          perceptualState.value = 'player_turn'
-        } else if (onlineStore.publicState?.current_turn_player_id) {
-           perceptualState.value = 'ai_thinking'
-        } else {
-          perceptualState.value = 'idle'
+  // Keep the latest action for display, never let an animation override whose turn it is.
+  watch(() => onlineStore.rawEventLog.length, (length, previous = 0) => {
+    const events = onlineStore.rawEventLog.slice(length < previous ? 0 : previous)
+    for (const event of events) {
+      if (event.type === 'player_action_applied' && isAI(event.payload?.player_id)) {
+        latestAIAction.value = {
+          action: event.payload.action,
+          amount: event.payload.action === 'RAISE' ? event.payload.bet_in_round : event.payload.amount,
+          reasoning: null
         }
-      }, 1500)
+      }
     }
   })
 
   onScopeDispose(() => {
-    if (actionRevealTimeout) {
-      clearTimeout(actionRevealTimeout)
-      actionRevealTimeout = null
-    }
     if (watchdogTimer) {
       clearTimeout(watchdogTimer)
       watchdogTimer = null

@@ -106,10 +106,13 @@ def _try_json_parse(
         return None
 
     amount = _parse_amount(obj.get("amount"), normalized, available_actions)
-    confidence = float(obj.get("confidence", 0.5))
+    try:
+        confidence = float(obj.get("confidence", 0.5))
+    except (ValueError, TypeError):
+        confidence = 0.5
     confidence = max(0.0, min(1.0, confidence))
     reason = str(obj.get("reason", ""))[:200]
-    tags = [str(t) for t in obj.get("strategy_tags", []) if isinstance(t, str)][:5]
+    tags = [str(t) for t in (obj.get("strategy_tags") if isinstance(obj.get("strategy_tags"), list) else []) if isinstance(t, str)][:5]
 
     return ParseResult(
         action=normalized,
@@ -211,7 +214,7 @@ def _try_last_line_parse(
 # ── Pass 4: Safe fallback ─────────────────────────────────────────────────────
 
 def _safe_fallback(valid: set) -> str:
-    for preferred in ("CHECK", "CALL", "FOLD"):
+    for preferred in ("CHECK", "FOLD", "CALL"):
         if preferred in valid:
             return preferred
     return next(iter(valid))  # last resort: first available
@@ -235,9 +238,6 @@ def _parse_amount(
     if action != "RAISE":
         return None
     if raw_amount is None:
-        for a in available_actions:
-            if a["action"] == "RAISE":
-                return a.get("min_amount")
         return None
     try:
         amount = int(raw_amount)
@@ -249,13 +249,10 @@ def _parse_amount(
 def _clamp_raise(amount: Optional[int], available_actions: List[Dict[str, Any]]) -> Optional[int]:
     """Clamp a raise amount to [min_amount, max_amount] from available_actions."""
     if amount is None:
-        for a in available_actions:
-            if a["action"] == "RAISE":
-                return a.get("min_amount")
         return None
     for a in available_actions:
         if a["action"] == "RAISE":
             lo = a.get("min_amount") or 0
             hi = a.get("max_amount") or amount
-            return max(lo, min(hi, amount))
+            return amount if lo <= amount <= hi else None
     return amount

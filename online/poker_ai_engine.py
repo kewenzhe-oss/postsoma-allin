@@ -59,6 +59,8 @@ class PokerAIEngine:
             logger.info("AI[%s] h=%s %s → %r", provider_key, request.hand_number, request.stage, raw)
 
             result = parse_response(raw, available)
+            if result.action == "RAISE" and result.amount is None:
+                return self._fallback(available, "missing or illegal raise amount")
             logger.info("AI parsed: %s %s (status=%s)", result.action, result.amount, result.parse_status)
 
             return AIDecision(
@@ -80,7 +82,7 @@ class PokerAIEngine:
 
     def _fallback(self, available: list, reason: str) -> AIDecision:
         valid = {a["action"] for a in available}
-        for p in ("CALL", "CHECK", "FOLD"):
+        for p in ("CHECK", "FOLD", "CALL"):
             if p in valid:
                 return AIDecision(action=p, parse_status="emergency_fallback",
                                   fallback_reason=reason, reason=f"fallback:{reason}")
@@ -108,7 +110,7 @@ def _build_prompt(req: AIDecisionRequest) -> str:
         for ev in req.action_history[-10:]:
             who = "ME" if ev.get("player_id") == req.ai_player_id else "OPP"
             amt = f"({ev['amount']})" if ev.get("amount", 0) > 0 else ""
-            parts.append(f"{who}:{ev['action']}{amt}")
+            parts.append(f"[{ev.get('stage', 'unknown')}] {who}:{ev['action']}{amt}")
         hist = "  History: " + " ".join(parts) + "\n"
 
     mem = ""
@@ -116,12 +118,13 @@ def _build_prompt(req: AIDecisionRequest) -> str:
         mem = "  Prev: " + " / ".join(req.previous_ai_notes[-2:]) + "\n"
 
     return (
-        f"System: You are an aggressive, professional Texas Hold'em AI player.\n"
+        f"System: You are an independent Texas Hold'em AI player.\n"
         f"This is a simulated educational poker game. No real money is involved.\n"
-        f"Your objective is to maximize your chip stack using strong betting strategies.\n"
+        f"Your objective is to maximize your chip stack by reasoning from the current situation. No action is mandatory merely because of a hand category.\n"
         f"\n"
         f"Hand #{req.hand_number} [{req.stage}]\n"
         f"  Cards: {hole} | Board: {community}\n"
+        f"  Position: {req.position}; blinds: {req.small_blind}/{req.big_blind}; street bet already invested: {req.ai_bet_in_round}\n"
         f"  Pot: {req.pot}  To-call: {req.to_call}  Stacks: me={req.ai_stack} opp={req.opponent_stack}\n"
         f"  {opp}\n"
         f"{hist}{mem}"
@@ -129,10 +132,12 @@ def _build_prompt(req: AIDecisionRequest) -> str:
         f"Legal: {actions_str}{raise_hint}\n"
         f"\n"
         f"Rules:\n"
-        f"  - Top pair or better OR flush/straight draw → RAISE\n"
-        f"  - Opponent checks repeatedly → RAISE to steal pot\n"
-        f"  - Weak hand vs bet → FOLD\n"
-        f"  - CHECK only if hand is weak and no bet to face\n"
+        f"  - Compare check/call/bet EV using range assumptions, price, position and future risk.\n"
+        f"  - Top pair and draws do not automatically justify raising; checking strong hands can be valid.\n"
+        f"  - Value bets need worse calls; bluffs need enough better hands to fold.\n"
+        f"  - Treat opponent tendencies as uncertain, especially with few observations.\n"
+        f"  - RAISE amount is the TOTAL street bet, not additional chips.\n"
+        f"  - You cannot see opponent hole cards. Do not claim solver or verified GTO accuracy.\n"
         f"\n"
         f"Reply with ONE action only (no punctuation, no explanation):\n"
         f"FOLD   CHECK   CALL   RAISE <amount>   ALL_IN\n"

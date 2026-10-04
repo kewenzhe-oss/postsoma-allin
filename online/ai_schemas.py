@@ -35,6 +35,7 @@ class AIDecisionRequest:
     big_blind: int
     available_actions: List[Dict[str, Any]]  # [{action, min_amount, max_amount}]
     action_history: List[Dict[str, Any]]     # this-hand public actions [{player_id, action, amount}]
+    position: str = "unknown"
     opponent_profile_summary: Optional[str] = None   # human-readable label string
     previous_ai_notes: List[str] = field(default_factory=list)  # recent decision summaries
 

@@ -136,7 +136,8 @@ export const createPreflopSession = ({
   seed = Date.now(),
   mode = 'standard',
   handPool = null,
-  count = PREFLOP_SESSION_HAND_COUNT
+  count = PREFLOP_SESSION_HAND_COUNT,
+  previousHands = []
 } = {}) => {
   const pool = resolvePool(handPool)
   if (!pool.length) throw new Error('Cannot create a preflop session from an empty hand pool')
@@ -146,7 +147,7 @@ export const createPreflopSession = ({
   const selected = []
 
   while (selected.length < count) {
-    selected.push(...shuffle(pool, random).slice(0, count - selected.length))
+    selected.push(...shuffle(pool, random).sort((a,b)=>Number(previousHands.includes(a.hand))-Number(previousHands.includes(b.hand))).slice(0, count - selected.length))
   }
 
   return Object.freeze({

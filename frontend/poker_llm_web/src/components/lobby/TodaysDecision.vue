@@ -73,14 +73,14 @@
               class="action-option"
               :class="{
                 selected: evaluation?.action === action.id,
-                primary: evaluation && currentHand.baseline.primaryActions.includes(action.id)
+                primary: evaluation && followupsComplete && currentHand.baseline.primaryActions.includes(action.id)
               }"
               :disabled="phase !== 'active' || Boolean(evaluation)"
               :aria-pressed="evaluation?.action === action.id"
               @click="selectAction(action.id)"
             >
               <span>{{ action.label }}</span>
-              <em v-if="evaluation">{{ currentHand.baseline.frequencies[action.id] }}%</em>
+              <em v-if="evaluation && followupsComplete">{{ currentHand.baseline.frequencies[action.id] }}%</em>
             </button>
           </div>
 
@@ -104,8 +104,20 @@
         <p>{{ copy.localBoundary }}</p>
       </div>
 
-      <section
+      <LearningQuestions
         v-if="evaluation"
+        autofocus
+        :allow-restart="false"
+        @answer="storageState = recordPreflopReasoningAnswer(currentHand, $event)"
+        :key="session.seed + ':' + currentIndex"
+        :questions="followupQuestions"
+        :title="isZh ? '行动之后：理由与条件变化' : 'After your action: reasons and changed conditions'"
+        @complete="followupsComplete = true"
+        @reset="followupsComplete = false"
+      />
+
+      <section
+        v-if="evaluation && followupsComplete"
         class="feedback-panel"
         :class="`feedback-panel--${evaluation.alignment}`"
         aria-live="polite"
@@ -224,6 +236,7 @@
       />
     </section>
 
+    <p class="data-note">{{ isZh ? '尚需复习：理由' : 'Unresolved: reasons' }} {{ storageState.skillMistakes.reason.length }} · {{ isZh ? '条件变化' : 'Changed conditions' }} {{ storageState.skillMistakes.variation.length }} · {{ isZh ? '作答逐项保存在此浏览器' : 'Answers saved by skill in this browser' }}</p>
     <footer class="data-note">
       <span>{{ copy.rangeData }}: hu-btn-rfi-100bb-v1</span>
       <span>{{ copy.localRecord }}: postsoma_preflop_training_v1</span>
@@ -234,6 +247,8 @@
 <script setup>
 import { computed, nextTick, ref } from 'vue'
 import ApplyHub from '@/components/lobby/ApplyHub.vue'
+import LearningQuestions from './LearningQuestions.vue'
+import { createReasoningFollowups } from '@/training/lessons/decision-learning.js'
 import { getPreflopExplanation } from '@/training/explanations/preflop-explanations.js'
 import {
   createPreflopSession,
@@ -242,6 +257,7 @@ import {
 } from '@/utils/training/preflopTraining.js'
 import {
   loadPreflopTrainingState,
+  recordPreflopReasoningAnswer,
   recordPreflopTrainingAnswer
 } from '@/utils/training/preflopTrainingStorage.js'
 import { isZh } from '@/i18n/locale.js'
@@ -252,6 +268,10 @@ const phase = ref('intro')
 const session = ref(createPreflopSession())
 const currentIndex = ref(0)
 const evaluation = ref(null)
+const followupsComplete = ref(false)
+const followupQuestions = computed(() => evaluation.value
+  ? createReasoningFollowups('preflop', currentHand.value, evaluation.value.action)
+  : [])
 const actionButtons = ref([])
 const mistakeNotice = ref('')
 const storageState = ref(loadPreflopTrainingState())
@@ -289,7 +309,7 @@ const COPY = Object.freeze({
     viewResults: 'View session results',
     nextHand: 'Next hand',
     fullRange: 'View full range',
-    reviewCandidates: 'Review outside-mix candidates',
+    reviewCandidates: 'Review action and reasoning candidates',
     completeKicker: 'SESSION COMPLETE',
     reviewComplete: 'Outside-mix review finished',
     practiceComplete: 'Baseline practice complete',
@@ -339,7 +359,7 @@ const COPY = Object.freeze({
     viewResults: '查看本轮结果',
     nextHand: '再来一手',
     fullRange: '查看完整范围',
-    reviewCandidates: '复习范围外候选',
+    reviewCandidates: '复习行动与理由候选',
     completeKicker: '本轮完成',
     reviewComplete: '范围外候选复习完成',
     practiceComplete: 'Baseline 参考练习完成',
@@ -352,7 +372,7 @@ const COPY = Object.freeze({
     rangeData: '范围数据',
     localRecord: '本地记录',
     standardMode: '参考练习',
-    mistakeMode: '复习范围外候选',
+    mistakeMode: '复习行动与理由候选',
     primaryTitle: '符合主要倾向',
     mixedTitle: 'Baseline 支持的混合行动，但不是主要倾向',
     deviationTitle: '超出当前 baseline 混合范围',
@@ -419,6 +439,7 @@ const focusFirstAction = () => {
 const resetSessionState = () => {
   currentIndex.value = 0
   evaluation.value = null
+  followupsComplete.value = false
   mistakeNotice.value = ''
   sessionScores.value = { primary: 0, mixed: 0, deviation: 0 }
   phase.value = 'active'
@@ -431,7 +452,7 @@ const beginPreparedSession = () => {
 }
 
 const startNewStandardSession = () => {
-  session.value = createPreflopSession({ seed: Date.now(), mode: 'standard' })
+  session.value = createPreflopSession({ seed: Date.now(), mode: 'standard', previousHands: session.value.hands.map(hand=>hand.hero.canonicalHand) })
   resetSessionState()
 }
 
@@ -465,7 +486,7 @@ const selectAction = (action) => {
 }
 
 const advanceHand = () => {
-  if (!evaluation.value) return
+  if (!evaluation.value || !followupsComplete.value) return
   if (isLastHand.value) {
     phase.value = 'complete'
     return
@@ -473,6 +494,7 @@ const advanceHand = () => {
 
   currentIndex.value += 1
   evaluation.value = null
+  followupsComplete.value = false
   focusFirstAction()
 }
 </script>

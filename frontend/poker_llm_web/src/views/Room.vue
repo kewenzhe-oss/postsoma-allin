@@ -1,6 +1,6 @@
 <template>
-  <div class="room-shell">
-    <RoomTopBar @leave="handleBackToLobby" @open-handbook="showDecisionGuide = true" />
+  <div class="room-shell" :class="{ 'sizing-open': sizingOpen }">
+    <RoomTopBar @leave="handleBackToLobby" @open-handbook="historyPanel?.toggle()" />
 
     <div class="main-viewport">
       <!-- ── Core Table Area ── -->
@@ -11,27 +11,30 @@
       <!-- ── Action Area (Bottom) ── -->
       <div class="action-panel-zone">
         <ActionPanel
-          v-if="onlineStore.publicState"
+          v-if="onlineStore.publicState?.game_status === 'in_hand'"
           :actions="onlineStore.availableActions"
           :disabled="perceptualState !== 'player_turn'"
           :potAmount="onlineStore.publicState.pot || 0"
+          :currentBet="onlineStore.publicState.current_bet || 0"
+          :heroBet="onlineStore.heroPlayer?.bet_in_round || 0"
           :actionSummary="actionSummary"
           @submit-action="submitHeroAction"
+          @raise-state="sizingOpen = $event"
         />
       </div>
 
       <!-- ── Side Panels (Drawer) ── -->
-      <SidePanel 
-        :rawEventLog="onlineStore.rawEventLog" 
-        :isGameOver="onlineStore.isGameOver" 
+      <SidePanel ref="historyPanel"
+        :rawEventLog="onlineStore.rawEventLog"
+        :isGameOver="onlineStore.isGameOver"
       />
-      
+
       <!-- ── Dev Tools (Hidden by default, Layer 5) ── -->
       <DebugPanel class="debug-overlay" v-if="showDebug" />
     </div>
 
     <!-- ── State Overlays (Layer 10) ── -->
-    <RoomStateOverlay 
+    <RoomStateOverlay
       :perceptualState="perceptualState"
       @rematch="handleRematch"
       @back-to-lobby="handleBackToLobby"
@@ -64,6 +67,8 @@ const { perceptualState, latestAIAction, submitHeroAction } = useAIInteraction(o
 
 const showDebug = ref(false) // Toggleable via hotkey or settings later
 const showDecisionGuide = ref(false)
+const sizingOpen = ref(false)
+const historyPanel = ref(null)
 let isCreatingRematch = false
 
 // The text that pops up briefly to explain the AI's action
@@ -71,7 +76,7 @@ const actionSummary = computed(() => {
   if (perceptualState.value === 'ai_action_revealed' && latestAIAction.value) {
     const act = latestAIAction.value.action
     const amt = latestAIAction.value.amount ? ` $${latestAIAction.value.amount}` : ''
-    
+
     // Naturalize the action verb
     let verb = act
     if (act === 'FOLD') verb = 'Folded'
@@ -79,7 +84,7 @@ const actionSummary = computed(() => {
     else if (act === 'CALL') verb = 'Called'
     else if (act === 'RAISE') verb = 'Raised to'
     else if (act === 'ALL_IN') verb = 'went All-In'
-    
+
     return `AI ${verb}${amt}`
   }
   return null
@@ -96,14 +101,14 @@ onMounted(() => {
   }
 
   onlineStore.connectWebSocket()
-  
+
   // Dynamic SEO exclusion: mark transient room page as noindex
   const meta = document.createElement('meta')
   meta.name = 'robots'
   meta.content = 'noindex, nofollow'
   meta.id = 'room-noindex-meta'
   document.head.appendChild(meta)
-  
+
   // Example: Hotkey to toggle debug view (Ctrl+Shift+D)
   window.addEventListener('keydown', handleKeydown)
 })
@@ -111,7 +116,7 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeydown)
   cleanupRoomState()
-  
+
   // Clean up the dynamic noindex meta tag
   const meta = document.getElementById('room-noindex-meta')
   if (meta) {
@@ -138,7 +143,7 @@ async function handleRematch() {
   const heroName = onlineStore.heroPlayer?.display_name || ''
   const mode = onlineStore.roomMode || 'hvsh'
   const aiConfig = onlineStore.lastAiConfig || null
-  
+
   isCreatingRematch = true
   onlineStore.leaveRoom()
 
@@ -168,6 +173,7 @@ function cleanupRoomState() {
   display: flex;
   flex-direction: column;
   height: 100vh;
+  height: 100dvh;
   background:
     radial-gradient(circle at 50% 25%, rgba(15, 74, 50, 0.36), transparent 34rem),
     radial-gradient(circle at 16% 86%, rgba(101, 28, 32, 0.2), transparent 24rem),
@@ -221,10 +227,15 @@ function cleanupRoomState() {
   background: rgba(0, 0, 0, 0.9);
 }
 
-@media (max-width: 720px) {
-  .action-panel-zone {
-    padding-left: 0.75rem;
-    padding-right: 0.75rem;
-  }
+@media (max-width:720px) {
+ .main-viewport { display:grid; grid-template-rows:minmax(0,1fr) auto; overflow-y:auto; overflow-x:hidden; }
+ .table-container { min-height:380px; }
+ .sizing-open .table-container { min-height:300px; }
+ .action-panel-zone { position:relative; padding:.3rem .5rem max(.5rem,env(safe-area-inset-bottom)); }
+ .action-panel-zone :deep(.action-panel-container) { padding:0; }
+ .action-panel-zone :deep(.action-card) { padding:.6rem; }
+ .action-panel-zone :deep(.secondary-actions) { margin-top:.4rem; padding-top:.4rem; }
+ .action-panel-zone :deep(.act-btn) { height:44px; }
+ .action-panel-zone :deep(.raise-control) { gap:.45rem; padding:.55rem; }
 }
 </style>

@@ -1,0 +1,84 @@
+{
+  "base": {
+    "dark": "core/body_dark.png",
+    "light": "core/body_light.png"
+  },
+  "penetration_test": {
+    "backgrounds": [
+      "black",
+      "white",
+      "termgreen",
+      "brightyellow"
+    ],
+    "status": "pass"
+  },
+  "pipeline": "mascot_db v1 (Mascot Asset Pipeline Agent)",
+  "situation": "poker-lab",
+  "slots": [
+    {
+      "anchor": {
+        "right": "2%",
+        "top": "55%",
+        "transform": "rotate(-6deg)",
+        "transform_origin": "50% 50%",
+        "width": "26%",
+        "z_index": 3
+      },
+      "behavior": {
+        "follow_breath": true,
+        "on_click": "cards_fan",
+        "on_shock": "cards_recoil",
+        "on_antic": "cards_review"
+      },
+      "id": "cards",
+      "size": [
+        1427,
+        844
+      ],
+      "src": "skins/poker-lab/cards_clean.png",
+      "src_dark": "skins/poker-lab/cards_dark.png"
+    },
+    {
+      "anchor": {
+        "left": "10%",
+        "top": "8%",
+        "transform": "rotate(8deg)",
+        "transform_origin": "50% 50%",
+        "width": "16%",
+        "z_index": 4
+      },
+      "behavior": {
+        "follow_breath": true,
+        "on_click": "branch_focus",
+        "on_shock": "branch_recoil",
+        "on_antic": "branch_review"
+      },
+      "id": "branches",
+      "size": [
+        1194,
+        1418
+      ],
+      "src": "skins/poker-lab/branches_clean.png",
+      "src_dark": "skins/poker-lab/branches_dark.png"
+    }
+  ],
+  "states": {
+    "companion": {
+      "bottom_offset": "16px",
+      "idle_timeout": 10
+    },
+    "hiding": {
+      "bottom_offset": "-98px",
+      "show_sprout": true
+    },
+    "scared": {
+      "duration": 0.38,
+      "idle_timeout": 12
+    },
+    "shy": {
+      "blush": true,
+      "duration": 2.5
+    }
+  },
+  "version": "1.0.0"
+}

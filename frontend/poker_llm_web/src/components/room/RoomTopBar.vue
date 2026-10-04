@@ -27,9 +27,9 @@
         plain
         size="small"
         class="handbook-btn"
-        :aria-label="copy.openGuide"
+        :aria-label="isZh ? '牌局记录' : 'Hand history'"
       >
-        <el-icon><Reading /></el-icon><span class="button-label">{{ copy.guide }}</span>
+        <el-icon><Reading /></el-icon><span class="button-label">{{ isZh ? '记录' : 'History' }}</span>
       </el-button>
       <el-button
         @click="copyLink"

@@ -1,8 +1,9 @@
 <template>
+
   <div class="side-panel-container" :class="{ 'is-open': isOpen }">
     <div class="toggle-tab" @click="isOpen = !isOpen">
       <el-icon><ArrowLeft v-if="!isOpen" /><ArrowRight v-else /></el-icon>
-      <span class="tab-text">Table Notes</span>
+      <span class="tab-text">{{ isZh ? '牌局记录' : 'History' }}</span>
     </div>
     
     <div class="panel-content">
@@ -12,30 +13,13 @@
             <HandHistoryPanel />
           </div>
         </el-tab-pane>
-        <el-tab-pane label="AI Insights" name="insights">
-          <div class="insights-scroll-area">
-            <div v-if="!aiReasonings.length" class="empty-state">
-              AI notes will appear after it makes a move.
-            </div>
-            <div v-else class="reasoning-list">
-              <div v-for="(insight, idx) in aiReasonings" :key="idx" class="insight-card">
-                <div class="insight-header">
-                  <span class="action-badge">{{ insight.action }}</span>
-                  <span class="action-amount" v-if="insight.amount">${{ insight.amount }}</span>
-                </div>
-                <div class="insight-body">
-                  {{ cleanReasoningText(insight.reasoning) || "The AI made this move without explicit reasoning." }}
-                </div>
-              </div>
-            </div>
-          </div>
-        </el-tab-pane>
       </el-tabs>
     </div>
   </div>
 </template>
 
 <script setup>
+import { isZh } from '@/i18n/locale.js'
 import { ref, computed } from 'vue'
 import { ArrowLeft, ArrowRight } from '@element-plus/icons-vue'
 import HandHistoryPanel from '@/components/online/HandHistoryPanel.vue'
@@ -46,6 +30,7 @@ const props = defineProps({
 })
 
 const isOpen = ref(false)
+defineExpose({toggle:()=>{isOpen.value=!isOpen.value}})
 const activeTab = ref('history')
 
 const aiReasonings = computed(() => {
@@ -88,6 +73,7 @@ const actionLabel = (action) => {
 </script>
 
 <style scoped>
+.mobile-history-toggle { display:none; }
 .side-panel-container {
   position: absolute;
   top: 0;
@@ -235,6 +221,8 @@ const actionLabel = (action) => {
 }
 
 @media (max-width: 720px) {
+  .mobile-history-toggle { display:block; position:fixed; right:.5rem; top:66px; z-index:110; min-height:44px; padding:.5rem .75rem; color:var(--text-primary); background:var(--bg-panel-solid); border:1px solid var(--border-strong); border-radius:var(--radius-md); font:inherit; }
+  .side-panel-container { position:fixed !important; }
   .side-panel-container {
     top: auto;
     left: 0;
@@ -254,6 +242,7 @@ const actionLabel = (action) => {
   }
 
   .toggle-tab {
+    display:none;
     top: -38px;
     left: 50%;
     width: auto;

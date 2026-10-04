@@ -141,3 +141,25 @@ async def test_game_over_carries_deciding_hand_data():
     assert "winning_cards" in deciding
     assert "winning_reason" in deciding
     assert "showdown_info" in deciding
+
+def test_showdown_snapshot_keeps_original_cards_and_matching_rank():
+    adapter = OnlinePokerEngineAdapter()
+    adapter.add_player('p1','Player 1')
+    adapter.add_player('p2','Player 2')
+    adapter.start_hand()
+    p1,p2=adapter.table.players
+    p1.hand=[Card(Suit.DIAMOND,8),Card(Suit.CLUB,3)]
+    p2.hand=[Card(Suit.DIAMOND,7),Card(Suit.HEART,7)]
+    adapter.table.community_cards=[Card(Suit.SPADE,3),Card(Suit.CLUB,11),Card(Suit.DIAMOND,10),Card(Suit.DIAMOND,14),Card(Suit.CLUB,2)]
+    adapter.table.stage=GameStage.SHOWDOWN
+    holes=[[str(c) for c in p.hand] for p in (p1,p2)]
+    board=[str(c) for c in adapter.table.community_cards]
+    ev=adapter._finish_hand_at_showdown()[0]
+    assert ev.payload['community_cards']==board
+    assert [p['hole_cards'] for p in ev.payload['showdown_info']['players']]==holes
+    assert 'Pair of 7s' in ev.payload['showdown_info']['winning_reason']
+    assert [[str(c) for c in p.hand] for p in (p1,p2)]==holes
+    adapter.table.community_cards=[]
+    p1.hand=[]
+    assert ev.payload['community_cards']==board
+    assert ev.payload['showdown_info']['players'][0]['hole_cards']==holes[0]

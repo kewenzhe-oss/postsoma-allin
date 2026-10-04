@@ -46,6 +46,7 @@ class GameSession:
 
         self.adapter = OnlinePokerEngineAdapter()
         self.players_connected: Dict[str, bool] = {}
+        self.absent_players = {}
         self.turn_timer_task: Optional[asyncio.Task] = None
         self.turn_timeout_seconds = 60
         self.tokens: Dict[str, str] = {}  # token -> player_id
@@ -91,9 +92,14 @@ class GameSession:
                     self._on_hand_started(ev)
             self._restart_turn_timer()
 
+        elif self.adapter.current_turn_player_id() == AI_SEAT_ID and (not self.turn_timer_task or self.turn_timer_task.done()):
+            self._restart_turn_timer()
+
     # ── Action submission ─────────────────────────────────────────────────────
 
     def submit_action(self, player_id: str, action: str, amount: Optional[int] = None) -> bool:
+        if self.absent_players:
+            return False
         result = self.adapter.submit_action(player_id, action, amount, step_all_in=True)
         if not result.accepted:
             return False
@@ -160,6 +166,7 @@ class GameSession:
     def _on_hand_started(self, ev: EngineEvent):
         self._current_hand_number = ev.payload.get("hand_number", self._current_hand_number + 1)
         self._hand_action_history = []
+        self._ai_hand_start_stack = next((p.chips + p.bet_in_round for p in self.adapter.table.players if p.name == AI_SEAT_ID), 0)
         if self._opponent_model:
             self._opponent_model.new_hand(self._current_hand_number)
 
@@ -173,11 +180,13 @@ class GameSession:
             "player_id": pid,
             "action": action,
             "amount": amount,
+            "stage": ev.payload.get("stage", ""),
+            "bet_in_round": ev.payload.get("bet_in_round", 0),
         })
 
         # Track opponent actions in model
         if self._opponent_model and pid == self._opponent_model.player_id:
-            self._opponent_model.observe_action(pid, action, amount, "")
+            self._opponent_model.observe_action(pid, action, amount, ev.payload.get("stage", ""))
 
         # Track when AI raises (for fold-to-raise detection)
         if pid == AI_SEAT_ID and action.upper() in ("RAISE", "ALL_IN"):
@@ -192,25 +201,17 @@ class GameSession:
 
         # Update opponent model showdown count
         if self._opponent_model:
-            self._opponent_model.observe_hand_result(hand_number, winners, AI_SEAT_ID)
+            self._opponent_model.observe_hand_result(hand_number, winners, AI_SEAT_ID, ended_by)
 
         # Determine if AI won
         winner_ids = {w.get("player_id") for w in winners}
         ai_won = AI_SEAT_ID in winner_ids
         opp_won = self._opponent_model and self._opponent_model.player_id in winner_ids
-        chips_delta = None
-        if winners:
-            for w in winners:
-                if w.get("player_id") == AI_SEAT_ID:
-                    chips_delta = w.get("amount")
-
-        # Update decision memory outcomes
-        won_flag = True if ai_won else (None if not opp_won else False)
-        reflection_note = _heuristic_reflection(
-            ai_won=ai_won,
-            ended_by=ended_by,
-            opponent_profile=self._opponent_model.summarize() if self._opponent_model else None,
-        )
+        ai_stack = next((p.chips for p in self.adapter.table.players if p.name == AI_SEAT_ID), 0)
+        chips_delta = ai_stack - getattr(self, '_ai_hand_start_stack', ai_stack)
+        won_flag = None if ai_won and opp_won else (True if ai_won else False if opp_won else None)
+        reflection_note = f"Public result: {ended_by}; net chips {chips_delta:+d}. A result does not establish decision quality."
+        self._last_ai_outcome = (hand_number, won_flag, chips_delta, reflection_note)
         self._decision_memory.update_outcome(
             hand_number=hand_number,
             won=won_flag,
@@ -224,6 +225,20 @@ class GameSession:
 
     # ── AI turn ───────────────────────────────────────────────────────────────
 
+    def set_presence(self, player_id, connected, left=False):
+        self.players_connected[player_id] = connected
+        if connected:
+            self.absent_players.pop(player_id, None)
+            if not self.absent_players:
+                if self.adapter.get_public_state().can_start_next_hand:
+                    asyncio.create_task(self._delayed_start_next_hand())
+                else:
+                    self._restart_turn_timer()
+        else:
+            self.absent_players[player_id] = 'left' if left else 'disconnected'
+            if self.turn_timer_task:
+                self.turn_timer_task.cancel()
+
     def _restart_turn_timer(self):
         # Cancel whatever is running (AI routine or human timer).
         # Note: asyncio task cancellation is cooperative — the old task may still
@@ -232,6 +247,8 @@ class GameSession:
         if self.turn_timer_task:
             self.turn_timer_task.cancel()
 
+        if self.absent_players:
+            return
         current_turn = self.adapter.current_turn_player_id()
         if not current_turn:
             return
@@ -274,49 +291,28 @@ class GameSession:
                 # start the expensive LLM call.
                 await asyncio.sleep(0)
 
-                decision: AIDecision = await _ai_engine.decide(request, self.ai_config)
-
-                # One more cancellation check before we mutate game state.
-                # (CancelledError would propagate here anyway, but being explicit
-                # makes the intent obvious.)
-                logger.info(
-                    "AI decision hand=%s stage=%s: %s %s (conf=%.2f parse=%s)",
-                    request.hand_number, request.stage,
-                    decision.action, decision.amount,
-                    decision.confidence, decision.parse_status,
-                )
-
-                # Record in decision memory
-                profile = self._opponent_model.summarize() if self._opponent_model else None
-                self._decision_memory.record(DecisionMemoryEntry(
-                    hand_number=request.hand_number,
-                    stage=request.stage,
-                    action=decision.action,
-                    amount=decision.amount,
-                    reason=decision.reason,
-                    strategy_tags=decision.strategy_tags,
-                    opponent_profile_labels=profile.tendency_labels if profile else [],
-                    confidence=decision.confidence,
-                ))
-
-                # Broadcast ai_thought event
-                thought_text = decision.reason or _default_thought(decision.action, request)
-                self._broadcast_ai_thought(AIThoughtEvent(
-                    hand_number=request.hand_number,
-                    stage=request.stage,
-                    ai_player_id=AI_SEAT_ID,
-                    thought_summary=thought_text,
-                    confidence=decision.confidence,
-                    strategy_tags=decision.strategy_tags,
-                    parse_status=decision.parse_status,
-                ))
-
-                # Final guard: only submit if it is still the AI's turn.
-                # (Should always be True here, but defend against edge cases.)
-                if self.adapter.current_turn_player_id() == AI_SEAT_ID:
-                    self.submit_action(AI_SEAT_ID, decision.action, decision.amount)
-                else:
-                    logger.warning("AI routine completed but turn has moved; dropping action.")
+                version = (request.hand_number, request.stage, len(self.adapter.event_log()))
+                for attempt in range(2):
+                    decision = await _ai_engine.decide(request, self.ai_config)
+                    current = self.adapter.get_public_state()
+                    if (self._current_hand_number, current.stage, len(self.adapter.event_log())) != version or self.adapter.current_turn_player_id() != AI_SEAT_ID:
+                        return
+                    if decision.parse_status == "emergency_fallback":
+                        continue
+                    profile = self._opponent_model.summarize() if self._opponent_model else None
+                    entry = DecisionMemoryEntry(hand_number=request.hand_number, stage=request.stage,
+                        action=decision.action, amount=decision.amount, reason=decision.reason,
+                        strategy_tags=decision.strategy_tags, opponent_profile_labels=profile.tendency_labels if profile else [],
+                        confidence=decision.confidence)
+                    # Apply and confirm first. submit_action processes hand results synchronously.
+                    if not self.submit_action(AI_SEAT_ID, decision.action, decision.amount):
+                        continue
+                    self._decision_memory.record(entry)
+                    outcome = getattr(self, '_last_ai_outcome', None)
+                    if outcome and outcome[0] == request.hand_number:
+                        self._decision_memory.update_outcome(outcome[0], outcome[1], outcome[2], outcome[3])
+                    return
+                self._dispatch_events([self.adapter._add_event("ai_unavailable", {"message": "AI 连接或响应异常，牌局暂停。请重新连接以重试。"})])
 
             except asyncio.CancelledError:
                 # Cancelled while waiting for LLM — exit without submitting anything.
@@ -325,16 +321,7 @@ class GameSession:
 
             except Exception as e:
                 logger.error("AI turn routine failed: %s", e, exc_info=True)
-                # Emergency fallback — never freeze the game on an unexpected error.
-                # Only apply if it's still the AI's turn (avoids stale fallback after a
-                # retry that somehow succeeded on a different path).
-                if self.adapter.current_turn_player_id() == AI_SEAT_ID:
-                    available = self.adapter.get_available_actions(AI_SEAT_ID)
-                    for preferred in ("CALL", "CHECK", "FOLD"):
-                        if any(a.action == preferred for a in available):
-                            logger.warning("AI fallback action: %s", preferred)
-                            self.submit_action(AI_SEAT_ID, preferred)
-                            break
+                self._dispatch_events([self.adapter._add_event("ai_unavailable", {"message": "AI 暂时不可用，牌局暂停。请重新连接以重试。"})])
 
     def _build_decision_request(self) -> AIDecisionRequest:
         """Build the AIDecisionRequest from current engine state. AI-safe: no hidden cards."""
@@ -377,6 +364,7 @@ class GameSession:
             action_history=list(self._hand_action_history),
             opponent_profile_summary=profile_summary,
             previous_ai_notes=self._decision_memory.format_for_prompt(n=3),
+            position="button/small blind (acts first preflop, last postflop)" if pub.dealer_player_id == AI_SEAT_ID else "big blind (acts last preflop, first postflop)",
         )
 
     def _broadcast_ai_thought(self, thought: AIThoughtEvent):
@@ -405,6 +393,7 @@ class GameSession:
             "hand_number": payload.get("hand_number"),
             "ended_by": payload.get("ended_by"),
             "awarded_pot": payload.get("awarded_pot"),
+            "settlements": payload.get("settlements", []),
             "community_cards": [str(c) for c in self.adapter.table.community_cards],
             "showdown_info": showdown_info,
             "winners": payload.get("winners") or [],
@@ -445,6 +434,8 @@ class GameSession:
 
     async def _delayed_start_next_hand(self):
         await asyncio.sleep(5)
+        if self.absent_players or not self.adapter.get_public_state().can_start_next_hand:
+            return
         try:
             events = self.adapter.start_hand()
             self._dispatch_events(events)

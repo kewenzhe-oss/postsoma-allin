@@ -228,21 +228,16 @@ class OnlinePokerEngineAdapter:
             actions.append(AvailableAction(action="ALL_IN", amount=player.chips, min_amount=player.chips, max_amount=player.chips))
             return actions
 
-        # Raise: minimum is current_bet + big_blind (one big blind increment),
-        # but at least current_bet * 2 when there's already a bet.
-        min_raise_total = self.table.current_bet + self.table.big_blind
-        if call_amount > 0:
-            min_raise_total = max(min_raise_total, self.table.current_bet * 2)
-
+        min_raise_total = max(self.table.big_blind, self.table.current_bet + self.table.last_full_raise)
         max_raise_total = player.chips + player.bet_in_round
-        if player.chips > call_amount and max_raise_total >= min_raise_total:
+        if self.table.can_raise(player) and player.chips > call_amount and max_raise_total >= min_raise_total:
             actions.append(AvailableAction(
                 action="RAISE",
                 min_amount=min_raise_total,
                 max_amount=max_raise_total  # total amount (including already-bet)
             ))
 
-        if player.chips > 0:
+        if player.chips > 0 and (max_raise_total <= self.table.current_bet or self.table.can_raise(player)):
             # ALL_IN is always available if the player has chips
             if not any(a.action == "ALL_IN" for a in actions):
                 actions.append(AvailableAction(action="ALL_IN", amount=player.chips, min_amount=player.chips, max_amount=player.chips))
@@ -378,7 +373,7 @@ class OnlinePokerEngineAdapter:
                 break
 
         if winning_hand_desc:
-            winning_reason = f"{winners_str} wins with {winning_hand_desc}."
+            winning_reason = f"Split pot: {winners_str}." if len(winners_payload) > 1 else f"{winners_str} wins with {winning_hand_desc}."
         else:
             winning_reason = f"{winners_str} wins."
 
@@ -390,9 +385,12 @@ class OnlinePokerEngineAdapter:
 
         events.append(self._add_event("hand_finished", {
             "hand_number": hand_number,
-            "awarded_pot": pot_to_award,
+            "awarded_pot": getattr(self.table, "last_settlement", {}).get("contested_pot", pot_to_award),
+            "settlements": [{**item, "display_name": next((seat.display_name for seat in self.seats if seat.player_id == item["player_id"]), item["player_id"])} for item in getattr(self.table, "last_settlement", {}).get("players", [])],
             "winners": winners_payload,
             "ended_by": "showdown",
+            "community_cards": [str(c) for c in self.table.community_cards],
+            "stage": self.table.stage.value,
             "showdown_info": showdown_info
         }))
         return events
@@ -421,9 +419,12 @@ class OnlinePokerEngineAdapter:
 
         events.append(self._add_event("hand_finished", {
             "hand_number": hand_number,
-            "awarded_pot": pot_to_award,
+            "awarded_pot": getattr(self.table, "last_settlement", {}).get("contested_pot", pot_to_award),
+            "settlements": [{**item, "display_name": next((seat.display_name for seat in self.seats if seat.player_id == item["player_id"]), item["player_id"])} for item in getattr(self.table, "last_settlement", {}).get("players", [])],
             "winners": winners_payload,
             "ended_by": "fold",
+            "community_cards": [str(c) for c in self.table.community_cards],
+            "stage": self.table.stage.value,
             "showdown_info": None
         }))
         return events

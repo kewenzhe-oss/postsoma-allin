@@ -1,4 +1,5 @@
 <script setup>
+import PokerMascot from '@/components/common/PokerMascot.vue'
 import { computed } from 'vue'
 import { RouterLink, RouterView } from 'vue-router'
 import { useRoute } from 'vue-router'
@@ -31,6 +32,7 @@ usePageSeo(pageSeo)
         <LocaleSwitcher />
       </div>
       <RouterView />
+      <PokerMascot v-if="route.name === 'Home'" />
       <div class="global-signature">POSTSOMA-2050</div>
     </div>
   </el-config-provider>

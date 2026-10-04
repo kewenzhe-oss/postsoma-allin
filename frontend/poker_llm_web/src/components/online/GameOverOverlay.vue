@@ -8,12 +8,12 @@
     <div class="game-over-card">
       <!-- Title -->
       <div class="go-header">
-        <h2 class="go-title">Game over</h2>
+        <h2 class="go-title">{{ isZh ? '本场对局结束' : 'Game over' }}</h2>
       </div>
 
       <!-- Match winner -->
       <div class="match-winner" v-if="result.winner">
-        <span class="winner-label">Match winner</span>
+        <span class="winner-label">{{ isZh ? '对局获胜者' : 'Match winner' }}</span>
         <div class="winner-row">
           <span class="winner-name">{{ result.winner.display_name || result.winner.player_id }}</span>
           <span class="winner-chips">{{ result.winner.chips }} chips</span>
@@ -56,7 +56,7 @@
           >
             <div class="recap-player-name">
               <span>{{ p.display_name }}</span>
-              <span v-if="isDecidingPlayerWinner(p.player_id)" class="recap-winner-tag">Winner</span>
+              <span v-if="isDecidingPlayerWinner(p.player_id)" class="recap-winner-tag">{{ result.deciding_hand?.winners?.length > 1 ? 'Split' : 'Winner' }}</span>
             </div>
             <div class="recap-hole-cards">
               <CardView
@@ -73,9 +73,14 @@
         </div>
       </div>
 
+      <div v-if="result.deciding_hand?.settlements?.length" class="final-stacks">
+        <div v-for="p in result.deciding_hand.settlements" :key="p.player_id" class="stack-row">
+          <span>{{ p.display_name }}</span><span>获得 {{ p.received }} · 退回 {{ p.returned }} · 净变化 {{ p.net_change > 0 ? '+' : '' }}{{ p.net_change }}</span>
+        </div>
+      </div>
       <!-- Final stacks -->
       <div class="final-stacks" v-if="result.final_stacks && result.final_stacks.length">
-        <div class="stacks-label">Final stacks</div>
+        <div class="stacks-label">{{ isZh ? '最终筹码' : 'Final stacks' }}</div>
         <div
           v-for="(player, idx) in result.final_stacks"
           :key="idx"
@@ -90,10 +95,10 @@
       <!-- Action buttons -->
       <div class="go-actions">
         <button class="btn-rematch" @click="emit('rematch')">
-          Rematch
+          {{ isZh ? '再来一场' : 'Rematch' }}
         </button>
         <button class="btn-lobby" @click="emit('back-to-lobby')">
-          Back to Lobby
+          {{ isZh ? '返回大厅' : 'Back to Lobby' }}
         </button>
       </div>
     </div>
@@ -101,6 +106,7 @@
 </template>
 
 <script setup>
+import { isZh } from '@/i18n/locale.js'
 import CardView from './CardView.vue'
 import { normalizeCard } from '@/utils/cardFormat'
 

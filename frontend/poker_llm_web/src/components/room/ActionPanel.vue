@@ -5,7 +5,7 @@
       <!-- Stage 1: Primary Actions -->
       <transition name="fade-slide" mode="out-in">
         <div v-if="!isRaising" class="primary-actions" key="primary">
-          <div class="turn-prompt" v-if="!disabled">Choose your move</div>
+          <div class="turn-prompt" v-if="!disabled">{{ isZh ? '选择行动' : 'Choose your move' }}</div>
           
           <div class="action-buttons">
             <el-button
@@ -28,7 +28,7 @@
               :disabled="disabled"
               @click="isRaising = true"
             >
-              Raise
+              {{ currentBet ? (isZh ? '加注' : 'Raise') : (isZh ? '下注' : 'Bet') }}
             </el-button>
           </div>
 
@@ -40,7 +40,7 @@
               :disabled="disabled"
               @click="submit('ALL_IN')"
             >
-              All-in {{ allInAmount }}
+              {{ isZh ? '全押' : 'All-in' }} {{ allInAmount }}
             </el-button>
           </div>
         </div>
@@ -51,6 +51,8 @@
             :minRaise="raiseAction.min_amount || 0"
             :maxRaise="raiseAction.max_amount || 9999"
             :potAmount="potAmount"
+            :currentBet="currentBet"
+            :heroBet="heroBet"
             @cancel="isRaising = false"
             @confirm="(amt) => submit('RAISE', amt)"
           />
@@ -69,9 +71,12 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue'
+import { isZh } from '@/i18n/locale.js'
 import RaiseControl from './RaiseControl.vue'
 
 const props = defineProps({
+  currentBet: { type:Number, default:0 },
+  heroBet: { type:Number, default:0 },
   actions: {
     type: Array,
     default: () => []
@@ -90,9 +95,10 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['submit-action'])
+const emit = defineEmits(['submit-action', 'raise-state'])
 
 const isRaising = ref(false)
+watch(isRaising, value=>emit('raise-state',value))
 
 const raiseAction = computed(() => props.actions.find(a => a.action === 'RAISE'))
 const allInAction = computed(() => props.actions.find(a => a.action === 'ALL_IN'))
@@ -100,7 +106,7 @@ const primaryActions = computed(() => props.actions.filter(a => a.action !== 'RA
 
 const allInAmount = computed(() => {
   const value = allInAction.value?.amount || raiseAction.value?.max_amount || ''
-  return value ? `$${value}` : ''
+  return value ? `${value}` : ''
 })
 
 // Reset raising state if actions change (e.g. new turn)
@@ -115,9 +121,9 @@ const actionClass = (action) => {
 }
 
 const actionLabel = (action, amount) => {
-  if (action === 'FOLD') return 'Fold'
-  if (action === 'CHECK') return 'Check'
-  if (action === 'CALL') return amount ? `Call $${amount}` : 'Call'
+  if (action === 'FOLD') return isZh.value ? '弃牌' : 'Fold'
+  if (action === 'CHECK') return isZh.value ? '过牌' : 'Check'
+  if (action === 'CALL') return (isZh.value ? '跟注' : 'Call') + (amount ? ` ${amount}` : '')
   return action.replace('_', ' ')
 }
 
@@ -306,5 +312,11 @@ const submit = (action, amount = null) => {
     height: 52px;
     font-size: 0.95rem;
   }
+}
+@media (max-width:720px) {
+ .action-card { padding:.7rem; }
+ .act-btn { height:48px; font-size:.92rem; }
+ .action-buttons { gap:.4rem; }
+ .turn-prompt { margin-bottom:.45rem; }
 }
 </style>

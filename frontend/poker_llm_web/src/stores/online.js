@@ -22,6 +22,7 @@ export const useOnlineStore = defineStore('online', () => {
   const archivedHands = ref([])
   const userReviewHandNumber = ref(null)
 
+  const absentPlayers = ref({})
   const connectionStatus = ref('disconnected') // disconnected, connecting, connected, error
   const errorMessage = ref('')
 
@@ -276,19 +277,7 @@ export const useOnlineStore = defineStore('online', () => {
         break
       }
 
-      case 'ai_thought': {
-        if (!activeHand.value) return
-        const currentStreet = activeHand.value.streets[activeHand.value.streets.length - 1]
-        const rawSummary = ev.payload.thought_summary || ''
-        const summary = rawSummary.replace(/^Thinking:\s*/i, '').trim()
-        if (summary) {
-          currentStreet.actions.push({
-            text: `<span class="log-accent">AI Note:</span> <span class="ai-thought-text">${summary}</span>`,
-            isAi: true
-          })
-        }
-        break
-      }
+      case 'ai_thought': break
 
       case 'hand_finished': {
         const handNum = ev.payload.hand_number
@@ -374,6 +363,7 @@ export const useOnlineStore = defineStore('online', () => {
       const data = JSON.parse(event.data)
 
       if (data.type === 'state_sync') {
+        absentPlayers.value = data.payload.absent_players || {}
         publicState.value = data.payload.state.public_state
         privateState.value = data.payload.state.private_player_state
         availableActions.value = data.payload.available_actions
@@ -446,12 +436,15 @@ export const useOnlineStore = defineStore('online', () => {
             winners,
             awarded_pot: p.awarded_pot ?? 0,
             ended_by: endedBy,
-            stage: finalStage,
-            showdown_info: p.showdown_info || null
+            stage: p.stage || finalStage,
+            community_cards: p.community_cards || [...(publicState.value?.community_cards || [])],
+            showdown_info: p.showdown_info || null,
+            settlements: p.settlements || []
           }
         }
 
         // ── ai_thought ─────────────────────────────────────
+        if (ev.type === 'ai_unavailable') { errorMessage.value = ev.payload?.message || 'AI unavailable'; }
         if (ev.type === 'ai_thought') {
           aiThoughts.value.push(ev.payload)
         }
@@ -499,9 +492,11 @@ export const useOnlineStore = defineStore('online', () => {
    */
   function leaveRoom() {
     if (socket) {
+      if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({type:'leave_room'}))
       socket.close()
       socket = null
     }
+    absentPlayers.value = {}
     connectionStatus.value = 'disconnected'
     sessionStorage.removeItem('roomId')
     sessionStorage.removeItem('playerId')
@@ -546,7 +541,7 @@ export const useOnlineStore = defineStore('online', () => {
 
   const isMyTurn = computed(() => {
     if (!publicState.value) return false
-    return publicState.value.current_turn_player_id === playerId.value
+    return !Object.keys(absentPlayers.value).length && publicState.value.game_status === 'in_hand' && publicState.value.current_turn_player_id === playerId.value
   })
 
   const isHandInProgress = computed(() => {
@@ -629,6 +624,7 @@ export const useOnlineStore = defineStore('online', () => {
     initFromSession,
     createRoom,
     joinRoom,
+    absentPlayers,
     connectWebSocket,
     submitAction,
     leaveRoom,

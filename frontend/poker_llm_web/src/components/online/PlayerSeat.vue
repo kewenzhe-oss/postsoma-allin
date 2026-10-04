@@ -51,10 +51,11 @@
       </div>
 
       <!-- Status badges -->
-      <div class="status-tag folded-tag" v-if="player.folded">Folded</div>
+      <div v-if="resultLabel" class="result-tag">{{ resultLabel }}</div>
+      <div class="status-tag folded-tag" v-else-if="player.folded">Folded</div>
       <div class="status-tag allin-tag" v-else-if="player.all_in">All-in</div>
       <div class="status-tag reveal-tag" v-else-if="isOpponent && holeCards && holeCards.length > 0">Shown</div>
-      <div class="status-tag turn-tag" v-else-if="isCurrentTurn">{{ isOpponent ? 'Acting' : 'Your turn' }}</div>
+      <div class="status-tag turn-tag" v-else-if="isCurrentTurn">{{ isOpponent ? (isZh ? '行动中' : 'Acting') : (isZh ? '轮到你' : 'Your turn') }}</div>
     </div>
 
     <!-- ── Current round bet chip ─────────────────── -->
@@ -65,11 +66,13 @@
 </template>
 
 <script setup>
+import { isZh } from '@/i18n/locale.js'
 import { computed } from 'vue'
 import CardView from './CardView.vue'
 import { normalizeCard } from '@/utils/cardFormat'
 
 const props = defineProps({
+  resultLabel: {type:String, default:''},
   player: {
     type: Object,
     required: true
@@ -121,6 +124,7 @@ const shouldShowCards = computed(() => true)
 </script>
 
 <style scoped>
+.result-tag { color:var(--accent-primary); font-size:.8rem; font-weight:700; }
 /* ── Wrapper: stacking context ────────────────────── */
 .seat-wrapper {
   position: relative;
@@ -333,8 +337,8 @@ const shouldShowCards = computed(() => true)
 
 @media (max-width: 720px) {
   .info-card {
-    min-width: 132px;
-    padding: 0.58rem 0.85rem;
+    min-width: 120px;
+    padding: 0.4rem 0.7rem;
   }
 
   .name {
@@ -351,5 +355,14 @@ const shouldShowCards = computed(() => true)
 .seat-wrapper.is-opponent .bet-chip {
   bottom: calc(100% - 18px);
   right: -12px;
+}
+@media (max-width:720px) {
+ .seat-wrapper { flex-direction:column; gap:0; }
+ .info-card { padding:.25rem .65rem; min-width:125px; }
+ .cards-area { gap:5px; }
+ .cards-area :deep(.card-view) { width:38px; }
+ .seat-wrapper:not(.is-opponent) .cards-area { margin:0 0 .25rem; }
+ .seat-wrapper.is-opponent .cards-area { margin:.25rem 0 0; }
+ .status-tag { display:none; }
 }
 </style>

@@ -47,7 +47,7 @@ class ConnectionManager:
         if not session:
             return
         
-        for player_id, ws in self.active_connections.get(room_id, {}).items():
+        for player_id, ws in list(self.active_connections.get(room_id, {}).items()):
             try:
                 private_state = session.adapter.get_private_state(player_id)
                 available_actions = session.adapter.get_available_actions(player_id)
@@ -55,7 +55,8 @@ class ConnectionManager:
                     "type": "state_sync",
                     "payload": {
                         "state": asdict(private_state),
-                        "available_actions": [asdict(a) for a in available_actions]
+                        "available_actions": [] if session.absent_players else [asdict(a) for a in available_actions],
+                        "absent_players": session.absent_players
                     }
                 }
                 await ws.send_json(payload)
@@ -71,7 +72,7 @@ class ConnectionManager:
             pass
 
     async def _async_broadcast_event(self, room_id: str, event: EngineEvent):
-        for player_id, ws in self.active_connections.get(room_id, {}).items():
+        for player_id, ws in list(self.active_connections.get(room_id, {}).items()):
             # Private hole cards should only be sent to the owner
             if event.type == "private_hole_cards":
                 target_player_id = event.payload.get("player_id")

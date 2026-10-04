@@ -1,4 +1,6 @@
 <template>
+  <div class="shared-play-entry">
+  <p class="shared-title">{{ isZh ? '同一张牌桌 · 选择对手' : 'One table · Choose your opponent' }}</p>
   <div
     class="mode-selector"
     :class="{ compact, 'with-quick-practice': showQuickPractice }"
@@ -45,6 +47,7 @@
       </div>
     </button>
   </div>
+  </div>
 </template>
 
 <script setup>
@@ -77,14 +80,14 @@ const copy = computed(() => isZh.value
       quickDetail: '当前版本没有可复用的轻量本地规则 Bot。这条无需 API 的练习路径即将推出。',
       comingSoon: '即将推出',
       friendAria: '打开私人房间设置',
-      friendKicker: '自由对局 · 无已验证训练评分',
+      friendKicker: '私人双人对局',
       friendTitle: '和朋友对局',
-      friendDetail: '在私人 1v1 牌桌中应用五问。朋友意见和单手结果都不是训练裁判。',
+      friendDetail: '创建或加入私人双人牌桌，与朋友实时对局。',
       friendCta: '创建或加入房间',
       aiAria: '打开 BYOK AI 对局设置',
-      aiKicker: '自由对局 · AI 实验台 · BYOK',
-      aiTitle: '和自己的 AI 练习',
-      aiDetail: '使用自己的 API Key 与 LLM 对手自由实验。这里不提供已验证训练评分，AI 不是训练裁判。',
+      aiKicker: '双人对局 · BYOK',
+      aiTitle: '与 AI 对局',
+      aiDetail: '连接自己的 AI，在相同规则与操作下进行双人对局。',
       aiCta: '设置 AI 对局'
     }
   : {
@@ -107,6 +110,8 @@ const copy = computed(() => isZh.value
 </script>
 
 <style scoped>
+.shared-play-entry { padding:clamp(1rem,3vw,2rem); border:1px solid var(--border-strong); border-radius:var(--radius-xl); background:var(--bg-panel-solid); }
+.shared-title { color:var(--accent-primary); margin:0 0 1rem; font-weight:700; }
 .mode-selector {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

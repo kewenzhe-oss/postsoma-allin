@@ -169,7 +169,7 @@ async def websocket_endpoint(websocket: WebSocket, room_id: str, token: str):
         return
 
     await connection_manager.connect(websocket, room_id, player_id)
-    session.players_connected[player_id] = True
+    session.set_presence(player_id, True)
     
     # Replay past events to newly connected client to hydrate hand history & thoughts
     await connection_manager.replay_events_for_player(websocket, room_id, player_id)
@@ -180,6 +180,11 @@ async def websocket_endpoint(websocket: WebSocket, room_id: str, token: str):
     try:
         while True:
             data = await websocket.receive_json()
+            if data.get('type') == 'leave_room':
+                session.set_presence(player_id, False, left=True)
+                await connection_manager.broadcast_state(room_id)
+                await websocket.close()
+                break
             # Expecting WSPlayerAction shape: {"action": "CALL", "amount": 10}
             action_req = WSPlayerAction(**data)
             
@@ -188,6 +193,10 @@ async def websocket_endpoint(websocket: WebSocket, room_id: str, token: str):
                 await websocket.send_json({"type": "error", "message": "Action rejected"})
                 
     except WebSocketDisconnect:
-        connection_manager.disconnect(room_id, player_id)
-        if session:
-            session.players_connected[player_id] = False
+        pass
+    finally:
+        # A replaced socket must not disconnect the newer connection.
+        if connection_manager.active_connections.get(room_id, {}).get(player_id) is websocket:
+            connection_manager.disconnect(room_id, player_id)
+            session.set_presence(player_id, False, left=session.absent_players.get(player_id) == 'left')
+            await connection_manager.broadcast_state(room_id)

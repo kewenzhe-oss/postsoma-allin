@@ -11,6 +11,7 @@
         <!-- Layer 1: Decision training first, free play second -->
         <div v-if="currentMode === 'select'" class="home-learning-flow">
           <DecisionFrameworkIntro />
+          <GuidedDecisionCase />
 
           <section ref="toolsSection" class="tools-section" aria-labelledby="tools-title">
             <div class="tools-heading">
@@ -66,6 +67,52 @@
                   {{ copy.tools.explorerCta }}
                 </button>
               </article>
+              <article class="tool-card">
+                <div class="tool-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                    <path d="M4 6h7M4 12h11M4 18h7M16 4l4 4-4 4M20 8h-6M16 14l4 4-4 4M20 18h-6" />
+                  </svg>
+                </div>
+                <span class="tool-question">{{ isZh ? '范围：行动之后哪些组合更可能出现？' : 'Range: which combos become more likely after an action?' }}</span>
+                <h3>{{ isZh ? '范围更新练习' : 'Range updating practice' }}</h3>
+                <p>{{ isZh ? '结合组合数和给定行动频率，更新范围的相对权重。' : 'Update relative range weights using combo counts and supplied action likelihoods.' }}</p>
+                <button type="button" @click="openTrainingWorkspace('range-updating')">{{ isZh ? '练习范围更新' : 'Practice range updating' }}</button>
+              </article>
+              <article class="tool-card">
+                <div class="tool-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4h6v8H4zM14 4h6v8h-6zM4 16h6v4H4zM14 16h6v4h-6z" /></svg></div>
+                <span class="tool-question">{{ isZh ? '手牌与范围：已知牌移除了哪些组合？' : 'Hand + Range: which combos do known cards remove?' }}</span>
+                <h3>{{ isZh ? '组合与阻断牌' : 'Combos and blockers' }}</h3>
+                <p>{{ isZh ? '计算合法组合，再比较价值牌与诈唬占比。' : 'Count legal combos, then compare value and bluff shares.' }}</p>
+                <button type="button" @click="openTrainingWorkspace('combos')">{{ isZh ? '开始练习' : 'Start practice' }}</button>
+              </article>
+              <article class="tool-card">
+                <div class="tool-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 18h16M6 14l4-4 4 2 5-7M15 5h4v4" /></svg></div>
+                <span class="tool-question">{{ isZh ? '价格：这次下注需要多少弃牌率？' : 'Price: how often must this bet induce a fold?' }}</span>
+                <h3>{{ isZh ? '主动下注价格' : 'Betting price' }}</h3>
+                <p>{{ isZh ? '建立诈唬保本门槛，在冻结条件下比较下注 EV。' : 'Build the break-even bluff threshold and compare betting EV under frozen assumptions.' }}</p>
+                <button type="button" @click="openTrainingWorkspace('bluff')">{{ isZh ? '开始练习' : 'Start practice' }}</button>
+              </article>
+              <article class="tool-card">
+                <div class="tool-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="7" height="15" rx="1.5" /><rect x="14" y="4" width="7" height="15" rx="1.5" /><path d="M6 8h1M17 8h1M10 12h4" /></svg></div>
+                <span class="tool-question">{{ isZh ? '手牌与局面：一张转牌改变了什么？' : 'Hand + Context: what does one turn card change?' }}</span>
+                <h3>{{ isZh ? '牌面变化练习' : 'Board changes' }}</h3>
+                <p>{{ isZh ? '比较成牌、牌面配对与高张变化，区分当前牌型与实际权益。' : 'Compare made hands, paired boards and overcards; distinguish hand category from equity.' }}</p>
+                <button type="button" @click="openTrainingWorkspace('board')">{{ isZh ? '练习牌面变化' : 'Practice board changes' }}</button>
+              </article>
+              <article class="tool-card">
+                <div class="tool-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v6M5 15V9h14v6" /><circle cx="5" cy="18" r="2" /><circle cx="19" cy="18" r="2" /><circle cx="12" cy="3" r="2" /></svg></div>
+                <span class="tool-question">{{ isZh ? '局面与风险：权益能沿这条路径兑现多少？' : 'Context + Risk: how much equity does this path realize?' }}</span>
+                <h3>{{ isZh ? '位置与权益实现' : 'Position and equity realization' }}</h3>
+                <p>{{ isZh ? '计算 SPR，用透明决策树比较过牌、摊牌与弃牌分支。' : 'Calculate SPR and compare check, showdown and fold branches in a transparent decision tree.' }}</p>
+                <button type="button" @click="openTrainingWorkspace('position')">{{ isZh ? '练习位置与 SPR' : 'Practice position and SPR' }}</button>
+              </article>
+              <article class="tool-card">
+                <div class="tool-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16M4 12h10M4 18h6M17 14l4 4-4 4" /></svg></div>
+                <span class="tool-question">{{ isZh ? '范围与风险：我的下注靠什么获利？' : 'Range + Risk: what makes my bet profitable?' }}</span>
+                <h3>{{ isZh ? '下注目的与相对牌力' : 'Betting purpose and relative strength' }}</h3>
+                <p>{{ isZh ? '同一手顶对，比较三个范围中的价值来源与过牌收益。' : 'Compare value sources and checking with the same top pair against three ranges.' }}</p>
+                <button type="button" @click="openTrainingWorkspace('betting-purpose')">{{ isZh ? '跟着案例思考' : 'Explore the guided case' }}</button>
+              </article>
             </div>
 
             <section
@@ -92,6 +139,9 @@
                 @open-ranges="openGuideSection('reference')"
                 @apply-mode="handleTrainingApply"
               />
+              <BettingPurposeCase v-if="activeTrainingPath === 'betting-purpose'" />
+              <DecisionLab v-if="activeTrainingPath === 'combos' || activeTrainingPath === 'bluff' || activeTrainingPath === 'board' || activeTrainingPath === 'position'" :key="activeTrainingPath" :kind="activeTrainingPath" />
+              <RangeUpdatingDrill v-if="activeTrainingPath === 'range-updating'" />
               <PotOddsDecision
                 v-show="activeTrainingPath === 'pot-odds'"
                 @apply-mode="handleTrainingApply"
@@ -162,7 +212,10 @@
             </small>
           </aside>
 
-          <!-- Layer 2A: Human vs Human -->
+          <nav class="match-switch" :aria-label="isZh ? '切换对手类型' : 'Choose opponent'">
+            <button type="button" :aria-pressed="currentMode === 'hvh'" @click="handleModeSelection('hvh')">{{ isZh ? '好友对局' : 'Friend' }}</button>
+            <button type="button" :aria-pressed="currentMode === 'hva'" @click="handleModeSelection('hva')">{{ isZh ? 'AI 对局' : 'AI' }}</button>
+          </nav>
           <HumanMatchPanel v-if="currentMode === 'hvh'" :prefilledRoomId="pendingInviteRoomId" />
 
           <!-- Layer 2B: Human vs AI -->
@@ -187,10 +240,14 @@ import { ref, computed, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import LobbyHeader from '@/components/lobby/LobbyHeader.vue'
 import DecisionFrameworkIntro from '@/components/lobby/DecisionFrameworkIntro.vue'
+import GuidedDecisionCase from '@/components/lobby/GuidedDecisionCase.vue'
 import ModeSelector from '@/components/lobby/ModeSelector.vue'
 import HumanMatchPanel from '@/components/lobby/HumanMatchPanel.vue'
 import AIMatchPanel from '@/components/lobby/AIMatchPanel.vue'
 import TodaysDecision from '@/components/lobby/TodaysDecision.vue'
+import BettingPurposeCase from '@/components/lobby/BettingPurposeCase.vue'
+import DecisionLab from '@/components/lobby/DecisionLab.vue'
+import RangeUpdatingDrill from '@/components/lobby/RangeUpdatingDrill.vue'
 import PotOddsDecision from '@/components/lobby/PotOddsDecision.vue'
 import RangeViewerModal from '@/components/tools/RangeViewerModal.vue'
 import SiteFooter from '@/components/common/SiteFooter.vue'
@@ -198,7 +255,7 @@ import {
   HU_BTN_RFI_RANGE_ID,
   HU_BTN_RFI_RANGE_VERSION
 } from '@/training/ranges/hu-btn-rfi-100bb-v1.js'
-import { POT_ODDS_DRILL_VERSION } from '@/training/drills/pot-odds-v1.js'
+import { POT_ODDS_CATALOG_VERSION } from '@/training/drills/pot-odds-catalog-v2.js'
 import { isZh } from '@/i18n/locale.js'
 
 const showRangeViewer = ref(false)
@@ -207,11 +264,11 @@ const activeTrainingPath = ref(null)
 const toolsSection = ref(null)
 const toolWorkspace = ref(null)
 const activeToolHeading = ref(null)
-const TRAINING_PATHS = Object.freeze(['preflop', 'pot-odds'])
+const TRAINING_PATHS = Object.freeze(['preflop', 'pot-odds', 'range-updating', 'combos', 'bluff', 'board', 'position', 'betting-purpose'])
 const GUIDE_ENTRY_SECTIONS = Object.freeze(['start', 'reference', 'explorer'])
 const rangeId = HU_BTN_RFI_RANGE_ID
 const rangeVersion = HU_BTN_RFI_RANGE_VERSION
-const potOddsVersion = POT_ODDS_DRILL_VERSION
+const potOddsVersion = POT_ODDS_CATALOG_VERSION
 
 const HOME_COPY = Object.freeze({
   en: Object.freeze({
@@ -314,6 +371,15 @@ const activeToolCopy = computed(() => ({
     detail: isZh.value
       ? '仅在标明场景下使用固定 baseline-v1 参考的本地练习。'
       : 'A local exercise using the fixed baseline-v1 reference for its one stated scenario.'
+  },
+  'betting-purpose': { title: isZh.value ? '下注目的与相对牌力' : 'Betting purpose and relative strength', detail: isZh.value ? '从对手范围与反应理解行动，再回到五问检查假设。' : 'Understand actions through ranges and responses, then review assumptions.' },
+  position: { title: isZh.value ? '位置、SPR 与权益实现' : 'Position, SPR and equity realization', detail: isZh.value ? '冻结条件下的筹码比例与路径 EV；不构成最优策略裁决。' : 'Stack ratios and path EV under frozen assumptions, not optimal strategy verdicts.' },
+  board: { title: isZh.value ? '牌面变化练习' : 'Board changes', detail: isZh.value ? '固定手牌与翻牌，仅替换转牌；评分针对可验证的当前牌型。' : 'Keep hole cards and flop fixed and replace only the turn; score the verifiable made-hand category.' },
+  combos: { title: isZh.value ? '组合与阻断牌' : 'Combos and blockers', detail: isZh.value ? '已知牌移除与冻结范围占比；不以 blocker 单独裁定行动。' : 'Card removal and frozen range shares; a blocker alone does not determine an action.' },
+  bluff: { title: isZh.value ? '主动下注价格' : 'Betting price', detail: isZh.value ? '零摊牌权益、无抽水和后续下注的河牌数学模型。' : 'A zero-showdown-equity river model with no rake or future betting.' },
+  'range-updating': {
+    title: isZh.value ? '范围更新练习' : 'Range updating practice',
+    detail: isZh.value ? '给定组合与行动频率，练习更新范围；不提供实际对手或 GTO 策略预测。' : 'Update ranges from supplied combos and likelihoods; no prediction of real opponents or GTO strategy.'
   },
   'pot-odds': {
     title: isZh.value ? '价格计算' : 'Price Builder',
@@ -453,6 +519,9 @@ const handleGuideTrainingSelection = (training) => {
 </script>
 
 <style scoped>
+.match-switch { display:flex; justify-content:center; gap:.7rem; margin:1rem; }
+.match-switch button { min-height:44px; padding:.7rem 1.5rem; color:var(--text-primary); background:var(--bg-panel-solid); border:1px solid var(--border-strong); border-radius:var(--radius-md); font:inherit; cursor:pointer; }
+.match-switch button[aria-pressed="true"] { border-color:var(--accent-primary); color:var(--accent-primary); }
 .home-container {
   width: 100%;
   margin: 0 auto;
@@ -590,8 +659,9 @@ const handleGuideTrainingSelection = (training) => {
 
 .tool-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.8rem;
+  grid-auto-rows: 1fr;
 }
 
 .tool-card {
@@ -599,7 +669,7 @@ const handleGuideTrainingSelection = (training) => {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  padding: 1rem;
+  padding: clamp(1rem, 2.4vw, 1.4rem);
   background:
     linear-gradient(145deg, rgba(217, 173, 88, 0.055), transparent 52%),
     rgba(255, 255, 255, 0.025);
@@ -610,6 +680,7 @@ const handleGuideTrainingSelection = (training) => {
 .tool-icon {
   width: 42px;
   height: 42px;
+  flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -626,8 +697,10 @@ const handleGuideTrainingSelection = (training) => {
 
 .tool-question {
   margin-top: 0.85rem;
+  min-height: 3.1em;
+  line-height: 1.55;
   color: var(--accent-primary);
-  font-size: 0.68rem;
+  font-size: 0.8rem;
   font-weight: 850;
 }
 
@@ -636,13 +709,16 @@ const handleGuideTrainingSelection = (training) => {
   color: var(--text-primary);
   font-size: 1.05rem;
   font-weight: 850;
+  line-height: 1.4;
+  min-height: 2.8em;
 }
 
 .tool-card p {
   margin-top: 0.45rem;
-  color: var(--text-tertiary);
-  font-size: 0.76rem;
-  line-height: 1.55;
+  margin-bottom: 1.2rem;
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  line-height: 1.65;
 }
 
 .tool-card button,
@@ -665,9 +741,9 @@ const handleGuideTrainingSelection = (training) => {
   text-align: left;
 }
 
-.tool-card p + button {
-  margin-top: 1rem;
-}
+.tool-card button { display: flex; align-items: center; justify-content: space-between; gap: .75rem; font-size: .88rem; }
+.tool-card button::after { content: '→'; flex-shrink: 0; color: var(--accent-primary); }
+.tool-card button:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 4px; }
 
 .tool-card button:hover,
 .close-workspace:hover {
@@ -873,7 +949,10 @@ const handleGuideTrainingSelection = (training) => {
 
   .tool-grid {
     grid-template-columns: 1fr;
+    grid-auto-rows: auto;
   }
+
+  .tool-question, .tool-card h3 { min-height: 0; }
 
   .trust-grid {
     grid-template-columns: 1fr;

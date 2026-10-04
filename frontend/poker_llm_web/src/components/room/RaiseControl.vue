@@ -1,40 +1,40 @@
 <template>
   <div class="raise-control">
     <div class="raise-header">
-      <span class="raise-label">Raise to</span>
-      <span class="raise-value">${{ amount }}</span>
+      <span class="raise-label">{{ currentBet ? (isZh ? '加到' : 'Raise to') : (isZh ? '下注' : 'Bet') }}</span>
+      <span class="raise-value">{{ amount }}</span>
     </div>
     
-    <div class="slider-container">
-      <el-slider 
-        v-model="amount" 
-        :min="minRaise" 
-        :max="maxRaise" 
-        :step="1"
-        :show-tooltip="false"
-      />
+    <p class="size-context">{{ isZh ? '选择底池比例' : 'Choose a pot fraction' }} · {{ currentBet > heroBet ? (isZh ? '按跟注后的底池计算加注' : 'Raise based on the pot after calling') : (isZh ? '按当前底池计算' : 'Based on the current pot') }}</p>
+    <div class="size-grid" role="group" :aria-label="isZh ? '下注尺度' : 'Bet sizes'">
+      <button v-for="size in sizes" :key="size.label" type="button" :disabled="!size.legal" :aria-pressed="amount === size.target" @click="amount = size.target">
+        <strong>{{ size.label }}</strong><span>{{ size.target }}</span>
+      </button>
+      <button type="button" :aria-pressed="amount === minRaise" @click="amount = minRaise">{{ isZh ? '最小' : 'Minimum' }}<span>{{ minRaise }}</span></button>
+      <button type="button" :aria-pressed="amount === maxRaise" @click="amount = maxRaise">{{ isZh ? '最大' : 'Maximum' }}<span>{{ maxRaise }}</span></button>
     </div>
-
-    <div class="shortcuts">
-      <el-button size="small" plain @click="amount = minRaise">Min</el-button>
-      <el-button size="small" plain @click="setFraction(0.5)">1/2 Pot</el-button>
-      <el-button size="small" plain @click="setFraction(1)">Pot</el-button>
-      <el-button size="small" plain class="max-shortcut" @click="amount = maxRaise">Max</el-button>
-    </div>
-
+    <details class="custom-size">
+      <summary>{{ isZh ? '自定义金额' : 'Custom amount' }}</summary>
+      <el-input-number v-model="amount" :min="minRaise" :max="maxRaise" :step="1" :precision="0" :aria-label="isZh ? '目标下注总额' : 'Total bet target'" />
+      <el-slider v-model="amount" :min="minRaise" :max="maxRaise" :step="1" />
+    </details>
     <div class="actions">
-      <el-button class="cancel-btn" text @click="$emit('cancel')">Cancel</el-button>
-      <el-button class="confirm-btn" @click="$emit('confirm', amount)">
-        Confirm Raise to ${{ amount }}
+      <el-button class="cancel-btn" text @click="$emit('cancel')">{{ isZh ? '取消' : 'Cancel' }}</el-button>
+      <el-button class="confirm-btn" :disabled="!Number.isInteger(amount) || amount < minRaise || amount > maxRaise" @click="$emit('confirm', amount)">
+        {{ isZh ? '确认' : 'Confirm' }} {{ currentBet ? (isZh ? '加到' : 'raise to') : (isZh ? '下注' : 'bet') }} {{ amount }} · {{ isZh ? '投入' : 'invest' }} {{ amount - heroBet }}
       </el-button>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { isZh } from '@/i18n/locale.js'
+import { POT_SIZES, potRaiseTarget } from '@/utils/poker/betSizing.js'
+import { computed, ref, watch } from 'vue'
 
 const props = defineProps({
+  currentBet: { type:Number, default:0 },
+  heroBet: { type:Number, default:0 },
   minRaise: { type: Number, required: true },
   maxRaise: { type: Number, required: true },
   potAmount: { type: Number, required: true }
@@ -48,15 +48,22 @@ watch(() => props.minRaise, (newVal) => {
   if (amount.value < newVal) amount.value = newVal
 })
 
-const setFraction = (frac) => {
-  let target = Math.floor(props.potAmount * frac)
-  if (target < props.minRaise) target = props.minRaise
-  if (target > props.maxRaise) target = props.maxRaise
-  amount.value = target
-}
+const sizes = computed(()=>POT_SIZES.map((fraction,index)=>{
+ const target=potRaiseTarget({pot:props.potAmount,currentBet:props.currentBet,heroBet:props.heroBet},fraction)
+ return {label:['⅓','½','¾','1×','1.5×','2×'][index],target,legal:target>=props.minRaise&&target<=props.maxRaise}
+}))
+watch(()=>props.maxRaise,value=>{ if(amount.value>value) amount.value=value })
 </script>
 
 <style scoped>
+.size-context { margin:0; color:var(--text-secondary); font-size:.85rem; }
+.size-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.5rem; }
+.size-grid button { min-height:54px; border:1px solid var(--border-strong); border-radius:var(--radius-md); background:var(--bg-panel-solid); color:var(--text-primary); cursor:pointer; font:inherit; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.2rem; }
+.size-grid button span { font-size:.8rem; color:var(--text-secondary); }
+.size-grid button[aria-pressed="true"] { border-color:var(--accent-primary); background:var(--bg-panel-raised); }
+.size-grid button:disabled { opacity:.4; cursor:default; }
+.size-grid button:focus-visible, summary:focus-visible { outline:2px solid var(--accent-primary); outline-offset:2px; }
+.custom-size summary { cursor:pointer; padding:.5rem 0; color:var(--text-secondary); }
 .raise-control {
   display: flex;
   flex-direction: column;
@@ -137,5 +144,11 @@ const setFraction = (frac) => {
 @keyframes slideUp {
   from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
+}
+@media (max-width:720px) {
+ .raise-control { padding:.75rem; gap:.6rem; }
+ .size-grid button { min-height:48px; }
+ .actions { gap:.5rem; }
+ .confirm-btn { white-space:normal; height:auto; min-height:48px; line-height:1.4; }
 }
 </style>

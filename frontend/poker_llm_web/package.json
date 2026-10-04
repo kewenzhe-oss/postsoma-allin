@@ -9,6 +9,9 @@
     "build": "npm run generate:seo && vite build && node scripts/generate-static-seo-pages.mjs",
     "preview": "vite preview",
     "check:pot-odds": "node scripts/check-pot-odds.mjs",
+    "check:decision-learning": "node scripts/check-decision-learning.mjs",
+    "check:learning-review": "node scripts/check-learning-review.mjs",
+    "check:decision-labs": "node scripts/check-decision-labs.mjs",
     "check:preflop-range": "node scripts/check-preflop-range.mjs",
     "check:scenario-library": "node scripts/check-scenario-library.mjs",
     "check:seo-geo": "node scripts/check-seo-geo.mjs"

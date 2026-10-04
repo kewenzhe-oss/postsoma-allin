@@ -1,20 +1,20 @@
 <template>
-  <div class="ai-status-pulse">
+  <div class="ai-status-pulse" role="status" aria-live="polite">
     <div class="pulse-ring"></div>
     <div class="pulse-ring delay"></div>
     <div class="status-content">
-      <span class="text">AI is thinking</span>
+      <span class="text">{{ isZh ? '对手正在思考' : 'Opponent is thinking' }}</span>
       <span class="dots"><span>.</span><span>.</span><span>.</span></span>
     </div>
   </div>
 </template>
 
+<script setup>
+import { isZh } from '@/i18n/locale.js'
+</script>
 <style scoped>
 .ai-status-pulse {
-  position: absolute;
-  top: -44px;
-  left: 50%;
-  transform: translateX(-50%);
+  position: relative;
   background: rgba(18, 27, 33, 0.92);
   border: 1px solid rgba(217, 173, 88, 0.35);
   padding: 0.5rem 1rem;
@@ -70,4 +70,5 @@
   0%, 100% { opacity: 0.2; }
   20% { opacity: 1; }
 }
+@media (prefers-reduced-motion: reduce) { .pulse-ring, .dots span { animation:none; } }
 </style>

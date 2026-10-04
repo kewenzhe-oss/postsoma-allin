@@ -8,6 +8,15 @@
       @back-to-lobby="$emit('back-to-lobby')"
     />
 
+    <div v-else-if="onlineStore.errorMessage?.includes('AI')" class="blocking-state error" role="alert">
+      <h3>{{ onlineStore.errorMessage }}</h3>
+      <button type="button" @click="onlineStore.connectWebSocket()">{{ isZh ? '重新连接' : 'Reconnect' }}</button>
+    </div>
+    <div v-else-if="Object.keys(onlineStore.absentPlayers).length" class="blocking-state" role="status">
+      <h3>{{ Object.values(onlineStore.absentPlayers).includes('left') ? (isZh ? '对手已离开房间' : 'Opponent left the room') : (isZh ? '对手连接中断' : 'Opponent disconnected') }}</h3>
+      <p>{{ isZh ? '牌局已暂停，等待对手重新连接。' : 'Play is paused while waiting for reconnection.' }}</p>
+      <button type="button" @click="$emit('back-to-lobby')">{{ isZh ? '返回大厅' : 'Back to lobby' }}</button>
+    </div>
     <!-- Waiting for Opponent State -->
     <div v-else-if="perceptualState === 'waiting_for_ai' && !onlineStore.publicState?.stage" class="blocking-state">
       <div class="spinner"></div>
@@ -23,6 +32,7 @@
 </template>
 
 <script setup>
+import { isZh } from '@/i18n/locale.js'
 import { computed } from 'vue'
 import { useOnlineStore } from '@/stores/online'
 import GameOverOverlay from '@/components/online/GameOverOverlay.vue'
@@ -37,6 +47,8 @@ const onlineStore = useOnlineStore()
 
 const isVisible = computed(() => {
   if (onlineStore.isGameOver && !onlineStore.isGameOverPending) return true
+  if (onlineStore.errorMessage?.includes('AI')) return true
+  if (Object.keys(onlineStore.absentPlayers).length) return true
   if (onlineStore.connectionStatus === 'connecting') return true
   // Initial loading before stage is set
   if (props.perceptualState === 'waiting_for_ai' && !onlineStore.publicState?.stage) return true

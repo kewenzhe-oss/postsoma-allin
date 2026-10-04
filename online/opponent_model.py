@@ -36,7 +36,9 @@ class OpponentModelTracker:
         self._check_count = 0
         self._fold_count = 0
         self._all_in_count = 0
-        self._vpip_count = 0      # any non-check, non-fold preflop action
+        self._vpip_count = 0
+        self._vpip_this_hand = False
+        self._pressure_opportunities = 0      # any non-check, non-fold preflop action
 
         # Showdown stats
         self._showdown_count = 0
@@ -62,6 +64,7 @@ class OpponentModelTracker:
                 self._hands_observed += 1
             self._current_hand = hand_number
             self._last_ai_raised_this_hand = False
+            self._vpip_this_hand = False
 
     def observe_ai_raised(self):
         """Called when AI raised this street, to track opponent fold-to-raise."""
@@ -76,13 +79,19 @@ class OpponentModelTracker:
             return
 
         action_upper = action.upper()
+        if self._last_ai_raised_this_hand:
+            self._pressure_opportunities += 1
+            if action_upper == 'FOLD':
+                self._fold_to_raise_count += 1
+            self._last_ai_raised_this_hand = False
+        if stage.lower() == 'preflop' and action_upper in ('CALL','RAISE','ALL_IN','ALL-IN') and not self._vpip_this_hand:
+            self._vpip_count += 1
+            self._vpip_this_hand = True
 
         if action_upper == "RAISE":
             self._raise_count += 1
-            self._vpip_count += 1
         elif action_upper == "CALL":
             self._call_count += 1
-            self._vpip_count += 1
         elif action_upper == "CHECK":
             self._check_count += 1
         elif action_upper == "FOLD":
@@ -92,20 +101,21 @@ class OpponentModelTracker:
                 self._last_ai_raised_this_hand = False
         elif action_upper in ("ALL_IN", "ALL-IN"):
             self._all_in_count += 1
-            self._vpip_count += 1
 
-    def observe_hand_result(self, hand_number: int, winners: list, ai_player_id: str):
+    def observe_hand_result(self, hand_number: int, winners: list, ai_player_id: str, ended_by: str = ""):
         """
         Update showdown stats from hand_finished event.
         winners = [{"player_id": ..., "display_name": ..., "amount": ...}]
         A showdown is inferred when both players went to showdown (ended_by=showdown);
         simple heuristic: if opponent appears in winners and hand went to showdown.
         """
+        if ended_by != "showdown":
+            return
         winner_ids = {w.get("player_id") for w in winners}
         # Only count if BOTH players contributed (i.e., not a walk/fold win)
         if self.player_id in winner_ids or ai_player_id in winner_ids:
             self._showdown_count += 1
-            if self.player_id in winner_ids:
+            if self.player_id in winner_ids and ai_player_id not in winner_ids:
                 self._showdown_win_count += 1
 
     def add_note(self, note: str):
@@ -130,19 +140,13 @@ class OpponentModelTracker:
 
         # Looseness: vpip / total actions (rough proxy)
         looseness = (
-            self._vpip_count / total_actions
+            self._vpip_count / max(1, self._hands_observed + 1)
             if total_actions > 0 else 0.3
         )
 
-        labels = _compute_tendency_labels(
-            aggression=aggression,
-            looseness=looseness,
-            fold_to_raise=self._fold_to_raise_count,
-            all_in_count=self._all_in_count,
-            total_actions=total_actions,
-            showdown_win=self._showdown_win_count,
-            showdown=self._showdown_count,
-        )
+        labels = ['Observations only; infer tendencies cautiously, especially with small samples.',
+                  f'Voluntary preflop hands={self._vpip_count}/{self._hands_observed + 1}',
+                  f'Folds facing AI pressure={self._fold_to_raise_count}/{self._pressure_opportunities}']
 
         return OpponentProfile(
             player_id=self.player_id,

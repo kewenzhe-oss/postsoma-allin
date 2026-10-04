@@ -37,6 +37,8 @@ class PokerTable:
         self.max_players = max_players
         self.pot = 0  # 底池
         self.current_bet = 0  # 当前回合最高下注额
+        self.last_full_raise = big_blind
+        self.acted_at_bet = {}
         self.dealer_position = 0  # 庄家位置
         self.current_player_idx = 0  # 当前行动玩家索引
         self.stage = GameStage.PREFLOP  # 当前游戏阶段
@@ -118,6 +120,8 @@ class PokerTable:
         bb_amount = bb_player.place_bet(self.big_blind)
         self.pot += bb_amount
         self.current_bet = self.big_blind
+        self.last_full_raise = self.big_blind
+        self.acted_at_bet = {}
         self.log_action(bb_player, Action.BIG_BLIND, bb_amount, "")
 
         # 设置当前行动玩家
@@ -156,6 +160,7 @@ class PokerTable:
         elif action == Action.CHECK:
             if self.current_bet > player.bet_in_round:
                 return False  # 不能过牌，必须跟注或弃牌
+            self.acted_at_bet[player.name] = self.current_bet
             self.log_action(player, action, 0, behavior)
             return True
 
@@ -166,19 +171,22 @@ class PokerTable:
 
             bet_amount = player.place_bet(call_amount)
             self.pot += bet_amount
+            self.acted_at_bet[player.name] = self.current_bet
             self.log_action(player, action, bet_amount, behavior)
             return True
 
         elif action == Action.RAISE:
             # 统一采用 Raise To（目标总注额）规范
             target_total = amount
+            if target_total <= self.current_bet or not self.can_raise(player):
+                return False
             additional_chips = target_total - player.bet_in_round
 
             # 计算最小加注目标额
             if self.current_bet == 0:
                 min_raise_target = self.big_blind
             else:
-                min_raise_target = self.current_bet + max(self.big_blind, self.current_bet - player.bet_in_round)
+                min_raise_target = max(self.big_blind, self.current_bet + self.last_full_raise)
 
             # 校验追加筹码必须大于0且不超过玩家剩余筹码
             if additional_chips <= 0 or additional_chips > player.chips:
@@ -190,19 +198,33 @@ class PokerTable:
 
             bet_amount = player.place_bet(additional_chips)
             self.pot += bet_amount
+            increment = player.bet_in_round - self.current_bet
+            if increment >= self.last_full_raise:
+                self.last_full_raise = increment
             self.current_bet = player.bet_in_round
+            self.acted_at_bet[player.name] = self.current_bet
             self.log_action(player, action, bet_amount, behavior)
             return True
 
         elif action == Action.ALL_IN:
+            if player.bet_in_round + player.chips > self.current_bet and not self.can_raise(player):
+                return False
             bet_amount = player.place_bet(player.chips)
             self.pot += bet_amount
             if player.bet_in_round > self.current_bet:
+                increment = player.bet_in_round - self.current_bet
+                if increment >= self.last_full_raise:
+                    self.last_full_raise = increment
                 self.current_bet = player.bet_in_round
+            self.acted_at_bet[player.name] = self.current_bet
             self.log_action(player, action, bet_amount, behavior)
             return True
 
         return False
+
+    def can_raise(self, player):
+        previous = self.acted_at_bet.get(player.name)
+        return previous is None or previous == 0 or self.current_bet - previous >= self.last_full_raise
 
     def log_action(self, player: Player, action: Action, amount: int = 0, behavior: str = ""):
         """记录玩家行动"""
@@ -278,6 +300,8 @@ class PokerTable:
         for player in self.players:
             player.bet_in_round = 0
         self.current_bet = 0
+        self.last_full_raise = self.big_blind
+        self.acted_at_bet = {}
 
         # 根据当前阶段进入下一阶段
         if self.stage == GameStage.PREFLOP:
@@ -317,8 +341,8 @@ class PokerTable:
 
     def evaluate_hand(self, player: Player) -> Tuple[HandRank, List[int]]:
         """评估玩家的最佳牌型"""
-        all_cards = player.hand + self.community_cards
-        return self.find_best_hand(all_cards)
+        rank, _, _, values = self.evaluate_player_best_five(player)
+        return rank, values
 
     def evaluate_player_best_five(self, player: Player) -> Tuple[HandRank, List[Card], str, List[int]]:
         """
@@ -678,6 +702,7 @@ class PokerTable:
         previous_bet = 0
         total_awards = {player.name: 0 for player in winners}  # 记录每个获胜者获得的总筹码
         side_pots_info = []  # 记录边池信息用于日志
+        refunds = {p.name: 0 for p in self.players}
 
         for i, player in enumerate(all_players):
             current_bet = player.total_bet
@@ -691,6 +716,11 @@ class PokerTable:
             eligible_players = [p for p in all_players if p.total_bet >= current_bet]
             players_in_pot = len(eligible_players)
             current_pot = bet_diff * players_in_pot
+            if players_in_pot == 1:
+                eligible_players[0].chips += current_pot
+                refunds[eligible_players[0].name] += current_pot
+                previous_bet = current_bet
+                continue
 
             # 找出在当前池中的获胜者
             # 只有未弃牌且下注 >= current_bet 的玩家才能争夺该池
@@ -726,9 +756,11 @@ class PokerTable:
 
                 for player in eligible_players:
                     player.chips += award_per_player
+                    refunds[player.name] += award_per_player
                     # 注意：退还的筹码不计入total_awards，因为这不是赢来的
                 if remainder > 0:
                     eligible_players[0].chips += remainder
+                    refunds[eligible_players[0].name] += remainder
 
                 # 记录边池退还信息
                 side_pots_info.append({
@@ -768,6 +800,14 @@ class PokerTable:
         )
 
         self.game_log.append(pot_award_record)
+        self.last_settlement = {
+            'hand_number': self.hand_number,
+            'contested_pot': self.pot - sum(refunds.values()),
+            'players': [{'player_id': p.name, 'invested': p.total_bet,
+                'received': total_awards.get(p.name, 0), 'returned': refunds[p.name],
+                'net_change': total_awards.get(p.name, 0) + refunds[p.name] - p.total_bet,
+                'final_stack': p.chips} for p in self.players]
+        }
         self.last_awarded_pot = self.pot
         self.pot = 0
 

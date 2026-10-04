@@ -1,8 +1,10 @@
 import {
-  POT_ODDS_DRILL_VERSION,
-  POT_ODDS_QUESTIONS_V1,
-  POT_ODDS_QUESTIONS_V1_BY_ID
-} from '../../training/drills/pot-odds-v1.js'
+  POT_ODDS_CATALOG_VERSION,
+  POT_ODDS_QUESTION_CATALOG,
+  POT_ODDS_QUESTION_CATALOG_BY_ID,
+  POT_ODDS_SESSION_SIZE,
+  POT_ODDS_SESSION_MIX
+} from '../../training/drills/pot-odds-catalog-v2.js'
 
 export const FOLD_CALL_ACTIONS = Object.freeze([
   Object.freeze({ id: 'Fold', label: 'Fold', labelZh: '弃牌' }),
@@ -62,7 +64,7 @@ export const evaluateFoldCallDecision = (input) => {
   const equityEdgePct = calculateEquityEdge(heroEquityPct, requiredEquityPct)
   const callEvBB = calculateCallEv(finalPotBB, callAmountBB, heroEquityPct)
   const isBreakEven = Math.abs(equityEdgePct) <= BREAK_EVEN_EPSILON
-  const correctAction = heroEquityPct >= requiredEquityPct ? 'Call' : 'Fold'
+  const correctAction = isBreakEven || heroEquityPct >= requiredEquityPct ? 'Call' : 'Fold'
 
   return Object.freeze({
     finalPotBB,
@@ -124,30 +126,38 @@ const shuffle = (items, random) => {
 }
 
 const resolveQuestionPool = (questionIds) => {
-  if (!questionIds?.length) return POT_ODDS_QUESTIONS_V1
+  if (!questionIds?.length) return POT_ODDS_QUESTION_CATALOG
   return [...new Set(questionIds)]
-    .map((id) => POT_ODDS_QUESTIONS_V1_BY_ID[id])
+    .map((id) => POT_ODDS_QUESTION_CATALOG_BY_ID[id])
     .filter(Boolean)
 }
 
-export const createPotOddsSession = ({ seed = Date.now(), mode = 'standard', questionIds = null } = {}) => {
+export const createPotOddsSession = ({ seed = Date.now(), mode = 'standard', questionIds = null, prioritizeReview = false, previousIds = [] } = {}) => {
   const pool = resolveQuestionPool(questionIds)
   if (!pool.length) throw new Error('Cannot create a Pot Odds session from an empty question pool')
 
   const normalizedSeed = hashSeed(seed)
   const random = createSeededRandom(`${normalizedSeed}:${mode}`)
+  let selected
+  if (mode === 'standard' && !questionIds?.length) {
+    selected = Object.entries(POT_ODDS_SESSION_MIX).flatMap(([group, count]) => (
+      shuffle(pool.filter(question => question.trainingGroup === group), random).sort((a,b)=>Number(previousIds.includes(a.id))-Number(previousIds.includes(b.id))).slice(0, count)
+    ))
+  } else {
+    selected = (prioritizeReview ? pool : shuffle(pool, random)).slice(0, POT_ODDS_SESSION_SIZE)
+  }
 
   return Object.freeze({
-    id: `${POT_ODDS_DRILL_VERSION}:${normalizedSeed}:${mode}`,
+    id: `${POT_ODDS_CATALOG_VERSION}:${normalizedSeed}:${mode}`,
     seed: normalizedSeed,
     mode,
-    version: POT_ODDS_DRILL_VERSION,
-    questions: Object.freeze(shuffle(pool, random))
+    version: POT_ODDS_CATALOG_VERSION,
+    questions: Object.freeze(prioritizeReview ? selected : shuffle(selected, random))
   })
 }
 
 export const assertPotOddsQuestionCatalog = () => {
-  for (const question of POT_ODDS_QUESTIONS_V1) {
+  for (const question of POT_ODDS_QUESTION_CATALOG) {
     const truth = evaluateFoldCallDecision(question)
     if (Math.abs(truth.requiredEquityPct - question.requiredEquityPct) > BREAK_EVEN_EPSILON) {
       throw new Error(`Required equity mismatch for ${question.id}`)
