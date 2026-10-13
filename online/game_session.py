@@ -296,12 +296,14 @@ class GameSession:
                 await asyncio.sleep(0)
 
                 version = (request.hand_number, request.stage, len(self.adapter.event_log()))
+                last_fallback_decision = None
                 for attempt in range(2):
                     decision = await _ai_engine.decide(request, self.ai_config)
                     current = self.adapter.get_public_state()
                     if (self._current_hand_number, current.stage, len(self.adapter.event_log())) != version or self.adapter.current_turn_player_id() != AI_SEAT_ID:
                         return
                     if decision.parse_status == "emergency_fallback":
+                        last_fallback_decision = decision
                         continue
                     profile = self._opponent_model.summarize() if self._opponent_model else None
                     entry = DecisionMemoryEntry(hand_number=request.hand_number, stage=request.stage,
@@ -316,6 +318,17 @@ class GameSession:
                     if outcome and outcome[0] == request.hand_number:
                         self._decision_memory.update_outcome(outcome[0], outcome[1], outcome[2], outcome[3])
                     return
+
+                # If LLM failed or timed out on both attempts, execute the poker fallback action
+                # (CHECK if no bet to call, otherwise FOLD) so the table does not stall.
+                if last_fallback_decision and self.submit_action(AI_SEAT_ID, last_fallback_decision.action, last_fallback_decision.amount):
+                    logger.warning(
+                        "AI turn executed fallback action %s (reason=%s)",
+                        last_fallback_decision.action,
+                        last_fallback_decision.fallback_reason,
+                    )
+                    return
+
                 self._dispatch_events([self.adapter._add_event("ai_unavailable", {"message": "AI 连接或响应异常，牌局暂停。请重新连接以重试。"})])
 
             except asyncio.CancelledError:

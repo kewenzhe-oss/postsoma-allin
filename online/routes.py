@@ -57,14 +57,15 @@ async def _call_openai_compat(endpoint: str, api_key: str, model: str) -> tuple[
         "max_tokens": 5
     }
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        test_timeout = httpx.Timeout(15.0, connect=8.0)
+        async with httpx.AsyncClient(timeout=test_timeout) as client:
             response = await client.post(endpoint, headers=headers, json=payload)
         if response.status_code == 200:
             return True, "Connection verified", None
         err_msg = response.text[:100].strip() if response.text else "No details"
         return False, f"Provider returned {response.status_code}: {err_msg}", f"HTTP_{response.status_code}"
     except httpx.TimeoutException:
-        return False, "Connection timed out after 10 seconds", "TIMEOUT"
+        return False, "Connection timed out after 15 seconds", "TIMEOUT"
     except Exception:
         return False, "Connection failed due to network error", "NETWORK_ERROR"
 
@@ -77,14 +78,15 @@ async def _call_gemini(endpoint: str, api_key: str) -> tuple[bool, str, str | No
         "generationConfig": {"maxOutputTokens": 5}
     }
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        test_timeout = httpx.Timeout(15.0, connect=8.0)
+        async with httpx.AsyncClient(timeout=test_timeout) as client:
             response = await client.post(url, json=payload)
         if response.status_code == 200:
             return True, "Connection verified", None
         err_msg = response.text[:100].strip() if response.text else "No details"
         return False, f"Provider returned {response.status_code}: {err_msg}", f"HTTP_{response.status_code}"
     except httpx.TimeoutException:
-        return False, "Connection timed out after 10 seconds", "TIMEOUT"
+        return False, "Connection timed out after 15 seconds", "TIMEOUT"
     except Exception:
         return False, "Connection failed due to network error", "NETWORK_ERROR"
 

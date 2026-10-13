@@ -7,6 +7,8 @@ JSON format was abandoned because responseMimeType caused Gemini issues
 and nested arrays broke the simple regex parser.
 """
 
+import os
+import asyncio
 import logging
 import httpx
 
@@ -34,7 +36,7 @@ class PokerAIEngine:
         provider_info = PROVIDER_ALLOWLIST.get(provider_key)
         if not provider_info:
             logger.warning("PokerAIEngine: unknown provider '%s'", provider_key)
-            return self._fallback(available, "unknown provider")
+            return self._fallback(available, "unknown provider", to_call=request.to_call)
 
         protocol = provider_info.get("protocol", "openai")
 
@@ -46,7 +48,7 @@ class PokerAIEngine:
                 endpoint += "/v1/chat/completions"
                 
         if not endpoint:
-            return self._fallback(available, "no endpoint")
+            return self._fallback(available, "no endpoint", to_call=request.to_call)
 
         prompt = _build_prompt(request)
 
@@ -60,7 +62,7 @@ class PokerAIEngine:
 
             result = parse_response(raw, available)
             if result.action == "RAISE" and result.amount is None:
-                return self._fallback(available, "missing or illegal raise amount")
+                return self._fallback(available, "missing or illegal raise amount", to_call=request.to_call)
             logger.info("AI parsed: %s %s (status=%s)", result.action, result.amount, result.parse_status)
 
             return AIDecision(
@@ -72,22 +74,32 @@ class PokerAIEngine:
 
         except httpx.TimeoutException:
             logger.warning("PokerAIEngine: timeout")
-            return self._fallback(available, "timeout")
+            return self._fallback(available, "timeout", to_call=request.to_call)
         except httpx.HTTPStatusError as e:
             logger.warning("PokerAIEngine: HTTP %s — %s", e.response.status_code, e.response.text[:120])
-            return self._fallback(available, f"HTTP {e.response.status_code}")
+            return self._fallback(available, f"HTTP {e.response.status_code}", to_call=request.to_call)
         except Exception as e:
             logger.error("PokerAIEngine: error: %s", e, exc_info=True)
-            return self._fallback(available, str(e)[:80])
+            return self._fallback(available, str(e)[:80], to_call=request.to_call)
 
-    def _fallback(self, available: list, reason: str) -> AIDecision:
+    def _fallback(self, available: list, reason: str, to_call: int = 0) -> AIDecision:
         valid = {a["action"] for a in available}
-        for p in ("CHECK", "FOLD", "CALL"):
-            if p in valid:
-                return AIDecision(action=p, parse_status="emergency_fallback",
-                                  fallback_reason=reason, reason=f"fallback:{reason}")
-        return AIDecision(action=available[0]["action"], parse_status="emergency_fallback",
-                          fallback_reason=reason)
+        # In poker fallback:
+        # If to_call == 0 and CHECK is available, default to CHECK.
+        # If to_call > 0 and FOLD is available, default to FOLD to avoid chip bleed.
+        if to_call == 0 and "CHECK" in valid:
+            action = "CHECK"
+        elif "FOLD" in valid:
+            action = "FOLD"
+        elif "CHECK" in valid:
+            action = "CHECK"
+        elif "CALL" in valid:
+            action = "CALL"
+        else:
+            action = available[0]["action"]
+        return AIDecision(action=action, parse_status="emergency_fallback",
+                          fallback_reason=reason, reason=f"fallback:{reason}")
+
 
 
 # ── Prompt ────────────────────────────────────────────────────────────────────
@@ -148,6 +160,13 @@ def _build_prompt(req: AIDecisionRequest) -> str:
 
 # ── LLM callers ───────────────────────────────────────────────────────────────
 
+def _get_http_timeout() -> httpx.Timeout:
+    total_timeout = float(os.getenv("AI_TIMEOUT", "25.0"))
+    connect_timeout = float(os.getenv("AI_CONNECT_TIMEOUT", "10.0"))
+    read_timeout = float(os.getenv("AI_READ_TIMEOUT", "25.0"))
+    return httpx.Timeout(total_timeout, connect=connect_timeout, read=read_timeout, write=10.0)
+
+
 async def _call_openai_compat(endpoint: str, api_key: str, model: str, prompt: str) -> str:
     payload = {
         "model": model,
@@ -155,14 +174,26 @@ async def _call_openai_compat(endpoint: str, api_key: str, model: str, prompt: s
         "max_tokens": 1000,
         "temperature": 0.8,
     }
-    async with httpx.AsyncClient(timeout=20.0) as client:
-        resp = await client.post(
-            endpoint,
-            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-            json=payload,
-        )
-        resp.raise_for_status()
-        return resp.json()["choices"][0]["message"]["content"].strip()
+    timeout = _get_http_timeout()
+    last_exc = None
+    for attempt in range(2):
+        try:
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                resp = await client.post(
+                    endpoint,
+                    headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                    json=payload,
+                )
+                resp.raise_for_status()
+                return resp.json()["choices"][0]["message"]["content"].strip()
+        except (httpx.TimeoutException, httpx.RequestError) as exc:
+            last_exc = exc
+            if attempt == 0:
+                logger.warning("PokerAIEngine: OpenAI HTTP call failed (%s), retrying (attempt 1/2)...", exc)
+                await asyncio.sleep(0.5)
+            else:
+                logger.warning("PokerAIEngine: OpenAI HTTP call failed after retry (%s)", exc)
+                raise last_exc
 
 
 async def _call_gemini(endpoint: str, api_key: str, prompt: str) -> str:
@@ -180,15 +211,28 @@ async def _call_gemini(endpoint: str, api_key: str, prompt: str) -> str:
             {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
         ]
     }
-    async with httpx.AsyncClient(timeout=20.0) as client:
-        resp = await client.post(url, json=payload)
-        resp.raise_for_status()
-        data = resp.json()
+    timeout = _get_http_timeout()
+    last_exc = None
+    for attempt in range(2):
         try:
-            return data["candidates"][0]["content"]["parts"][0]["text"].strip()
-        except (KeyError, IndexError):
-            import json
-            with open("debug_gemini_error.json", "w") as f:
-                json.dump(data, f, indent=2)
-            logger.warning("Gemini extraction failed. Raw response: %s", data)
-            raise RuntimeError("Gemini empty response (likely safety filter or immediate stop sequence)")
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                resp = await client.post(url, json=payload)
+                resp.raise_for_status()
+                data = resp.json()
+                try:
+                    return data["candidates"][0]["content"]["parts"][0]["text"].strip()
+                except (KeyError, IndexError):
+                    import json
+                    with open("debug_gemini_error.json", "w") as f:
+                        json.dump(data, f, indent=2)
+                    logger.warning("Gemini extraction failed. Raw response: %s", data)
+                    raise RuntimeError("Gemini empty response (likely safety filter or immediate stop sequence)")
+        except (httpx.TimeoutException, httpx.RequestError) as exc:
+            last_exc = exc
+            if attempt == 0:
+                logger.warning("PokerAIEngine: Gemini HTTP call failed (%s), retrying (attempt 1/2)...", exc)
+                await asyncio.sleep(0.5)
+            else:
+                logger.warning("PokerAIEngine: Gemini HTTP call failed after retry (%s)", exc)
+                raise last_exc
+
