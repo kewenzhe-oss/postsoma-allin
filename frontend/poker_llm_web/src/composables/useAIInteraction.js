@@ -5,6 +5,14 @@ export function useAIInteraction(onlineStore) {
   const perceptualState = ref('idle')
   const latestAIAction = ref(null)
   let pendingSignature = null
+  let actionRevealTimer = null
+  const clearActionReveal = () => {
+    if (actionRevealTimer) {
+      clearTimeout(actionRevealTimer)
+      actionRevealTimer = null
+    }
+    latestAIAction.value = null
+  }
   const turnSignature = () => [onlineStore.activeHand?.hand_number, onlineStore.publicState?.stage, onlineStore.publicState?.current_turn_player_id, onlineStore.heroPlayer?.chips, onlineStore.heroPlayer?.bet_in_round].join(':')
   const isAI = id => typeof id === 'string' && id.startsWith('ai')
   const resolveState = () => {
@@ -41,6 +49,7 @@ export function useAIInteraction(onlineStore) {
   const submitHeroAction = async (action, amount) => {
     if (perceptualState.value !== 'player_turn') return
     
+    clearActionReveal()
     onlineStore.errorMessage = ''
     pendingSignature = turnSignature()
     perceptualState.value = 'submitting_action'
@@ -61,12 +70,24 @@ export function useAIInteraction(onlineStore) {
   watch(() => onlineStore.rawEventLog.length, (length, previous = 0) => {
     const events = onlineStore.rawEventLog.slice(length < previous ? 0 : previous)
     for (const event of events) {
-      if (event.type === 'player_action_applied' && isAI(event.payload?.player_id)) {
+      if (event.type === 'hand_started') {
+        clearActionReveal()
+        continue
+      }
+      const actorId = event.payload?.player_id
+      if (event.type === 'player_action_applied' && actorId && actorId !== onlineStore.playerId) {
+        if (actionRevealTimer) clearTimeout(actionRevealTimer)
         latestAIAction.value = {
           action: event.payload.action,
           amount: event.payload.action === 'RAISE' ? event.payload.bet_in_round : event.payload.amount,
+          isAi: isAI(actorId),
+          displayName: event.payload.display_name || null,
           reasoning: null
         }
+        actionRevealTimer = setTimeout(() => {
+          latestAIAction.value = null
+          actionRevealTimer = null
+        }, 2800)
       }
     }
   })

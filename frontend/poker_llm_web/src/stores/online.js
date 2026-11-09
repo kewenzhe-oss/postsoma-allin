@@ -155,11 +155,20 @@ export const useOnlineStore = defineStore('online', () => {
     return text.split(' ').map(formatCardHtml).join(' ')
   }
 
+  function escapeHtml(str) {
+    return String(str ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;')
+  }
+
   function getPlayerDisplayName(pId, explicitName) {
-    if (explicitName) return explicitName
+    if (explicitName) return escapeHtml(explicitName)
     const p = publicState.value?.players?.find(pl => pl.player_id === pId)
-    if (p && p.display_name) return p.display_name
-    return pId?.substring(0, 8) || 'Player'
+    if (p && p.display_name) return escapeHtml(p.display_name)
+    return escapeHtml(pId?.substring(0, 8) || 'Player')
   }
 
   function handleEngineEventForHistory(ev) {

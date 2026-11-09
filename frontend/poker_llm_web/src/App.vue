@@ -32,7 +32,7 @@ usePageSeo(pageSeo)
         <LocaleSwitcher />
       </div>
       <RouterView />
-      <PokerMascot v-if="route.name === 'Home'" />
+      <PokerMascot />
       <div class="global-signature">POSTSOMA-2050</div>
     </div>
   </el-config-provider>

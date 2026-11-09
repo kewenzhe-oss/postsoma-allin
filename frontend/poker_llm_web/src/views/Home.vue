@@ -4,6 +4,7 @@
       :currentMode="currentMode" 
       @back="currentMode = 'select'" 
       @open-ranges="openGuideSection('start')"
+      @jump-play="scrollToPlayground"
     />
 
     <div class="lobby-main">
@@ -119,6 +120,7 @@
               v-show="activeTrainingPath"
               ref="toolWorkspace"
               class="tool-workspace"
+              :data-mascot-busy="activeTrainingPath ? 'true' : 'false'"
               aria-labelledby="active-tool-title"
             >
               <header class="tool-workspace-header">
@@ -184,7 +186,7 @@
             </details>
           </section>
 
-          <section class="playground-section" aria-labelledby="playground-title">
+          <section ref="playgroundSection" class="playground-section" aria-labelledby="playground-title">
             <div class="playground-heading">
               <div>
                 <span class="section-kicker">{{ copy.apply.kicker }}</span>
@@ -264,6 +266,7 @@ const activeTrainingPath = ref(null)
 const toolsSection = ref(null)
 const toolWorkspace = ref(null)
 const activeToolHeading = ref(null)
+const playgroundSection = ref(null)
 const TRAINING_PATHS = Object.freeze(['preflop', 'pot-odds', 'range-updating', 'combos', 'bluff', 'board', 'position', 'betting-purpose'])
 const GUIDE_ENTRY_SECTIONS = Object.freeze(['start', 'reference', 'explorer'])
 const rangeId = HU_BTN_RFI_RANGE_ID
@@ -405,6 +408,10 @@ const openTrainingWorkspace = (path, { focus = true } = {}) => {
 const openGuideSection = (section) => {
   guideEntrySection.value = GUIDE_ENTRY_SECTIONS.includes(section) ? section : 'start'
   showRangeViewer.value = true
+}
+
+const scrollToPlayground = () => {
+  playgroundSection.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 
 const TRAINING_SOURCE_CONTEXTS = Object.freeze({
@@ -586,7 +593,6 @@ const handleGuideTrainingSelection = (training) => {
   padding: 0.9rem 1rem;
   background: rgba(217, 173, 88, 0.06);
   border: 1px solid rgba(217, 173, 88, 0.22);
-  border-left: 3px solid var(--accent-primary);
   border-radius: var(--radius-md);
 }
 

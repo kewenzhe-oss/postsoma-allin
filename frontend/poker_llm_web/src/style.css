@@ -474,7 +474,7 @@ input, textarea, select {
 /* 响应式 */
 @media (max-width: 768px) {
   html {
-    font-size: 13px;
+    font-size: 14px;
   }
 
   h1 { font-size: 2rem; }
@@ -484,7 +484,7 @@ input, textarea, select {
 
 @media (max-width: 480px) {
   html {
-    font-size: 12px;
+    font-size: 14px;
   }
 
   h1 { font-size: 1.75rem; }

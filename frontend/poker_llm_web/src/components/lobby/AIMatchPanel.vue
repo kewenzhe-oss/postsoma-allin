@@ -29,7 +29,17 @@
         <transition name="slide-fade">
           <div v-if="aiProvider" class="step-container">
             <div class="form-group">
-              <label>{{ apiKeyLabel }}</label>
+              <div class="label-row">
+                <label>{{ apiKeyLabel }}</label>
+                <button
+                  v-if="aiKey"
+                  type="button"
+                  class="clear-key-btn"
+                  @click="clearSavedKey"
+                >
+                  {{ copy.clearKey }}
+                </button>
+              </div>
               <el-input 
                 v-model="aiKey" 
                 type="password" 
@@ -49,7 +59,7 @@
             >
               <span class="toggle-text">
                 <el-icon><Setting /></el-icon>
-                {{ showAdvanced ? copy.hideDetails : copy.connectionDetails }}
+                {{ showAdvanced ? copy.hideDetails : `${copy.connectionDetails} (${aiModel || copy.defaultModel})` }}
               </span>
               <el-icon :class="{ 'rotated': showAdvanced }"><CaretRight /></el-icon>
             </button>
@@ -60,6 +70,18 @@
                 <div class="form-group">
                   <label>Model</label>
                   <el-input v-model="aiModel" :placeholder="modelPlaceholder" class="panel-input" @input="invalidateConnection" />
+                  <div v-if="modelPresets.length" class="model-presets">
+                    <button
+                      v-for="preset in modelPresets"
+                      :key="preset"
+                      type="button"
+                      class="preset-chip"
+                      :class="{ 'is-active': aiModel === preset }"
+                      @click="selectModelPreset(preset)"
+                    >
+                      {{ preset }}
+                    </button>
+                  </div>
                 </div>
                 
                 <div class="form-group">
@@ -70,7 +92,7 @@
                     class="panel-input"
                     @input="invalidateConnection"
                   >
-                    <template #prefix><span class="url-prefix-icon">🔗</span></template>
+                    <template #prefix><el-icon class="url-prefix-icon"><Link /></el-icon></template>
                   </el-input>
                   <p class="field-hint">
                     {{ aiProvider === 'custom' ? copy.endpointHint : copy.officialApiHint }}
@@ -117,10 +139,10 @@
                 type="success" 
                 class="start-btn panel-btn"
                 @click="handleStartMatch" 
-                :loading="startingMatch" 
-                :disabled="validationState.status !== 'success'"
+                :loading="startingMatch || validationState.status === 'testing'" 
+                :disabled="!canTest"
               >
-                {{ copy.startMatch }}
+                {{ validationState.status === 'success' ? copy.startMatch : copy.verifyAndStart }}
               </el-button>
             </div>
           </div>
@@ -135,7 +157,7 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useOnlineStore } from '@/stores/online'
 import { ElMessage } from 'element-plus'
-import { Setting, CaretRight } from '@element-plus/icons-vue'
+import { Setting, CaretRight, Link } from '@element-plus/icons-vue'
 import { isZh } from '@/i18n/locale.js'
 
 const router = useRouter()
@@ -173,6 +195,9 @@ const copy = computed(() => isZh.value
       connectionFailed: '连接失败',
       testConnection: '测试连接',
       startMatch: '开始对局',
+      verifyAndStart: '验证并开始对局',
+      clearKey: '清除已存密钥',
+      defaultModel: '默认模型',
       nameRequired: '请输入显示名称。',
       verifyFirst: '请先测试连接。',
       createFailed: '创建房间失败。',
@@ -196,6 +221,9 @@ const copy = computed(() => isZh.value
       connectionFailed: 'Connection Failed',
       testConnection: 'Test Connection',
       startMatch: 'Start Match',
+      verifyAndStart: 'Verify & Start Match',
+      clearKey: 'Clear saved key',
+      defaultModel: 'Default model',
       nameRequired: 'Display name is required.',
       verifyFirst: 'Please test connection first.',
       createFailed: 'Failed to create room.',
@@ -241,6 +269,35 @@ const modelPlaceholder = computed(() => {
   }
   return hints[aiProvider.value] || 'Model name'
 })
+
+const modelPresets = computed(() => {
+  const presets = {
+    openai: ['gpt-4o-mini', 'gpt-4o', 'gpt-4.1-mini'],
+    deepseek: ['deepseek-chat', 'deepseek-reasoner'],
+    openrouter: ['openai/gpt-4o-mini', 'deepseek/deepseek-chat', 'anthropic/claude-3.5-haiku'],
+    qwen: ['qwen-plus', 'qwen-max', 'qwen-turbo'],
+    gemini: ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash']
+  }
+  return presets[aiProvider.value] || []
+})
+
+const selectModelPreset = (preset) => {
+  aiModel.value = preset
+  invalidateConnection()
+}
+
+const clearSavedKey = () => {
+  aiKey.value = ''
+  invalidateConnection()
+  try {
+    const cached = localStorage.getItem('poker_ai_config')
+    if (cached) {
+      const parsed = JSON.parse(cached)
+      delete parsed.apiKey
+      localStorage.setItem('poker_ai_config', JSON.stringify(parsed))
+    }
+  } catch {}
+}
 
 const defaultBaseUrlHint = computed(() => {
   const defaults = {
@@ -323,14 +380,19 @@ const handleTestConnection = async () => {
       throw new Error(data.message || copy.value.connectionFailed)
     }
     validationState.value = { status: 'success', errorMessage: null }
+    return true
   } catch (err) {
     validationState.value = { status: 'error', errorMessage: err.message }
+    return false
   }
 }
 
 const handleStartMatch = async () => {
   if (!displayName.value) return ElMessage.warning(copy.value.nameRequired)
-  if (validationState.value.status !== 'success') return ElMessage.warning(copy.value.verifyFirst)
+  if (validationState.value.status !== 'success') {
+    const ok = await handleTestConnection()
+    if (!ok) return
+  }
   
   startingMatch.value = true
   cacheConfig()
@@ -419,6 +481,53 @@ const handleStartMatch = async () => {
   font-size: 0.85rem;
   color: var(--text-secondary);
   font-weight: 750;
+}
+
+.label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.clear-key-btn {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  color: var(--text-tertiary);
+  font-size: 0.74rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.clear-key-btn:hover {
+  color: var(--danger);
+}
+
+.model-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.25rem;
+}
+
+.preset-chip {
+  padding: 0.2rem 0.55rem;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.preset-chip:hover,
+.preset-chip.is-active {
+  border-color: var(--accent-primary);
+  color: var(--accent-primary-strong);
+  background: rgba(217, 173, 88, 0.12);
 }
 
 .full-width {

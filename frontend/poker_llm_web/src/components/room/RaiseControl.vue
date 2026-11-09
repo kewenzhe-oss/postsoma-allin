@@ -1,8 +1,11 @@
 <template>
   <div class="raise-control">
     <div class="raise-header">
-      <span class="raise-label">{{ isZh ? '本次投入' : 'Pay now' }}</span>
-      <span class="raise-value">{{ amount }}</span>
+      <div class="raise-title-group">
+        <span class="raise-label">{{ currentBet > 0 ? (isZh ? '加注至总额' : 'Raise to total') : (isZh ? '下注总额' : 'Bet total') }}</span>
+        <span class="raise-sub">{{ isZh ? `本次需投入 ${amount}` : `Pay now ${amount}` }}</span>
+      </div>
+      <span class="raise-value">{{ target }}</span>
     </div>
     
     <div class="amount-breakdown">
@@ -15,7 +18,7 @@
         <strong>{{ size.label }}</strong><span>{{ isZh ? '投入' : 'Pay' }} {{ size.invest }}</span>
       </button>
     </div>
-    <details class="custom-size">
+    <details class="custom-size" open>
       <summary>{{ isZh ? '自定义金额' : 'Custom amount' }}</summary>
       <el-input-number v-model="amount" :min="minInvest" :max="maxInvest" :step="1" :precision="0" :aria-label="isZh ? '本次投入筹码' : 'Chips to pay now'" />
       <el-slider v-model="amount" :min="minInvest" :max="maxInvest" :step="1" />
@@ -23,7 +26,7 @@
     <div class="actions">
       <el-button class="cancel-btn" text @click="$emit('cancel')">{{ isZh ? '取消' : 'Cancel' }}</el-button>
       <el-button class="confirm-btn" :disabled="!Number.isInteger(amount) || amount < minInvest || amount > maxInvest" @click="$emit('confirm', target)">
-        {{ isZh ? '确认投入' : 'Confirm payment' }} {{ amount }}
+        {{ currentBet > 0 ? (isZh ? `确认加注至 ${target}（投入 ${amount}）` : `Raise to ${target} (pay ${amount})`) : (isZh ? `确认下注 ${target}` : `Bet ${target}`) }}
       </el-button>
     </div>
   </div>
@@ -80,7 +83,7 @@ watch([minInvest, maxInvest], ([minimum, maximum]) => {
   padding: 1.15rem;
   border-radius: var(--radius-md);
   border: 1px solid rgba(241, 199, 106, 0.3);
-  animation: slideUp 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  animation: slideUp 0.26s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .raise-header {
@@ -89,10 +92,23 @@ watch([minInvest, maxInvest], ([minimum, maximum]) => {
   align-items: center;
 }
 
+.raise-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+}
+
 .raise-label {
   color: var(--text-secondary);
   font-size: 0.9rem;
   font-weight: 800;
+}
+
+.raise-sub {
+  color: var(--text-tertiary);
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
 .raise-value {

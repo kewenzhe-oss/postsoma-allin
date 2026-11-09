@@ -40,7 +40,7 @@ export const mascotConfig = {
     },
     motion: {
         stage: { mobile: { width: 118, height: 129 }, desktop: { width: 132, height: 145 } },
-        restOffsetPx: { mobile: 68, desktop: 77 }, peekOffsetPx: { mobile: 55, desktop: 63 },
+        restOffsetPx: { mobile: 54, desktop: 60 }, peekOffsetPx: { mobile: 42, desktop: 48 },
         hiddenOffsetPx: { mobile: 160, desktop: 176 },
         companionLiftPx: 16, persistenceMs: 5000, hoverLeaveMs: 150, nearbyChance: 0.45,
         minHorizontalPercent: 16, maxHorizontalPercent: 84, startHorizontalPercent: 78,

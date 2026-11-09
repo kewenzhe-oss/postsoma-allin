@@ -25,6 +25,9 @@
         </svg>
         {{ copy.primaryCta }}
       </button>
+      <button type="button" class="play-jump-btn" @click="$emit('jump-play')">
+        {{ copy.jumpPlayCta }}
+      </button>
     </div>
 
     <transition name="fade">
@@ -53,15 +56,17 @@ const props = defineProps({
   }
 })
 
-defineEmits(['back', 'open-ranges'])
+defineEmits(['back', 'open-ranges', 'jump-play'])
 
 const copy = computed(() => isZh.value
   ? {
       primaryCta: '查看五问流程',
+      jumpPlayCta: '自由对局（好友 / AI）',
       back: '返回首页'
     }
   : {
       primaryCta: 'Explore the five-question flow',
+      jumpPlayCta: 'Free play (Friend / AI)',
       back: 'Back to home'
     })
 
@@ -249,7 +254,32 @@ const headerContent = computed(() => {
 .gto-entry-wrapper {
   margin-top: 1.4rem;
   display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
   justify-content: center;
+}
+
+.play-jump-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.7rem 1.2rem;
+  min-height: 48px;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid var(--border-strong);
+  color: var(--text-primary);
+  font-weight: 800;
+  font-size: 0.82rem;
+  letter-spacing: 0.04em;
+  transition: all 0.25s ease;
+}
+
+.play-jump-btn:hover {
+  border-color: var(--accent-primary);
+  color: var(--accent-primary-strong);
+  background: rgba(217, 173, 88, 0.1);
+  transform: translateY(-2px);
 }
 
 .gto-entry-btn {

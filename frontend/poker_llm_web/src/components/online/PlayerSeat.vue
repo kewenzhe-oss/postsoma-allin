@@ -52,9 +52,9 @@
 
       <!-- Status badges -->
       <div v-if="resultLabel" class="result-tag">{{ resultLabel }}</div>
-      <div class="status-tag folded-tag" v-else-if="player.folded">Folded</div>
-      <div class="status-tag allin-tag" v-else-if="player.all_in">All-in</div>
-      <div class="status-tag reveal-tag" v-else-if="isOpponent && holeCards && holeCards.length > 0">Shown</div>
+      <div class="status-tag folded-tag" v-else-if="player.folded">{{ isZh ? '已弃牌' : 'Folded' }}</div>
+      <div class="status-tag allin-tag" v-else-if="player.all_in">{{ isZh ? '全押' : 'All-in' }}</div>
+      <div class="status-tag reveal-tag" v-else-if="isOpponent && holeCards && holeCards.length > 0">{{ isZh ? '亮牌' : 'Shown' }}</div>
       <div class="status-tag turn-tag" v-else-if="isCurrentTurn">{{ isOpponent ? (isZh ? '行动中' : 'Acting') : (isZh ? '轮到你' : 'Your turn') }}</div>
     </div>
 
@@ -360,9 +360,8 @@ const shouldShowCards = computed(() => true)
 /* Desktop: cards sit beside the info card so each seat costs one card-height */
 @media (min-width:721px) {
  .seat-wrapper { flex-direction:row; align-items:center; gap:.85rem; }
- /* Same as mobile: transient tags (Acting / Your turn / Folded…) are hidden —
-    turn is shown by the seat glow + center status; the winner tag stays. */
- .status-tag { display:none; }
+ /* Hide only the redundant turn tag; keep Folded / All-in / Shown visible */
+ .status-tag.turn-tag { display:none; }
  .seat-wrapper:not(.is-opponent) .cards-area,
  .seat-wrapper.is-opponent .cards-area { margin:0; }
  .seat-wrapper:not(.is-opponent) .bet-chip,
@@ -375,7 +374,7 @@ const shouldShowCards = computed(() => true)
  .cards-area :deep(.card-view) { width:38px; }
  .seat-wrapper:not(.is-opponent) .cards-area { margin:0 0 .25rem; }
  .seat-wrapper.is-opponent .cards-area { margin:.25rem 0 0; }
- .status-tag { display:none; }
+ .status-tag.turn-tag { display:none; }
 }
 @media (max-width:720px) and (max-height:740px) {
  .seat-wrapper { flex-direction:row; gap:.6rem; }

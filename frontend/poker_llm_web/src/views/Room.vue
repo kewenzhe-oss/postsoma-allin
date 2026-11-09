@@ -80,13 +80,26 @@ const sizingOpen = ref(false)
 const historyPanel = ref(null)
 let isCreatingRematch = false
 
-// The text that pops up briefly to explain the AI's action
+// The text that pops up briefly to explain the opponent's / AI's latest action
 const actionSummary = computed(() => {
-  if (perceptualState.value === 'ai_action_revealed' && latestAIAction.value) {
+  if (latestAIAction.value && !onlineStore.latestHandResult) {
     const act = latestAIAction.value.action
-    const amt = latestAIAction.value.amount ? ` $${latestAIAction.value.amount}` : ''
+    const amt = latestAIAction.value.amount ? ` ${latestAIAction.value.amount}` : ''
+    const actor = latestAIAction.value.isAi
+      ? 'AI'
+      : (latestAIAction.value.displayName || onlineStore.opponentPlayer?.display_name || (isZh.value ? '对手' : 'Opponent'))
 
-    // Naturalize the action verb
+    if (isZh.value) {
+      const zhMap = {
+        FOLD: '弃牌',
+        CHECK: '过牌',
+        CALL: '跟注',
+        RAISE: '加注至',
+        ALL_IN: '全押'
+      }
+      return `${actor} · ${zhMap[act] || act}${amt}`
+    }
+
     let verb = act
     if (act === 'FOLD') verb = 'Folded'
     else if (act === 'CHECK') verb = 'Checked'
@@ -94,7 +107,7 @@ const actionSummary = computed(() => {
     else if (act === 'RAISE') verb = 'Raised to'
     else if (act === 'ALL_IN') verb = 'went All-In'
 
-    return `AI ${verb}${amt}`
+    return `${actor} ${verb}${amt}`
   }
   return null
 })
@@ -160,9 +173,15 @@ async function handleRematch() {
     const newRoomId = await onlineStore.createRoom(mode, heroName, aiConfig)
     await router.push({ name: 'Room', params: { id: newRoomId } })
     onlineStore.connectWebSocket()
-    ElMessage.success(`Rematch room created! Room ID: ${newRoomId}`)
+    if (mode === 'hvsh') {
+      const inviteUrl = `${window.location.origin}/?room=${newRoomId}`
+      try { await navigator.clipboard.writeText(inviteUrl) } catch {}
+      ElMessage.success(isZh.value ? `已创建新房间 ${newRoomId}，邀请链接已复制，快发给好友吧！` : `Rematch room ${newRoomId} created! Invite link copied to clipboard.`)
+    } else {
+      ElMessage.success(isZh.value ? `已开启新一局 AI 对战（房间 ${newRoomId}）` : `Rematch room created! Room ID: ${newRoomId}`)
+    }
   } catch (e) {
-    ElMessage.error('Could not create rematch room: ' + e.message)
+    ElMessage.error((isZh.value ? '无法创建新房间：' : 'Could not create rematch room: ') + e.message)
     router.push({ name: 'Home' })
   } finally {
     isCreatingRematch = false

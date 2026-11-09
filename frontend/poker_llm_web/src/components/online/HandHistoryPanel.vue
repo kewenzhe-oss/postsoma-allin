@@ -3,9 +3,9 @@
     <!-- Header with live status and Jump-to-Live prompt -->
     <div class="panel-header">
       <div class="header-title-row">
-        <h4>Hand History</h4>
+        <h4>{{ isZh ? '牌局记录' : 'Hand History' }}</h4>
         <span v-if="onlineStore.activeHand?.status === 'active'" class="live-indicator">
-          <span class="pulse-dot"></span> LIVE
+          <span class="pulse-dot"></span> {{ isZh ? '进行中' : 'LIVE' }}
         </span>
       </div>
 
@@ -13,10 +13,10 @@
       <transition name="slide-fade">
         <div v-if="onlineStore.isReviewingPastHand" class="review-lock-banner">
           <span class="review-text">
-            Reviewing #{{ onlineStore.userReviewHandNumber }} • Hand #{{ onlineStore.activeHandNumber }} is live
+            {{ isZh ? `正在回看 #${onlineStore.userReviewHandNumber} · 当前 #${onlineStore.activeHandNumber} 进行中` : `Reviewing #${onlineStore.userReviewHandNumber} • Hand #${onlineStore.activeHandNumber} is live` }}
           </span>
           <button class="jump-live-btn" @click="handleJumpToLive">
-            Jump to Live &rarr;
+            {{ isZh ? '回到当前手牌' : 'Jump to Live' }} &rarr;
           </button>
         </div>
       </transition>
@@ -42,7 +42,7 @@
                 class="hand-badge"
                 :class="{ 'badge-active': hand.status === 'active' }"
               >
-                HAND #{{ hand.hand_number }}
+                {{ isZh ? `第 #${hand.hand_number} 手` : `HAND #${hand.hand_number}` }}
               </span>
               <span class="hand-summary" v-html="getHandSummaryHtml(hand)"></span>
             </div>
@@ -55,7 +55,7 @@
               class="street-group"
             >
               <div class="street-header">
-                <span class="street-name">{{ street.name }}</span>
+                <span class="street-name">{{ formatStreetName(street.name) }}</span>
                 <span v-if="street.cards" class="street-cards" v-html="street.cards"></span>
               </div>
               <div class="street-actions">
@@ -78,7 +78,7 @@
 
       <div v-if="onlineStore.allHands.length === 0" class="empty-history">
         <span class="empty-icon">&#9824;</span>
-        <p>Waiting for the first hand...</p>
+        <p>{{ isZh ? '等待第一手发牌…' : 'Waiting for the first hand...' }}</p>
       </div>
     </div>
   </div>
@@ -87,6 +87,7 @@
 <script setup>
 import { ref, watch, nextTick } from 'vue'
 import { useOnlineStore } from '@/stores/online'
+import { isZh } from '@/i18n/locale.js'
 
 const onlineStore = useOnlineStore()
 const activeNames = ref([])
@@ -147,7 +148,7 @@ function handleJumpToLive() {
 
 function getHandSummaryHtml(hand) {
   if (hand.status === 'active') {
-    return '<span class="log-live-badge">Live in progress</span>'
+    return `<span class="log-live-badge">${isZh.value ? '当前进行中' : 'Live in progress'}</span>`
   }
   const resultStreet = hand.streets?.find(s => s.name === 'Result')
   if (resultStreet && resultStreet.actions?.length > 0) {
@@ -155,7 +156,20 @@ function getHandSummaryHtml(hand) {
     // Show only the first winning summary line in header title
     return raw.replace(/<br>.*/s, '')
   }
-  return '<span class="log-muted small">Finished</span>'
+  return `<span class="log-muted small">${isZh.value ? '已结束' : 'Finished'}</span>`
+}
+
+function formatStreetName(name) {
+  if (!isZh.value) return name
+  const map = {
+    Preflop: '翻前',
+    Flop: '翻牌',
+    Turn: '转牌',
+    River: '河牌',
+    Showdown: '摊牌',
+    Result: '结算'
+  }
+  return map[name] || name
 }
 </script>
 
@@ -280,7 +294,7 @@ function getHandSummaryHtml(hand) {
 }
 
 :deep(.el-collapse-item.is-active-hand .el-collapse-item__header) {
-  border-left: 3px solid #10b981;
+  border-color: rgba(16, 185, 129, 0.45);
   background: rgba(16, 185, 129, 0.08);
 }
 
@@ -421,9 +435,9 @@ function getHandSummaryHtml(hand) {
 
 .action-line.is-ai {
   background: rgba(59, 130, 246, 0.08);
-  border-left: 2px solid #3b82f6;
+  border: 1px solid rgba(59, 130, 246, 0.28);
   padding: 3px 6px;
-  border-radius: 0 4px 4px 0;
+  border-radius: 4px;
   margin: 2px 0;
 }
 

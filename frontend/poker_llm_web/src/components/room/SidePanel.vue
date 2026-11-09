@@ -8,9 +8,35 @@
     
     <div class="panel-content">
       <el-tabs v-model="activeTab" class="side-tabs">
-        <el-tab-pane label="Hand History" name="history">
+        <el-tab-pane :label="isZh ? '牌局记录' : 'Hand History'" name="history">
           <div class="history-scroll-area">
             <HandHistoryPanel />
+          </div>
+        </el-tab-pane>
+        <el-tab-pane v-if="showAiTab" :label="isZh ? 'AI 观察' : 'AI Notes'" name="insights">
+          <div class="insights-scroll-area">
+            <p class="insights-boundary">
+              {{ isZh ? '以下为 AI 对手在已行动街口的思考摘要，仅供观察对手推理逻辑，不作为训练裁判或标准答案。' : 'AI opponent thought summaries for completed actions. Use for observing opponent logic only—not as a training verdict.' }}
+            </p>
+            <div v-if="aiReasonings.length === 0" class="empty-state">
+              {{ isZh ? '等待 AI 完成首次行动后显示思考摘要…' : 'AI thought summaries will appear after the AI acts…' }}
+            </div>
+            <div v-else class="reasoning-list">
+              <div v-for="(item, idx) in aiReasonings" :key="idx" class="insight-card">
+                <div class="insight-header">
+                  <span class="action-badge">
+                    <template v-if="item.handNumber">#{{ item.handNumber }} · </template>
+                    <template v-if="item.stage">{{ item.stage }} · </template>
+                    {{ item.action }}
+                  </span>
+                  <span v-if="item.amount" class="action-amount">{{ item.amount }}</span>
+                </div>
+                <div class="insight-body">{{ cleanReasoningText(item.reasoning) }}</div>
+                <div v-if="item.tags && item.tags.length" class="insight-tags">
+                  <span v-for="tag in item.tags" :key="tag" class="insight-tag">{{ tag }}</span>
+                </div>
+              </div>
+            </div>
           </div>
         </el-tab-pane>
       </el-tabs>
@@ -21,6 +47,7 @@
 <script setup>
 import { isZh } from '@/i18n/locale.js'
 import { ref, computed } from 'vue'
+import { useOnlineStore } from '@/stores/online'
 import { ArrowLeft, ArrowRight } from '@element-plus/icons-vue'
 import HandHistoryPanel from '@/components/online/HandHistoryPanel.vue'
 
@@ -29,9 +56,16 @@ const props = defineProps({
   isGameOver: { type: Boolean, default: false }
 })
 
+const onlineStore = useOnlineStore()
 const isOpen = ref(false)
 defineExpose({toggle:()=>{isOpen.value=!isOpen.value}})
 const activeTab = ref('history')
+
+const showAiTab = computed(() => {
+  return onlineStore.roomMode === 'human_vs_ai' ||
+    onlineStore.opponentPlayer?.player_id === 'ai_seat' ||
+    aiReasonings.value.length > 0
+})
 
 const aiReasonings = computed(() => {
   return props.rawEventLog
@@ -40,9 +74,12 @@ const aiReasonings = computed(() => {
       (e.event_type === 'player_action' && e.player_id?.startsWith('ai') && e.reasoning)
     ))
     .map(e => ({
+      handNumber: e.payload?.hand_number || null,
+      stage: stageLabel(e.payload?.stage),
       action: actionLabel(e.payload?.action || e.action_type),
       amount: e.payload?.amount || e.amount,
-      reasoning: e.payload?.thought_summary || e.reasoning
+      reasoning: e.payload?.thought_summary || e.reasoning,
+      tags: Array.isArray(e.payload?.strategy_tags) ? e.payload.strategy_tags : []
     }))
     .reverse() // Newest first
 })
@@ -60,15 +97,20 @@ const cleanReasoningText = (text) => {
 }
 
 const actionLabel = (action) => {
-  if (!action) return 'AI note'
-  const labels = {
-    FOLD: 'Fold',
-    CHECK: 'Check',
-    CALL: 'Call',
-    RAISE: 'Raise',
-    ALL_IN: 'All-in'
-  }
+  if (!action) return isZh.value ? 'AI 笔记' : 'AI note'
+  const labels = isZh.value
+    ? { FOLD: '弃牌', CHECK: '过牌', CALL: '跟注', RAISE: '加注', ALL_IN: '全押' }
+    : { FOLD: 'Fold', CHECK: 'Check', CALL: 'Call', RAISE: 'Raise', ALL_IN: 'All-in' }
   return labels[action] || String(action).replace('_', ' ')
+}
+
+const stageLabel = (stage) => {
+  if (!stage) return ''
+  const key = String(stage).toLowerCase()
+  const labels = isZh.value
+    ? { preflop: '翻前', flop: '翻牌', turn: '转牌', river: '河牌', showdown: '摊牌' }
+    : { preflop: 'Preflop', flop: 'Flop', turn: 'Turn', river: 'River', showdown: 'Showdown' }
+  return labels[key] || stage
 }
 </script>
 
@@ -84,7 +126,7 @@ const actionLabel = (action) => {
   border-left: 1px solid var(--border-subtle);
   box-shadow: -5px 0 25px rgba(0,0,0,0.5);
   backdrop-filter: blur(10px);
-  transition: right 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  transition: right 0.3s cubic-bezier(0.22, 1, 0.36, 1);
   z-index: 100;
   display: flex;
   flex-direction: column;
@@ -218,6 +260,34 @@ const actionLabel = (action) => {
   font-size: 0.85rem;
   color: var(--text-secondary);
   line-height: 1.5;
+}
+
+.insights-boundary {
+  margin: 0 0 0.85rem;
+  padding: 0.65rem 0.75rem;
+  font-size: 0.76rem;
+  line-height: 1.45;
+  color: var(--text-secondary);
+  background: rgba(217, 173, 88, 0.08);
+  border: 1px solid rgba(217, 173, 88, 0.22);
+  border-radius: var(--radius-sm);
+}
+
+.insight-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.6rem;
+}
+
+.insight-tag {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.14rem 0.45rem;
+  border-radius: var(--radius-pill);
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-subtle);
 }
 
 /* Desktop: single entry point like mobile — the top-bar 记录 button toggles

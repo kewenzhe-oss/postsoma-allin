@@ -10,7 +10,10 @@
 
     <div v-else-if="onlineStore.errorMessage?.includes('AI')" class="blocking-state error" role="alert">
       <h3>{{ onlineStore.errorMessage }}</h3>
-      <button type="button" @click="onlineStore.connectWebSocket()">{{ isZh ? '重新连接' : 'Reconnect' }}</button>
+      <div class="blocking-actions">
+        <button type="button" class="primary-blocking-btn" @click="onlineStore.connectWebSocket()">{{ isZh ? '重新连接' : 'Reconnect' }}</button>
+        <button type="button" class="secondary-blocking-btn" @click="$emit('back-to-lobby')">{{ isZh ? '返回检查 AI 设置' : 'Back to AI setup' }}</button>
+      </div>
     </div>
     <div v-else-if="Object.keys(onlineStore.absentPlayers).length" class="blocking-state" role="status">
       <h3>{{ Object.values(onlineStore.absentPlayers).includes('left') ? (isZh ? '对手已离开房间' : 'Opponent left the room') : (isZh ? '对手连接中断' : 'Opponent disconnected') }}</h3>
@@ -20,7 +23,7 @@
     <!-- Waiting for Opponent State -->
     <div v-else-if="perceptualState === 'waiting_for_ai' && !onlineStore.publicState?.stage" class="blocking-state">
       <div class="spinner"></div>
-      <h3>Waiting for opponent to sit down</h3>
+      <h3>{{ isZh ? '等待对手入座…' : 'Waiting for opponent to sit down' }}</h3>
     </div>
 
     <!-- Reconnecting State -->
@@ -90,6 +93,19 @@ const isVisible = computed(() => {
 }
 
 .blocking-state button { min-height:44px; padding:.5rem 1rem; cursor:pointer; }
+.blocking-actions { display:flex; flex-wrap:wrap; gap:.75rem; justify-content:center; }
+.blocking-state button {
+  border-radius: var(--radius-md);
+  background: var(--bg-panel-raised);
+  border: 1px solid var(--border-strong);
+  color: var(--text-primary);
+  font-weight: 750;
+}
+.blocking-state button.primary-blocking-btn {
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
+  color: var(--text-inverse);
+}
 
 .blocking-state h3 {
   margin: 0;

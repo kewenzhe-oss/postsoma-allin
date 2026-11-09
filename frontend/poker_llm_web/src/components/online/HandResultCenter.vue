@@ -13,6 +13,14 @@
     </div>
     <div class="subline-row" v-if="amounts">
       <span class="amounts-tag">{{ amounts }}</span>
+      <button
+        v-if="!onlineStore.isGameOver && onlineStore.publicState?.can_start_next_hand"
+        type="button"
+        class="next-hand-btn"
+        @click="onlineStore.startNextHand()"
+      >
+        {{ isZh ? '下一手 →' : 'Next hand →' }}
+      </button>
     </div>
   </div>
 </template>
@@ -20,10 +28,13 @@
 <script setup>
 import { computed } from 'vue'
 import { isZh } from '@/i18n/locale.js'
+import { useOnlineStore } from '@/stores/online'
 
 const props = defineProps({
   result: { type: Object, required: true }
 })
+
+const onlineStore = useOnlineStore()
 
 const summary = computed(() => {
   const winners = props.result.winners || []
@@ -151,5 +162,23 @@ const amounts = computed(() =>
 .amounts-tag {
   color: var(--text-secondary);
   font-weight: 700;
+}
+
+.next-hand-btn {
+  min-height: 30px;
+  padding: 0.18rem 0.68rem;
+  border-radius: var(--radius-pill);
+  background: rgba(217, 173, 88, 0.16);
+  border: 1px solid rgba(217, 173, 88, 0.42);
+  color: var(--accent-primary-strong);
+  font-size: 0.76rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.next-hand-btn:hover {
+  background: var(--accent-primary);
+  color: var(--text-inverse);
 }
 </style>

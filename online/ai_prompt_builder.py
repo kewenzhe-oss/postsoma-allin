@@ -125,19 +125,28 @@ def build_opponent_profile_summary(profile) -> str:
     Convert an OpponentProfile into a compact human-readable string
     suitable for prompt injection.
     """
-    if not profile or profile.hands_observed < 1:
+    if not profile:
+        return "Opponent: unknown — no data yet."
+
+    total_actions = (
+        profile.raise_count + profile.call_count +
+        profile.fold_count + profile.check_count + profile.all_in_count
+    )
+    if profile.hands_observed < 1 and total_actions < 1 and not profile.recent_notes:
         return "Opponent: unknown — no data yet."
 
     labels_str = ", ".join(profile.tendency_labels) if profile.tendency_labels else "balanced"
+    adapt_str = f" Adaptation: {profile.adaptation_guidance}" if getattr(profile, "adaptation_guidance", "") else ""
     notes_str = ""
     if profile.recent_notes:
-        notes_str = " Notes: " + "; ".join(profile.recent_notes[-2:]) + "."
+        notes_str = " Recent hands: " + " || ".join(profile.recent_notes[-4:]) + "."
 
     return (
         f"Opponent ({profile.display_name}): {labels_str}. "
-        f"Aggression={profile.aggression_score:.2f} Looseness={profile.looseness_score:.2f}. "
+        f"Aggression={profile.aggression_score:.2f} Looseness(VPIP)={profile.looseness_score:.2f} BluffRate={getattr(profile, 'bluff_rate', 0.0):.2f}. "
         f"Stats: R={profile.raise_count} C={profile.call_count} "
-        f"F={profile.fold_count} Chk={profile.check_count} AI={profile.all_in_count}. "
+        f"F={profile.fold_count} Chk={profile.check_count} AI={profile.all_in_count} RiverAgg={getattr(profile, 'river_aggression_count', 0)}. "
         f"Showdown: {profile.showdown_win_count}/{profile.showdown_count} wins."
+        f"{adapt_str}"
         f"{notes_str}"
     )

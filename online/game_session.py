@@ -187,7 +187,8 @@ class GameSession:
 
         # Track opponent actions in model
         if self._opponent_model and pid == self._opponent_model.player_id:
-            self._opponent_model.observe_action(pid, action, amount, ev.payload.get("stage", ""))
+            reported_amt = ev.payload.get("bet_in_round", amount) if action.upper() in ("RAISE", "ALL_IN") else amount
+            self._opponent_model.observe_action(pid, action, reported_amt, ev.payload.get("stage", ""))
 
         # Track when AI raises (for fold-to-raise detection)
         if pid == AI_SEAT_ID and action.upper() in ("RAISE", "ALL_IN"):
@@ -199,10 +200,13 @@ class GameSession:
         hand_number = ev.payload.get("hand_number", self._current_hand_number)
         winners = ev.payload.get("winners", [])
         ended_by = ev.payload.get("ended_by", "")
+        showdown_info = ev.payload.get("showdown_info") or None
 
         # Update opponent model showdown count
         if self._opponent_model:
-            self._opponent_model.observe_hand_result(hand_number, winners, AI_SEAT_ID, ended_by)
+            self._opponent_model.observe_hand_result(
+                hand_number, winners, AI_SEAT_ID, ended_by, showdown_info=showdown_info
+            )
 
         # Determine if AI won
         winner_ids = {w.get("player_id") for w in winners}
@@ -211,7 +215,22 @@ class GameSession:
         ai_stack = next((p.chips for p in self.adapter.table.players if p.name == AI_SEAT_ID), 0)
         chips_delta = ai_stack - getattr(self, '_ai_hand_start_stack', ai_stack)
         won_flag = None if ai_won and opp_won else (True if ai_won else False if opp_won else None)
-        reflection_note = f"Public result: {ended_by}; net chips {chips_delta:+d}. A result does not establish decision quality."
+
+        opp_line = self._opponent_model.format_current_hand_line() if self._opponent_model else ""
+        showdown_detail = ""
+        if ended_by == "showdown" and showdown_info and self._opponent_model:
+            opp_sd = next((p for p in (showdown_info.get("players") or []) if p.get("player_id") == self._opponent_model.player_id), None)
+            if opp_sd:
+                holes = " ".join(opp_sd.get("hole_cards") or [])
+                hdesc = opp_sd.get("hand_name") or opp_sd.get("hand_description") or ""
+                if holes:
+                    showdown_detail = f" showed [{holes}{', ' + hdesc if hdesc else ''}]"
+
+        heuristic_tip = _heuristic_reflection(bool(ai_won), ended_by, self._opponent_model.summarize() if self._opponent_model else None)
+        reflection_note = (
+            f"H#{hand_number}: opp line [{opp_line}] -> {ended_by}{showdown_detail} "
+            f"(my net {chips_delta:+d}). {heuristic_tip}".strip()
+        )
         self._last_ai_outcome = (hand_number, won_flag, chips_delta, reflection_note)
         self._decision_memory.update_outcome(
             hand_number=hand_number,
@@ -306,14 +325,26 @@ class GameSession:
                         last_fallback_decision = decision
                         continue
                     profile = self._opponent_model.summarize() if self._opponent_model else None
+                    reason_text = decision.reason or _default_thought(decision.action, request)
+                    tags_list = list(decision.strategy_tags) if decision.strategy_tags else (list(profile.tendency_labels[:2]) if profile else [])
                     entry = DecisionMemoryEntry(hand_number=request.hand_number, stage=request.stage,
-                        action=decision.action, amount=decision.amount, reason=decision.reason,
-                        strategy_tags=decision.strategy_tags, opponent_profile_labels=profile.tendency_labels if profile else [],
+                        action=decision.action, amount=decision.amount, reason=reason_text,
+                        strategy_tags=tags_list, opponent_profile_labels=profile.tendency_labels if profile else [],
                         confidence=decision.confidence)
                     # Apply and confirm first. submit_action processes hand results synchronously.
                     if not self.submit_action(AI_SEAT_ID, decision.action, decision.amount):
                         continue
                     self._decision_memory.record(entry)
+                    self._broadcast_ai_thought(AIThoughtEvent(
+                        room_id=self.room_id,
+                        hand_number=request.hand_number,
+                        stage=request.stage,
+                        ai_player_id=AI_SEAT_ID,
+                        thought_summary=reason_text,
+                        confidence=decision.confidence,
+                        strategy_tags=tags_list,
+                        parse_status=decision.parse_status,
+                    ))
                     outcome = getattr(self, '_last_ai_outcome', None)
                     if outcome and outcome[0] == request.hand_number:
                         self._decision_memory.update_outcome(outcome[0], outcome[1], outcome[2], outcome[3])

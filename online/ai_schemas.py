@@ -64,6 +64,7 @@ class AIThoughtEvent:
     confidence: float
     strategy_tags: List[str] = field(default_factory=list)
     parse_status: str = "ok"           # lets frontend show "(fallback)" badge if needed
+    room_id: str = ""
 
 
 # ── Session-level opponent model ─────────────────────────────────────────────
@@ -74,17 +75,23 @@ class OpponentProfile:
     display_name: str
     hands_observed: int = 0
     vpip_count: int = 0         # voluntarily put chips in pot
+    pfr_count: int = 0          # preflop raise / all-in count
     raise_count: int = 0
     call_count: int = 0
     fold_count: int = 0
     check_count: int = 0
     all_in_count: int = 0
+    river_aggression_count: int = 0
+    aggressive_showdown_count: int = 0
+    bluff_showdown_count: int = 0
     showdown_count: int = 0
     showdown_win_count: int = 0
     fold_to_raise_count: int = 0    # folded after opponent raised
     aggression_score: float = 0.5   # 0=passive, 1=aggressive
     looseness_score: float = 0.5    # 0=tight, 1=loose
+    bluff_rate: float = 0.0         # confirmed bluff showdowns / aggressive showdowns
     tendency_labels: List[str] = field(default_factory=list)
+    adaptation_guidance: str = ""
     recent_notes: List[str] = field(default_factory=list)
 
 

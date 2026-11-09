@@ -17,7 +17,8 @@
               :disabled="disabled"
               @click="submit(act.action)"
             >
-              {{ actionLabel(act.action, act.amount) }}
+              <span>{{ actionLabel(act.action, act.amount) }}</span>
+              <kbd v-if="shortcutKey(act.action)" class="hotkey-hint" aria-hidden="true">{{ shortcutKey(act.action) }}</kbd>
             </el-button>
 
             <!-- The Raise button transitions to Stage 2 -->
@@ -28,7 +29,8 @@
               :disabled="disabled"
               @click="isRaising = true"
             >
-              {{ currentBet ? (isZh ? '加注' : 'Raise') : (isZh ? '下注' : 'Bet') }}
+              <span>{{ currentBet ? (isZh ? '加注' : 'Raise') : (isZh ? '下注' : 'Bet') }}</span>
+              <kbd class="hotkey-hint" aria-hidden="true">R</kbd>
             </el-button>
           </div>
 
@@ -70,7 +72,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { isZh } from '@/i18n/locale.js'
 import RaiseControl from './RaiseControl.vue'
 
@@ -133,6 +135,12 @@ const actionLabel = (action, amount) => {
   return action.replace('_', ' ')
 }
 
+const shortcutKey = (action) => {
+  if (action === 'FOLD') return 'F'
+  if (action === 'CHECK' || action === 'CALL') return 'C'
+  return ''
+}
+
 const submit = (action, amount = null) => {
   if (props.disabled) return
   if (action === 'RAISE' && (!raiseAction.value || !Number.isInteger(amount) ||
@@ -140,6 +148,40 @@ const submit = (action, amount = null) => {
   isRaising.value = false
   emit('submit-action', action, amount)
 }
+
+const handleHotkeys = (event) => {
+  if (props.disabled || event.ctrlKey || event.metaKey || event.altKey) return
+  const active = document.activeElement
+  if (active && active.closest('input, textarea, select, [contenteditable="true"]')) return
+
+  const key = event.key.toLowerCase()
+  if (key === 'escape' && isRaising.value) {
+    event.preventDefault()
+    isRaising.value = false
+    return
+  }
+  if (isRaising.value) return
+
+  if (key === 'f') {
+    const fold = primaryActions.value.find(a => a.action === 'FOLD')
+    if (fold) {
+      event.preventDefault()
+      submit('FOLD')
+    }
+  } else if (key === 'c') {
+    const callOrCheck = primaryActions.value.find(a => a.action === 'CHECK' || a.action === 'CALL')
+    if (callOrCheck) {
+      event.preventDefault()
+      submit(callOrCheck.action)
+    }
+  } else if (key === 'r' && raiseAction.value) {
+    event.preventDefault()
+    isRaising.value = true
+  }
+}
+
+onMounted(() => window.addEventListener('keydown', handleHotkeys))
+onUnmounted(() => window.removeEventListener('keydown', handleHotkeys))
 </script>
 
 <style scoped>
@@ -211,6 +253,20 @@ const submit = (action, amount = null) => {
   color: var(--text-inverse);
 }
 
+.hotkey-hint {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 0.4rem;
+  padding: 0.08rem 0.34rem;
+  font-family: var(--font-family-mono);
+  font-size: 0.66rem;
+  font-weight: 700;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  opacity: 0.78;
+}
 .primary-btn {
   background: linear-gradient(180deg, var(--accent-primary-strong), var(--accent-primary));
   border-color: rgba(255, 255, 255, 0.14);
@@ -296,7 +352,7 @@ const submit = (action, amount = null) => {
 
 .toast-fade-enter-active,
 .toast-fade-leave-active {
-  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  transition: all 0.26s cubic-bezier(0.22, 1, 0.36, 1);
 }
 .toast-fade-enter-from,
 .toast-fade-leave-to {

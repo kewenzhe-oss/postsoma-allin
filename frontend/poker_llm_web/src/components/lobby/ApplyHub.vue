@@ -154,8 +154,7 @@ const handleModeSelection = (mode) => {
   padding: 0.82rem 0.9rem;
   color: var(--text-secondary);
   background: rgba(0, 0, 0, 0.2);
-  border: 1px solid var(--border-subtle);
-  border-left: 3px solid var(--accent-primary);
+  border: 1px solid rgba(217, 173, 88, 0.26);
   border-radius: var(--radius-md);
 }
 

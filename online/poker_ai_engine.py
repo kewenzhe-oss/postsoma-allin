@@ -121,13 +121,19 @@ def _build_prompt(req: AIDecisionRequest) -> str:
         parts = []
         for ev in req.action_history[-10:]:
             who = "ME" if ev.get("player_id") == req.ai_player_id else "OPP"
-            amt = f"({ev['amount']})" if ev.get("amount", 0) > 0 else ""
+            act_name = ev.get("action", "")
+            if act_name in ("RAISE", "ALL_IN") and ev.get("bet_in_round", 0) > 0:
+                amt = f"(to {ev['bet_in_round']})"
+            elif ev.get("amount", 0) > 0:
+                amt = f"({ev['amount']})"
+            else:
+                amt = ""
             parts.append(f"[{ev.get('stage', 'unknown')}] {who}:{ev['action']}{amt}")
         hist = "  History: " + " ".join(parts) + "\n"
 
     mem = ""
     if req.previous_ai_notes:
-        mem = "  Prev: " + " / ".join(req.previous_ai_notes[-2:]) + "\n"
+        mem = "  My recent decisions: " + " / ".join(req.previous_ai_notes[-3:]) + "\n"
 
     return (
         f"System: You are an independent Texas Hold'em AI player.\n"
@@ -147,12 +153,13 @@ def _build_prompt(req: AIDecisionRequest) -> str:
         f"  - Compare check/call/bet EV using range assumptions, price, position and future risk.\n"
         f"  - Top pair and draws do not automatically justify raising; checking strong hands can be valid.\n"
         f"  - Value bets need worse calls; bluffs need enough better hands to fold.\n"
-        f"  - Treat opponent tendencies as uncertain, especially with few observations.\n"
+        f"  - Use the Opponent history (tracked from Hand #1) to adapt to their aggression, sizing, and showdown hands, while treating small samples cautiously.\n"
         f"  - RAISE amount is the TOTAL street bet, not additional chips.\n"
         f"  - You cannot see opponent hole cards. Do not claim solver or verified GTO accuracy.\n"
         f"\n"
-        f"Reply with ONE action only (no punctuation, no explanation):\n"
-        f"FOLD   CHECK   CALL   RAISE <amount>   ALL_IN\n"
+        f"Reply in 2 lines (a brief 1-sentence reason, then your final action on the last line):\n"
+        f"Reason: <short tactical reason referencing hand, price, or opponent tendency>\n"
+        f"Decision: FOLD | CHECK | CALL | RAISE <amount> | ALL_IN\n"
         f"\n"
         f"Decision:"
     )

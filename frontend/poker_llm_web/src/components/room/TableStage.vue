@@ -14,11 +14,22 @@
           :isOpponent="true"
           :highlightCards="seatWinningCards(onlineStore.opponentPlayer.player_id)"
         />
-        <div v-else class="waiting-seat">{{ isZh ? '等待对手入座' : 'Waiting for opponent' }}</div>
+        <div v-else class="waiting-seat waiting-invite-card">
+          <div class="waiting-seat-header">
+            <span class="waiting-dot"></span>
+            <span>{{ isZh ? '等待好友入座' : 'Waiting for friend to join' }}</span>
+          </div>
+          <div v-if="onlineStore.roomId" class="waiting-invite-actions">
+            <code class="waiting-room-code" :title=" isZh ? '房间 ID' : 'Room ID'">{{ onlineStore.roomId }}</code>
+            <button type="button" class="waiting-copy-btn" @click="copyRoomInvite">
+              {{ inviteCopied ? (isZh ? '已复制链接' : 'Link copied!') : (isZh ? '复制邀请链接' : 'Copy invite link') }}
+            </button>
+          </div>
+        </div>
 
         <!-- AI Perceptual Pulse -->
-        <div class="thinking-slot" :class="{ 'is-hidden': perceptualState !== 'ai_thinking' }"
-          :aria-hidden="perceptualState !== 'ai_thinking'">
+        <div class="thinking-slot" :class="{ 'is-hidden': !isOpponentThinking }"
+          :aria-hidden="!isOpponentThinking">
           <AIStatusPulse />
         </div>
       </div>
@@ -61,8 +72,9 @@
 
 <script setup>
 import { isZh } from '@/i18n/locale.js'
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useOnlineStore } from '@/stores/online'
+import { ElMessage } from 'element-plus'
 import PlayerSeat from '@/components/online/PlayerSeat.vue'
 import CommunityCards from '@/components/online/CommunityCards.vue'
 import AIStatusPulse from './AIStatusPulse.vue'
@@ -75,6 +87,20 @@ const props = defineProps({
 })
 
 const onlineStore = useOnlineStore()
+const inviteCopied = ref(false)
+
+function copyRoomInvite() {
+  if (!onlineStore.roomId) return
+  const inviteUrl = `${window.location.origin}/?room=${onlineStore.roomId}`
+  navigator.clipboard?.writeText(inviteUrl).then(() => {
+    inviteCopied.value = true
+    ElMessage.success(isZh.value ? `邀请链接已复制（房间 ${onlineStore.roomId}）` : `Invite link copied (${onlineStore.roomId})`)
+    setTimeout(() => { inviteCopied.value = false }, 2200)
+  }).catch(() => {
+    ElMessage.error(isZh.value ? '复制失败，请手动复制房间号' : 'Failed to copy invite link')
+  })
+}
+
 function seatResult(id) {
  const result=onlineStore.latestHandResult
  if(!result?.winners?.some(w=>w.player_id===id)) return ''
@@ -125,20 +151,23 @@ const isOpponentDealer = computed(() => {
 })
 
 const isMyTurn = computed(() => props.perceptualState === 'player_turn')
+const isOpponentThinking = computed(() =>
+  props.perceptualState === 'ai_thinking' ||
+  (props.perceptualState === 'waiting_for_ai' && onlineStore.publicState?.game_status === 'in_hand' && Boolean(onlineStore.opponentPlayer))
+)
 const isOpponentTurn = computed(() =>
   props.perceptualState === 'ai_thinking' ||
   props.perceptualState === 'waiting_for_ai' ||
   props.perceptualState === 'ai_action_revealed'
 )
 
-const isDimmed = computed(() => props.perceptualState === 'ai_thinking')
+const isDimmed = computed(() => isOpponentThinking.value)
 
 const centerStatus = computed(() => {
   if (onlineStore.latestHandResult) return null
   if (props.perceptualState === 'player_turn') return isZh.value ? '轮到你行动' : 'Your turn'
   if (props.perceptualState === 'submitting_action') return isZh.value ? '等待行动确认' : 'Waiting for confirmation'
-  if (props.perceptualState === 'waiting_for_ai') return isZh.value ? '等待对手行动' : 'Opponent’s turn'
-  if (props.perceptualState === 'ai_thinking') return null
+  if (isOpponentThinking.value) return null
   if (props.perceptualState === 'ai_action_revealed') return isZh.value ? '对手已行动' : 'Move played'
   if (!onlineStore.opponentPlayer) return isZh.value ? '等待对手入座' : 'Waiting for opponent'
   if (['waiting','waiting_for_players'].includes(onlineStore.publicState?.game_status)) return isZh.value ? '等待对手入座' : 'Waiting for opponent'
@@ -255,6 +284,71 @@ const centerStatus = computed(() => {
   color: var(--text-secondary);
   border: 1px dashed var(--border-strong);
   font-size: 14px;
+}
+
+.waiting-invite-card {
+  border-radius: var(--radius-md);
+  padding: 0.65rem 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  background: rgba(18, 27, 33, 0.9);
+  box-shadow: var(--shadow-sm);
+}
+
+.waiting-seat-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.82rem;
+  font-weight: 750;
+  color: var(--text-primary);
+}
+
+.waiting-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent-turn);
+  animation: pulse-glow 1.2s infinite alternate;
+}
+
+.waiting-invite-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.waiting-room-code {
+  font-family: var(--font-family-mono);
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--accent-primary-strong);
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--border-subtle);
+  padding: 0.2rem 0.5rem;
+  border-radius: var(--radius-xs);
+}
+
+.waiting-copy-btn {
+  min-height: 32px;
+  padding: 0.22rem 0.7rem;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(180deg, var(--accent-primary-strong), var(--accent-primary));
+  color: var(--text-inverse);
+  font-size: 0.76rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: filter 0.2s ease, transform 0.2s ease;
+}
+
+.waiting-copy-btn:hover {
+  filter: brightness(1.06);
+  transform: translateY(-1px);
 }
 
 .turn-glow {

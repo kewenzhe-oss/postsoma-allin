@@ -124,6 +124,28 @@ def _try_json_parse(
     )
 
 
+def _extract_reason_and_tags(lines: List[str], decision_line_idx: int) -> tuple[str, List[str]]:
+    """Extract concise reasoning and optional tags from lines preceding the final decision."""
+    reason_parts: List[str] = []
+    tags: List[str] = []
+    for idx, line in enumerate(lines):
+        if idx == decision_line_idx:
+            continue
+        cleaned = re.sub(r'[*`_#>]', '', line).strip()
+        tag_match = re.match(r'^(?:TAGS|STRATEGY_TAGS)\s*[:：\-]\s*(.+)$', cleaned, re.IGNORECASE)
+        if tag_match:
+            raw_tags = [t.strip() for t in re.split(r'[,;/|]', tag_match.group(1)) if t.strip()]
+            tags.extend(raw_tags[:4])
+            continue
+        reason_match = re.match(r'^(?:REASON|REASONING|THOUGHT|ANALYSIS|NOTE)\s*[:：\-]\s*(.+)$', cleaned, re.IGNORECASE)
+        if reason_match:
+            reason_parts.append(reason_match.group(1).strip())
+        elif len(lines) <= 4 and not re.match(r'^(?:DECISION|ACTION|FINAL\s+ACTION|CHOICE|MY\s+MOVE)\b', cleaned, re.IGNORECASE):
+            reason_parts.append(cleaned)
+    reason = " ".join(reason_parts).strip()[:220]
+    return reason, tags[:4]
+
+
 # ── Pass 2: Anchor search ─────────────────────────────────────────────────────
 
 def _try_anchored_parse(
@@ -144,7 +166,8 @@ def _try_anchored_parse(
         re.IGNORECASE
     )
 
-    for line in reversed(lines):
+    for rev_idx, line in enumerate(reversed(lines)):
+        line_idx = len(lines) - 1 - rev_idx
         m = anchor_pattern.search(line)
         if m:
             raw_act = m.group(1).upper().replace("-", "_").replace(" ", "_")
@@ -156,9 +179,12 @@ def _try_anchored_parse(
                     if raw_amt:
                         amount = int(raw_amt)
                     amount = _clamp_raise(amount, available_actions)
+                reason, tags = _extract_reason_and_tags(lines, line_idx)
                 return ParseResult(
                     action=normalized,
                     amount=amount,
+                    reason=reason,
+                    strategy_tags=tags,
                     parse_status="anchored_ok",
                 )
 
@@ -183,7 +209,9 @@ def _try_last_line_parse(
         return None
 
     # Inspect up to the last 2 lines in reverse
-    for line in reversed(lines[-2:]):
+    start_idx = max(0, len(lines) - 2)
+    for idx in range(len(lines) - 1, start_idx - 1, -1):
+        line = lines[idx]
         # Strip common markdown formatting
         cleaned = re.sub(r'[*`_#>]', '', line).strip()
         # Match single action word, optionally followed by an amount
@@ -202,9 +230,12 @@ def _try_last_line_parse(
                     if raw_amt:
                         amount = int(raw_amt)
                     amount = _clamp_raise(amount, available_actions)
+                reason, tags = _extract_reason_and_tags(lines, idx)
                 return ParseResult(
                     action=normalized,
                     amount=amount,
+                    reason=reason,
+                    strategy_tags=tags,
                     parse_status="last_line_ok",
                 )
 
