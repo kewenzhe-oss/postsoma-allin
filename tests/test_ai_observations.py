@@ -32,7 +32,7 @@ from online.ai_schemas import AIDecision
 import online.game_session as module
 
 @pytest.mark.asyncio
-async def test_failed_model_retries_and_executes_fallback_without_polluting_memory(monkeypatch):
+async def test_failed_model_retries_and_pauses_without_an_action(monkeypatch):
     session=GameSession('test','human_vs_ai',{'provider_name':'test'})
     session._restart_turn_timer = lambda: None
     session.add_player('hero','Hero')
@@ -48,9 +48,8 @@ async def test_failed_model_retries_and_executes_fallback_without_polluting_memo
     assert failed.await_count == 2
     assert not session._decision_memory.get_recent()
     action_events = [e for e in session.adapter.event_log()[before:] if e.type == 'player_action_applied']
-    assert len(action_events) == 1
-    assert action_events[0].payload['action'] == 'FOLD'
-    assert not any(e.type == 'ai_unavailable' for e in session.adapter.event_log()[before:])
+    assert not action_events
+    assert any(e.type == 'ai_unavailable' for e in session.adapter.event_log()[before:])
 
 
 def test_ai_engine_fallback_rules():
@@ -185,9 +184,8 @@ def test_vpip_pfr_bluff_frequency_and_adaptation_guidance():
     summary = build_opponent_profile_summary(profile)
     assert "Voluntary preflop hands=2/2" in summary
     assert "Preflop raises=2/2" in summary
-    assert "Caught bluffing / failed pressure at showdown=2/2" in summary
-    assert "BluffRate=1.00" in summary
-    assert "Adaptation:" in summary
+    assert "BluffRate" not in summary
+    assert "Adaptation:" not in summary
 
 
 def test_parser_extracts_reason_from_two_line_response():
@@ -200,8 +198,39 @@ def test_parser_extracts_reason_from_two_line_response():
     assert "Pot odds are 3:1" in res.reason
 
 
+def test_ai_request_caps_call_at_remaining_stack():
+    from online.poker_ai_engine import _build_prompt
+    session = GameSession('short-call', 'human_vs_ai', {})
+    session.add_player('hero', 'Hero')
+    session.add_player('ai_seat', 'AI')
+    session.adapter.table.players[1].chips = 13
+    events = session.adapter.start_hand()
+    session._on_hand_started(next(event for event in events if event.type == 'hand_started'))
+    result = session.adapter.submit_action('hero', 'ALL_IN')
+    assert result.accepted
+    request = session._build_decision_request()
+    assert request.ai_stack == 3
+    assert request.to_call == 3
+    assert any(action['action'] == 'ALL_IN' for action in request.available_actions)
+    prompt = _build_prompt(request)
+    assert 'Eligible pot before calling: 23' in prompt
+    assert 'unmatched opponent chips returned if called: 987' in prompt
+    assert 'pot after call: 26' in prompt
+    assert 'break-even equity: 11.54%' in prompt
+
+
+def test_short_all_in_call_is_not_recorded_as_preflop_raise():
+    tracker = OpponentModelTracker('hero', 'Hero')
+    tracker.new_hand(1)
+    tracker.observe_action('hero', 'ALL_IN', 13, 'preflop', previous_bet=100)
+    profile = tracker.summarize()
+    assert profile.vpip_count == 1
+    assert profile.pfr_count == 0
+    assert profile.river_aggression_count == 0
+
+
 @pytest.mark.asyncio
-async def test_ai_thoughts_sealed_mid_hand_and_on_fold_revealed_at_showdown_or_game_over(monkeypatch):
+async def test_ai_thoughts_revealed_after_each_finished_hand(monkeypatch):
     session = GameSession("seal-room", "human_vs_ai", {"provider_name": "openai", "model": "gpt-4o-mini", "api_key": "k"})
     session._restart_turn_timer = lambda: None
     session.add_player("hero", "Alice")
@@ -225,16 +254,16 @@ async def test_ai_thoughts_sealed_mid_hand_and_on_fold_revealed_at_showdown_or_g
     # 1) Mid-hand: ai_thought MUST NOT be broadcast while hand is still active
     assert not [e for e in session.adapter.event_log() if e.type == "ai_thought"]
 
-    # 2) Hand ends by fold (mucked): ai_thought stays sealed, ai_thought_locked is emitted
     session._on_hand_finished(EngineEvent(
         seq=50,
         type="hand_finished",
         payload={"hand_number": 1, "ended_by": "fold", "winners": [{"player_id": "ai_seat"}]},
     ))
-    assert not [e for e in session.adapter.event_log() if e.type == "ai_thought"]
-    assert any(e.type == "ai_thought_locked" and e.payload["hand_number"] == 1 for e in session.adapter.event_log())
+    thoughts = [e for e in session.adapter.event_log() if e.type == "ai_thought"]
+    assert len(thoughts) == 1
+    assert thoughts[0].payload["hand_number"] == 1
+    assert thoughts[0].payload["revealed_at"] == "hand_finished"
 
-    # 3) Hand #2 reaches showdown: thoughts for Hand #2 unlock immediately with revealed_at='showdown'
     session._on_hand_started(EngineEvent(seq=51, type="hand_started", payload={"hand_number": 2}))
     session._current_hand_ai_thoughts.append({
         "hand_number": 2,
@@ -253,15 +282,72 @@ async def test_ai_thoughts_sealed_mid_hand_and_on_fold_revealed_at_showdown_or_g
         payload={"hand_number": 2, "ended_by": "showdown", "winners": [{"player_id": "ai_seat"}]},
     ))
     thoughts_after_sd = [e for e in session.adapter.event_log() if e.type == "ai_thought"]
-    assert len(thoughts_after_sd) == 1
-    assert thoughts_after_sd[0].payload["hand_number"] == 2
-    assert thoughts_after_sd[0].payload["revealed_at"] == "showdown"
+    assert len(thoughts_after_sd) == 2
+    assert thoughts_after_sd[1].payload["hand_number"] == 2
+    assert thoughts_after_sd[1].payload["revealed_at"] == "hand_finished"
 
-    # 4) Game over unlocks previously mucked Hand #1 thoughts with revealed_at='game_over'
+
+@pytest.mark.asyncio
+async def test_final_ai_fold_is_published_after_hand_finished(monkeypatch):
+    session = GameSession('review-fold', 'human_vs_ai', {'provider_name': 'test'})
+    session._restart_turn_timer = lambda: None
+    session.add_player('hero', 'Hero')
+    session.add_player('ai_seat', 'AI')
+    events = session.adapter.start_hand()
+    session._on_hand_started(next(event for event in events if event.type == 'hand_started'))
+    assert session.submit_action('hero', 'CALL')
+    monkeypatch.setattr(module.asyncio, 'sleep', AsyncMock())
+    monkeypatch.setattr(module._ai_engine, 'decide', AsyncMock(return_value=AIDecision(action='FOLD', reason='I fold')))
+    await session._ai_turn_routine()
+    events = session.adapter.event_log()
+    finished_index = next(index for index, event in enumerate(events) if event.type == 'hand_finished')
+    thought_index = next(index for index, event in enumerate(events) if event.type == 'ai_thought')
+    assert thought_index > finished_index
+    assert events[thought_index].payload['thought_summary'] == 'I fold'
+    if session._delayed_start_task:
+        session._delayed_start_task.cancel()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('winner_id', ['hero', 'ai_seat'])
+async def test_match_review_generated_for_either_winner(monkeypatch, winner_id):
+    import asyncio
+    session = GameSession('review', 'human_vs_ai', {'provider_name': 'test', 'api_key': 'secret'})
+    session.add_player('hero', 'Hero')
+    session.add_player('ai_seat', 'AI')
+    events = session.adapter.start_hand()
+    session._on_hand_started(next(event for event in events if event.type == 'hand_started'))
+    session._opponent_model.observe_action('hero', 'CALL', 5, 'preflop')
+    for player in session.adapter.table.players:
+        player.chips = 100 if player.name == winner_id else 0
+    review = AsyncMock(return_value='{"zh":"观察","en":"Observation"}')
+    monkeypatch.setattr(module._ai_engine, 'review_match', review)
     session._end_game()
-    all_thoughts = [e for e in session.adapter.event_log() if e.type == "ai_thought"]
-    assert len(all_thoughts) == 2
-    mucked_revealed = next(e for e in all_thoughts if e.payload["hand_number"] == 1)
-    assert mucked_revealed.payload["revealed_at"] == "game_over"
+    await asyncio.sleep(0)
+    result = next(event.payload for event in session.adapter.event_log() if event.type == 'game_over')
+    report = next(event.payload for event in session.adapter.event_log() if event.type == 'ai_match_review')
+    assert result['winner']['player_id'] == winner_id
+    assert result['player_statistics']['hands'] == 1
+    assert result['player_statistics']['vpip_count'] == 1
+    assert report == {'status': 'ready', 'zh': '观察', 'en': 'Observation'}
+    assert 'secret' not in str(review.await_args.args[0])
+    assert 'private_hole_cards' not in str(review.await_args.args[0])
+
+
+@pytest.mark.asyncio
+async def test_match_review_failure_retains_statistics(monkeypatch):
+    import asyncio
+    session = GameSession('review-error', 'human_vs_ai', {'provider_name': 'test'})
+    session.add_player('hero', 'Hero')
+    session.add_player('ai_seat', 'AI')
+    events = session.adapter.start_hand()
+    session._on_hand_started(next(event for event in events if event.type == 'hand_started'))
+    monkeypatch.setattr(module._ai_engine, 'review_match', AsyncMock(side_effect=RuntimeError('failed')))
+    session._end_game()
+    await asyncio.sleep(0)
+    result = next(event.payload for event in session.adapter.event_log() if event.type == 'game_over')
+    report = next(event.payload for event in session.adapter.event_log() if event.type == 'ai_match_review')
+    assert result['player_statistics']['hands'] == 1
+    assert report['status'] == 'error'
 
 

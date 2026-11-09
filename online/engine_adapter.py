@@ -166,7 +166,7 @@ class OnlinePokerEngineAdapter:
             not self._game_over
             and has_started
             and solvent_count == 2
-            and (self.table.is_round_complete() or self.table.stage == GameStage.SHOWDOWN or is_showdown)
+            and any(event.type == 'hand_finished' and event.payload.get('hand_number') == self.table.hand_number for event in self._events)
         )
 
         dealer_player_id = (
@@ -486,6 +486,7 @@ class OnlinePokerEngineAdapter:
             engine_amount = amount
 
         initial_stage = self.table.stage
+        previous_bet = self.table.current_bet
         success = self.table.process_action(player, action_enum, engine_amount, "Online Action")
         if not success:
             return ActionResult(accepted=False, error_message="Action rejected by engine.")
@@ -507,6 +508,7 @@ class OnlinePokerEngineAdapter:
             "action": action.upper(),
             "amount": actual_amount,
             "bet_in_round": player.bet_in_round,
+            "previous_bet": previous_bet,
             "chips": player.chips,
             "pot_after": self.table.pot,
             "stage": self.table.stage.value,

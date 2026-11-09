@@ -255,3 +255,29 @@ def test_staged_all_in_runout():
     assert adapter.table.stage == GameStage.SHOWDOWN
     assert any(e.type == "hand_finished" for e in events_showdown)
     assert adapter.can_advance_street() is False
+def test_provider_endpoint_resolution_is_shared():
+    from online.ai_providers import PROVIDER_ALLOWLIST, resolve_endpoint
+    from online.routes import _resolve_endpoint
+    for provider, base, expected in [
+        ('gemini', 'https://example.test/v1beta', 'https://example.test/v1beta/models/model-name:generateContent'),
+        ('gemini', 'https://example.test/v1beta/models/{model}:generateContent', 'https://example.test/v1beta/models/model-name:generateContent'),
+        ('custom', 'https://example.test/v1', 'https://example.test/v1/chat/completions'),
+    ]:
+        info = PROVIDER_ALLOWLIST[provider]
+        assert resolve_endpoint(info, 'model-name', base)[0] == expected
+        assert _resolve_endpoint(info, 'model-name', base)[0] == expected
+
+
+def test_all_in_runout_cannot_start_another_hand_early():
+    from online.engine_adapter import OnlinePokerEngineAdapter
+    adapter = OnlinePokerEngineAdapter(initial_chips=100)
+    adapter.add_player('one', 'One')
+    adapter.add_player('two', 'Two')
+    adapter.start_hand()
+    adapter.submit_action('one', 'ALL_IN', step_all_in=True)
+    adapter.submit_action('two', 'ALL_IN', step_all_in=True)
+    assert adapter.can_advance_street()
+    assert not adapter.get_public_state().can_start_next_hand
+    while adapter.can_advance_street():
+        adapter.advance_single_street()
+    assert any(event.type == 'hand_finished' for event in adapter.event_log())

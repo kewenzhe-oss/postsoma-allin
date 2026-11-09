@@ -10,7 +10,7 @@
 
       <!-- ── Action Area (Bottom) ── -->
       <div class="action-panel-zone">
-        <HandResultCenter v-if="onlineStore.latestHandResult" :result="onlineStore.latestHandResult" />
+        <HandResultCenter v-if="onlineStore.latestHandResult" :result="onlineStore.latestHandResult" @open-ai-review="historyPanel?.openInsights()" />
         <ActionPanel
           v-else-if="onlineStore.publicState?.game_status === 'in_hand'"
           :actions="onlineStore.availableActions"

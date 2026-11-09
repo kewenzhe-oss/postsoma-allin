@@ -82,7 +82,7 @@ class OpponentModelTracker:
         """Called when AI raised this street, to track opponent fold-to-raise."""
         self._last_ai_raised_this_hand = True
 
-    def observe_action(self, player_id: str, action: str, amount: int, stage: str):
+    def observe_action(self, player_id: str, action: str, amount: int, stage: str, previous_bet: Optional[int] = None):
         """
         Record an opponent action from a player_action_applied event.
         Only called when player_id matches this tracker's target.
@@ -92,6 +92,7 @@ class OpponentModelTracker:
 
         action_upper = action.upper()
         stage_lower = (stage or "").lower()
+        aggressive_action = action_upper == 'RAISE' or (action_upper in ('ALL_IN', 'ALL-IN') and (previous_bet is None or amount > previous_bet))
         if self._last_ai_raised_this_hand:
             self._pressure_opportunities += 1
             if action_upper == 'FOLD':
@@ -100,10 +101,10 @@ class OpponentModelTracker:
         if stage_lower == 'preflop' and action_upper in ('CALL','RAISE','ALL_IN','ALL-IN') and not self._vpip_this_hand:
             self._vpip_count += 1
             self._vpip_this_hand = True
-        if stage_lower == 'preflop' and action_upper in ('RAISE','ALL_IN','ALL-IN') and not self._pfr_this_hand:
+        if stage_lower == 'preflop' and aggressive_action and not self._pfr_this_hand:
             self._pfr_count += 1
             self._pfr_this_hand = True
-        if action_upper in ('RAISE','ALL_IN','ALL-IN'):
+        if aggressive_action:
             self._aggressive_this_hand = True
             if stage_lower in ('flop', 'turn', 'river'):
                 self._postflop_aggressive_this_hand = True
@@ -169,6 +170,19 @@ class OpponentModelTracker:
         self._notes.append(note)
         if len(self._notes) > 6:
             self._notes.pop(0)
+
+    def match_statistics(self) -> dict:
+        hands = self._hands_observed + (1 if self._current_hand >= 0 else 0)
+        return {
+            'hands': hands,
+            'vpip_count': self._vpip_count,
+            'pfr_count': self._pfr_count,
+            'pressure_opportunities': self._pressure_opportunities,
+            'fold_to_pressure_count': self._fold_to_raise_count,
+            'showdowns': self._showdown_count,
+            'showdown_wins': self._showdown_win_count,
+            'river_aggression_count': self._river_aggression_count,
+        }
 
     def format_current_hand_line(self) -> str:
         """Return compact trajectory of opponent actions in the current hand."""

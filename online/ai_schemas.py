@@ -38,6 +38,8 @@ class AIDecisionRequest:
     position: str = "unknown"
     opponent_profile_summary: Optional[str] = None   # human-readable label string
     previous_ai_notes: List[str] = field(default_factory=list)  # recent decision summaries
+    ai_total_bet: int = 0
+    opponent_total_bet: int = 0
 
 
 # ── AI decision output ───────────────────────────────────────────────────────

@@ -7,42 +7,9 @@ from online.ws_schemas import (
 )
 from online.room_manager import room_manager
 from online.connection_manager import connection_manager
-from online.ai_providers import PROVIDER_ALLOWLIST
+from online.ai_providers import PROVIDER_ALLOWLIST, resolve_endpoint as _resolve_endpoint
 
 router = APIRouter()
-
-
-def _resolve_endpoint(provider_info: dict, req_model: str, custom_base_url: str | None) -> tuple[str, str]:
-    """
-    Returns (endpoint_url, protocol).
-    custom_base_url takes precedence over the allowlist default.
-    For Gemini, the model name is interpolated into the URL.
-    """
-    protocol = provider_info.get("protocol", "openai")
-
-    if custom_base_url:
-        # Third-party compatible endpoint provided by user
-        endpoint = custom_base_url.rstrip("/")
-        if protocol == "openai" and not endpoint.endswith("/chat/completions"):
-            if endpoint.endswith("/v1"):
-                endpoint += "/chat/completions"
-            else:
-                endpoint += "/v1/chat/completions"
-        elif protocol == "gemini" and ":generateContent" not in endpoint:
-            if endpoint.endswith("/v1beta"):
-                endpoint += f"/models/{req_model}:generateContent"
-            else:
-                endpoint += f"/v1beta/models/{req_model}:generateContent"
-        
-        if "{model}" in endpoint:
-            endpoint = endpoint.format(model=req_model)
-    else:
-        raw = provider_info["base_url"]
-        if raw is None:
-            raise ValueError("No base_url configured for this provider and no custom base_url provided.")
-        endpoint = raw.format(model=req_model)
-
-    return endpoint, protocol
 
 
 async def _call_openai_compat(endpoint: str, api_key: str, model: str) -> tuple[bool, str, str | None]:

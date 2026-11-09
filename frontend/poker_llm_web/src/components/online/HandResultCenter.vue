@@ -13,6 +13,9 @@
     </div>
     <div class="subline-row" v-if="amounts">
       <span class="amounts-tag">{{ amounts }}</span>
+      <button v-if="hasAiReview" type="button" class="next-hand-btn" @click="$emit('open-ai-review')">
+        {{ isZh ? '查看 AI 判断' : 'Review AI decision' }}
+      </button>
       <button
         v-if="!onlineStore.isGameOver && onlineStore.publicState?.can_start_next_hand"
         type="button"
@@ -35,6 +38,8 @@ const props = defineProps({
 })
 
 const onlineStore = useOnlineStore()
+defineEmits(['open-ai-review'])
+const hasAiReview = computed(() => onlineStore.rawEventLog.some(event => event.type === 'ai_thought' && event.payload?.hand_number === props.result.hand_number))
 
 const summary = computed(() => {
   const winners = props.result.winners || []
@@ -153,6 +158,7 @@ const amounts = computed(() =>
 
 .subline-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: center;
   gap: 0.75rem;
@@ -165,7 +171,8 @@ const amounts = computed(() =>
 }
 
 .next-hand-btn {
-  min-height: 30px;
+  min-height: 44px;
+  pointer-events: auto;
   padding: 0.18rem 0.68rem;
   border-radius: var(--radius-pill);
   background: rgba(217, 173, 88, 0.16);

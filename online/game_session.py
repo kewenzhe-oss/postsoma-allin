@@ -18,6 +18,8 @@ Security invariants:
 
 import asyncio
 import logging
+import json
+import re
 from dataclasses import asdict
 from typing import Dict, Any, List, Optional, Callable
 
@@ -60,7 +62,6 @@ class GameSession:
         self._hand_action_history: List[Dict[str, Any]] = []
         self._current_hand_number: int = 0
         self._current_hand_ai_thoughts: List[Dict[str, Any]] = []
-        self._mucked_ai_thoughts: List[Dict[str, Any]] = []
 
         # Event listeners (for broadcasting to websockets)
         self.on_event_generated: Optional[Callable[[EngineEvent], None]] = None
@@ -93,7 +94,10 @@ class GameSession:
             for ev in events:
                 if ev.type == "hand_started":
                     self._on_hand_started(ev)
-            self._restart_turn_timer()
+            if self.adapter.can_advance_street():
+                asyncio.create_task(self._run_all_in_runout())
+            else:
+                self._restart_turn_timer()
 
         elif self.adapter.current_turn_player_id() == AI_SEAT_ID and (not self.turn_timer_task or self.turn_timer_task.done()):
             self._restart_turn_timer()
@@ -191,10 +195,10 @@ class GameSession:
         # Track opponent actions in model
         if self._opponent_model and pid == self._opponent_model.player_id:
             reported_amt = ev.payload.get("bet_in_round", amount) if action.upper() in ("RAISE", "ALL_IN") else amount
-            self._opponent_model.observe_action(pid, action, reported_amt, ev.payload.get("stage", ""))
+            self._opponent_model.observe_action(pid, action, reported_amt, ev.payload.get("stage", ""), ev.payload.get("previous_bet"))
 
         # Track when AI raises (for fold-to-raise detection)
-        if pid == AI_SEAT_ID and action.upper() in ("RAISE", "ALL_IN"):
+        if pid == AI_SEAT_ID and (action.upper() == "RAISE" or (action.upper() == "ALL_IN" and ev.payload.get("bet_in_round", 0) > ev.payload.get("previous_bet", 0))):
             if self._opponent_model:
                 self._opponent_model.observe_ai_raised()
 
@@ -229,10 +233,9 @@ class GameSession:
                 if holes:
                     showdown_detail = f" showed [{holes}{', ' + hdesc if hdesc else ''}]"
 
-        heuristic_tip = _heuristic_reflection(bool(ai_won), ended_by, self._opponent_model.summarize() if self._opponent_model else None)
         reflection_note = (
             f"H#{hand_number}: opp line [{opp_line}] -> {ended_by}{showdown_detail} "
-            f"(my net {chips_delta:+d}). {heuristic_tip}".strip()
+            f"(my net {chips_delta:+d}).".strip()
         )
         self._last_ai_outcome = (hand_number, won_flag, chips_delta, reflection_note)
         self._decision_memory.update_outcome(
@@ -246,19 +249,9 @@ class GameSession:
         if self._opponent_model and reflection_note:
             self._opponent_model.add_note(reflection_note)
         if self._current_hand_ai_thoughts:
-            if ended_by == "showdown":
-                for thought_payload in self._current_hand_ai_thoughts:
-                    thought_payload["revealed_at"] = "showdown"
-                    self._broadcast_ai_thought_payload(thought_payload)
-            else:
-                for thought_payload in self._current_hand_ai_thoughts:
-                    thought_payload["revealed_at"] = "game_over"
-                    self._mucked_ai_thoughts.append(thought_payload)
-                ev_locked = self.adapter._add_event("ai_thought_locked", {
-                    "hand_number": hand_number,
-                    "ended_by": ended_by or "fold",
-                })
-                self._dispatch_events([ev_locked])
+            for thought_payload in self._current_hand_ai_thoughts:
+                thought_payload["revealed_at"] = "hand_finished"
+                self._broadcast_ai_thought_payload(thought_payload)
             self._current_hand_ai_thoughts = []
 
     # ── AI turn ───────────────────────────────────────────────────────────────
@@ -333,18 +326,16 @@ class GameSession:
                 await asyncio.sleep(0)
 
                 version = (request.hand_number, request.stage, len(self.adapter.event_log()))
-                last_fallback_decision = None
                 for attempt in range(2):
                     decision = await _ai_engine.decide(request, self.ai_config)
                     current = self.adapter.get_public_state()
                     if (self._current_hand_number, current.stage, len(self.adapter.event_log())) != version or self.adapter.current_turn_player_id() != AI_SEAT_ID:
                         return
                     if decision.parse_status == "emergency_fallback":
-                        last_fallback_decision = decision
                         continue
                     profile = self._opponent_model.summarize() if self._opponent_model else None
-                    reason_text = decision.reason or _default_thought(decision.action, request)
-                    tags_list = list(decision.strategy_tags) if decision.strategy_tags else (list(profile.tendency_labels[:2]) if profile else [])
+                    reason_text = decision.reason or 'No explanation provided by the model.'
+                    tags_list = list(decision.strategy_tags)
                     entry = DecisionMemoryEntry(hand_number=request.hand_number, stage=request.stage,
                         action=decision.action, amount=decision.amount, reason=reason_text,
                         strategy_tags=tags_list, opponent_profile_labels=profile.tendency_labels if profile else [],
@@ -372,16 +363,6 @@ class GameSession:
                         self._decision_memory.update_outcome(outcome[0], outcome[1], outcome[2], outcome[3])
                     return
 
-                # If LLM failed or timed out on both attempts, execute the poker fallback action
-                # (CHECK if no bet to call, otherwise FOLD) so the table does not stall.
-                if last_fallback_decision and self.submit_action(AI_SEAT_ID, last_fallback_decision.action, last_fallback_decision.amount):
-                    logger.warning(
-                        "AI turn executed fallback action %s (reason=%s)",
-                        last_fallback_decision.action,
-                        last_fallback_decision.fallback_reason,
-                    )
-                    return
-
                 self._dispatch_events([self.adapter._add_event("ai_unavailable", {"message": "AI 连接或响应异常，牌局暂停。请重新连接以重试。"})])
 
             except asyncio.CancelledError:
@@ -402,7 +383,7 @@ class GameSession:
         ai_player = next((p for p in pub.players if p.player_id == AI_SEAT_ID), None)
         opponent = next((p for p in pub.players if p.player_id != AI_SEAT_ID), None)
 
-        to_call = max(0, pub.current_bet - (ai_player.bet_in_round if ai_player else 0))
+        to_call = min(ai_player.chips, max(0, pub.current_bet - ai_player.bet_in_round)) if ai_player else 0
 
         # Build opponent profile summary
         profile_summary = None
@@ -428,12 +409,14 @@ class GameSession:
             small_blind=pub.small_blind,
             big_blind=pub.big_blind,
             available_actions=[
-                {"action": a.action, "min_amount": a.min_amount, "max_amount": a.max_amount}
+                {"action": a.action, "amount": a.amount, "min_amount": a.min_amount, "max_amount": a.max_amount}
                 for a in available
             ],
             action_history=list(self._hand_action_history),
             opponent_profile_summary=profile_summary,
             previous_ai_notes=self._decision_memory.format_for_prompt(n=3),
+            ai_total_bet=ai_player.total_bet if ai_player else 0,
+            opponent_total_bet=opponent.total_bet if opponent else 0,
             position="button/small blind (acts first preflop, last postflop)" if pub.dealer_player_id == AI_SEAT_ID else "big blind (acts last preflop, first postflop)",
         )
 
@@ -478,11 +461,6 @@ class GameSession:
 
     def _end_game(self, deciding_hand_data: Optional[Dict[str, Any]] = None):
         self.adapter._game_over = True
-        if self._mucked_ai_thoughts:
-            for thought_payload in self._mucked_ai_thoughts:
-                self._broadcast_ai_thought_payload(thought_payload)
-            self._mucked_ai_thoughts = []
-
         final_stacks = []
         for p in self.adapter.table.players:
             dn = next(
@@ -500,19 +478,53 @@ class GameSession:
             )
             winner_payload = {"player_id": winner_player.name, "display_name": dn, "chips": winner_player.chips}
 
+        stats = self._opponent_model.match_statistics() if self._opponent_model else None
+        review_enabled = bool(stats and self.mode == 'human_vs_ai' and self.ai_config)
         game_over_ev = self.adapter._add_event("game_over", {
             "winner": winner_payload,
             "final_stacks": final_stacks,
             "deciding_hand": deciding_hand_data,
+            "player_statistics": stats,
+            "review_status": 'pending' if review_enabled else 'unavailable',
         })
         self._dispatch_events([game_over_ev])
         state_ev = self.adapter._add_event("state_updated", {"trigger": "game_over"})
         self._dispatch_events([state_ev])
+        if review_enabled:
+            try:
+                asyncio.get_running_loop().create_task(self._generate_match_review(stats))
+            except RuntimeError:
+                self._dispatch_events([self.adapter._add_event('ai_match_review', {'status': 'error'})])
+
+    async def _generate_match_review(self, stats: dict):
+        history = []
+        hand_number = 0
+        for event in self.adapter.event_log():
+            if event.type == 'hand_started':
+                hand_number = event.payload.get('hand_number', hand_number)
+            elif event.type == 'player_action_applied':
+                history.append({'hand': hand_number, 'player': 'human' if event.payload.get('player_id') == self._opponent_model.player_id else 'ai',
+                                'stage': event.payload.get('stage'), 'action': event.payload.get('action'),
+                                'amount': event.payload.get('amount')})
+        observations = {'statistics': stats, 'recent_actions': history[-100:], 'recent_hand_notes': self._opponent_model.summarize().recent_notes}
+        try:
+            raw = await _ai_engine.review_match(observations, self.ai_config)
+            match = re.search(r'\{[\s\S]*\}', raw)
+            review = json.loads(match.group()) if match else {}
+            if not isinstance(review, dict) or not all(isinstance(review.get(lang), str) and review[lang].strip() for lang in ('zh', 'en')):
+                raise ValueError('Invalid match review')
+            payload = {'status': 'ready', 'zh': review['zh'][:3000], 'en': review['en'][:3000]}
+        except Exception:
+            logger.warning('AI match review failed for room %s', self.room_id, exc_info=True)
+            payload = {'status': 'error'}
+        self._dispatch_events([self.adapter._add_event('ai_match_review', payload)])
 
     # ── Next hand ─────────────────────────────────────────────────────────────
 
     def trigger_next_hand(self):
         """Immediately trigger next hand if the previous hand is finished, skipping remaining delay."""
+        if not self.adapter.get_public_state().can_start_next_hand:
+            return
         if self._delayed_start_task and not self._delayed_start_task.done():
             self._delayed_start_task.cancel()
         asyncio.create_task(self._start_hand_now())
@@ -537,7 +549,10 @@ class GameSession:
             for ev in events:
                 if ev.type == "hand_started":
                     self._on_hand_started(ev)
-            self._restart_turn_timer()
+            if self.adapter.can_advance_street():
+                asyncio.create_task(self._run_all_in_runout())
+            else:
+                self._restart_turn_timer()
         except ValueError as e:
             logger.warning("ValueError while starting next hand: %s", e)
 

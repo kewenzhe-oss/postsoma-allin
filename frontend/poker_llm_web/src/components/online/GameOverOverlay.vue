@@ -20,6 +20,20 @@
         </div>
       </div>
 
+      <section v-if="result.player_statistics" class="match-review" aria-live="polite">
+        <h3>{{ isZh ? '你的对局复盘' : 'Your match review' }}</h3>
+        <p class="review-sample">{{ isZh ? `样本：${result.player_statistics.hands} 手` : `Sample: ${result.player_statistics.hands} hands` }}</p>
+        <div class="review-stats">
+          <div><span>{{ isZh ? '入池率' : 'VPIP' }}</span><strong>{{ rate(result.player_statistics.vpip_count, result.player_statistics.hands) }}</strong><small>{{ result.player_statistics.vpip_count }}/{{ result.player_statistics.hands }}</small></div>
+          <div><span>{{ isZh ? '翻前加注率' : 'Preflop raise' }}</span><strong>{{ rate(result.player_statistics.pfr_count, result.player_statistics.hands) }}</strong><small>{{ result.player_statistics.pfr_count }}/{{ result.player_statistics.hands }}</small></div>
+          <div><span>{{ isZh ? '面对加注弃牌' : 'Fold facing raise' }}</span><strong>{{ rate(result.player_statistics.fold_to_pressure_count, result.player_statistics.pressure_opportunities) }}</strong><small>{{ result.player_statistics.fold_to_pressure_count }}/{{ result.player_statistics.pressure_opportunities }}</small></div>
+        </div>
+        <h4>{{ isZh ? 'AI 的观察' : 'AI observations' }}</h4>
+        <p v-if="result.review?.status === 'ready'" class="review-text">{{ isZh ? result.review.zh : result.review.en }}</p>
+        <p v-else-if="result.review?.status === 'pending'" class="review-text">{{ isZh ? 'AI 正在整理本场表现…' : 'AI is reviewing your match…' }}</p>
+        <p v-else class="review-text">{{ isZh ? 'AI 复盘暂时无法生成，你仍可查看本场统计。' : 'AI review is unavailable. Your match statistics are shown above.' }}</p>
+      </section>
+
       <!-- Deciding Hand Recap -->
       <div class="deciding-hand-recap" v-if="result.deciding_hand">
         <div class="recap-header">
@@ -127,6 +141,8 @@ const props = defineProps({
 
 const emit = defineEmits(['rematch', 'back-to-lobby'])
 
+const rate = (count, total) => total > 0 ? `${Math.round(count / total * 100)}%` : '—'
+
 const isDecidingWinningCard = (cardStr) => {
   const winningCards = props.result.deciding_hand?.winning_cards
   if (!winningCards || winningCards.length === 0 || !cardStr) return false
@@ -145,6 +161,15 @@ const isDecidingPlayerWinner = (playerId) => {
 </script>
 
 <style scoped>
+.match-review { text-align:left; display:flex; flex-direction:column; gap:.65rem; padding:1rem; border:1px solid var(--border-subtle); border-radius:var(--radius-md); }
+.match-review h3, .match-review h4, .match-review p { margin:0; }
+.match-review h3 { color:var(--text-primary); font-size:1rem; }
+.match-review h4 { color:var(--text-primary); font-size:.9rem; }
+.review-sample, .review-text { color:var(--text-secondary); font-size:.85rem; line-height:1.5; white-space:pre-wrap; }
+.review-stats { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.5rem; }
+.review-stats div { display:flex; flex-direction:column; gap:.2rem; }
+.review-stats span, .review-stats small { color:var(--text-secondary); font-size:.7rem; }
+.review-stats strong { color:var(--accent-turn); font-size:1.05rem; }
 /* ── Overlay: covers table area, not header ──────── */
 .game-over-overlay {
   position: absolute;

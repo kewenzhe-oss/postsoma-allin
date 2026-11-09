@@ -33,6 +33,8 @@ class ConnectionManager:
             return
         events = session.adapter.event_log()
         for ev in events:
+            if ev.type == "ai_unavailable":
+                continue
             if ev.type == "private_hole_cards":
                 target_id = ev.payload.get("player_id")
                 if target_id != player_id:

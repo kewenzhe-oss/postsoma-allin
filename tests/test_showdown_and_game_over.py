@@ -163,3 +163,37 @@ def test_showdown_snapshot_keeps_original_cards_and_matching_rank():
     p1.hand=[]
     assert ev.payload['community_cards']==board
     assert ev.payload['showdown_info']['players'][0]['hole_cards']==holes[0]
+@pytest.mark.asyncio
+async def test_short_small_blind_starts_automatic_runout(monkeypatch):
+    from unittest.mock import AsyncMock
+    import asyncio
+    from online.game_session import GameSession
+
+    session = GameSession('short-blind', 'human_vs_ai')
+    session.add_player('ai_seat', 'AI')
+    session.add_player('hero', 'Hero')
+    session.adapter.table.players[0].chips = 3
+    dispatched = []
+    session.on_event_generated = dispatched.append
+    real_sleep = asyncio.sleep
+    monkeypatch.setattr('online.game_session.asyncio.sleep', AsyncMock())
+    session.check_start()
+    await real_sleep(0)
+    assert any(event.type == 'hand_finished' for event in dispatched)
+    result = next(event.payload for event in dispatched if event.type == 'hand_finished')
+    assert result['ended_by'] == 'showdown'
+    assert sum(player.chips for player in session.adapter.table.players) == 1003
+    if session._delayed_start_task:
+        session._delayed_start_task.cancel()
+
+
+def test_short_big_blind_gives_small_blind_valid_response():
+    from online.engine_adapter import OnlinePokerEngineAdapter
+
+    adapter = OnlinePokerEngineAdapter()
+    adapter.add_player('small', 'Small')
+    adapter.add_player('big', 'Big')
+    adapter.table.players[1].chips = 3
+    adapter.start_hand()
+    assert adapter.can_advance_street()
+    assert adapter.table.current_bet == 5

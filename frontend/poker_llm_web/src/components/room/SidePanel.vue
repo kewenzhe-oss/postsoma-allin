@@ -16,7 +16,7 @@
         <el-tab-pane v-if="showAiTab" :label="isZh ? 'AI 观察' : 'AI Notes'" name="insights">
           <div class="insights-scroll-area">
             <p class="insights-boundary">
-              {{ isZh ? '暗牌博弈保护：当前手牌进行中或弃牌盖牌（Muck）时，AI 底牌牌力与意图严格保密；仅在进入摊牌（Showdown）或整局对战结束后公开复盘。' : 'Hidden-information protection: AI hand strength and intentions stay sealed during active play and mucked hands, unlocking only at Showdown or Match End.' }}
+              {{ isZh ? '每手结束后查看 AI 的行动与判断；当前手的判断会在结束后公开。' : 'Review the AI’s actions and reasoning after each hand. The current hand stays private until it ends.' }}
             </p>
             <div v-if="isHandInProgress" class="insight-card is-locked-card">
               <div class="insight-header">
@@ -25,23 +25,13 @@
                 </span>
               </div>
               <div class="insight-body">
-                {{ isZh ? '当前手牌尚未结束，为避免泄露 AI 手牌牌力与诈唬意图，本手思考将在摊牌或整局结束后解锁。' : 'Current hand is still in progress. AI reasoning is sealed to prevent leaking hand strength or bluff intent.' }}
+                {{ isZh ? '本手结束后即可查看 AI 的判断；之前的复盘仍可查看。' : 'This hand’s notes will appear when it ends. Earlier reviews remain available.' }}
               </div>
             </div>
-            <div v-if="aiReasonings.length === 0 && lockedHandNumbers.length === 0 && !isHandInProgress" class="empty-state">
-              {{ isZh ? '进入摊牌（Showdown）或整局结束后，将在此解锁 AI 决策复盘…' : 'AI decision reviews unlock after a hand reaches Showdown or the match concludes…' }}
+            <div v-if="aiReasonings.length === 0 && !isHandInProgress" class="empty-state">
+              {{ isZh ? 'AI 行动的复盘会在本手结束后显示。' : 'AI decision reviews appear after the hand ends.' }}
             </div>
-            <div v-if="aiReasonings.length > 0 || lockedHandNumbers.length > 0" class="reasoning-list">
-              <div v-for="handNum in lockedHandNumbers" :key="`locked-${handNum}`" class="insight-card is-mucked-card">
-                <div class="insight-header">
-                  <span class="action-badge mucked-badge">
-                    {{ isZh ? `#${handNum} · 已盖牌保密` : `#${handNum} · Mucked (Sealed)` }}
-                  </span>
-                </div>
-                <div class="insight-body">
-                  {{ isZh ? '本手以弃牌结束（未亮牌），AI 底牌思考将在整局比赛结束后公开。' : 'Ended by fold without showdown. Sealed until match end.' }}
-                </div>
-              </div>
+            <div v-if="aiReasonings.length > 0" class="reasoning-list">
               <div v-for="(item, idx) in aiReasonings" :key="idx" class="insight-card">
                 <div class="insight-header">
                   <span class="action-badge">
@@ -50,7 +40,7 @@
                     {{ item.action }}
                   </span>
                   <span class="reveal-source-tag">
-                    {{ item.revealedAt === 'game_over' ? (isZh ? '赛后复盘' : 'Post-Match') : (isZh ? '摊牌公开' : 'Showdown') }}
+                    {{ isZh ? '本手复盘' : 'Hand review' }}
                   </span>
                 </div>
                 <div class="insight-body">{{ cleanReasoningText(item.reasoning) }}</div>
@@ -80,8 +70,8 @@ const props = defineProps({
 
 const onlineStore = useOnlineStore()
 const isOpen = ref(false)
-defineExpose({toggle:()=>{isOpen.value=!isOpen.value}})
 const activeTab = ref('history')
+defineExpose({ toggle: () => { isOpen.value = !isOpen.value }, openInsights: () => { activeTab.value = 'insights'; isOpen.value = true } })
 
 const showAiTab = computed(() => {
   return onlineStore.roomMode === 'human_vs_ai' ||
@@ -95,30 +85,6 @@ const isHandInProgress = computed(() =>
   !onlineStore.latestHandResult &&
   !props.isGameOver
 )
-
-const unlockedHandNumbers = computed(() => {
-  const set = new Set()
-  for (const e of props.rawEventLog) {
-    if (e.type === 'ai_thought' && e.payload?.hand_number) {
-      set.add(e.payload.hand_number)
-    }
-  }
-  return set
-})
-
-const lockedHandNumbers = computed(() => {
-  if (props.isGameOver) return []
-  const nums = []
-  for (const e of props.rawEventLog) {
-    if (e.type === 'ai_thought_locked' && e.payload?.hand_number) {
-      const hn = e.payload.hand_number
-      if (!unlockedHandNumbers.value.has(hn) && !nums.includes(hn)) {
-        nums.push(hn)
-      }
-    }
-  }
-  return nums.reverse()
-})
 
 const aiReasonings = computed(() => {
   const activeHn = isHandInProgress.value ? currentHandNumber.value : null

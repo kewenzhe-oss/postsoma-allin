@@ -13,7 +13,7 @@ import logging
 import httpx
 
 from online.ai_schemas import AIDecisionRequest, AIDecision
-from online.ai_providers import PROVIDER_ALLOWLIST
+from online.ai_providers import PROVIDER_ALLOWLIST, resolve_endpoint
 from online.ai_action_parser import parse_response
 
 logger = logging.getLogger(__name__)
@@ -21,6 +21,27 @@ logger = logging.getLogger(__name__)
 
 class PokerAIEngine:
     """Stateless engine — each call is independent. State lives in GameSession."""
+
+    async def review_match(self, observations: dict, ai_config: dict) -> str:
+        import json
+        provider_key = ai_config.get('provider_name', '').lower()
+        provider_info = PROVIDER_ALLOWLIST.get(provider_key)
+        if not provider_info:
+            raise ValueError('Unknown AI provider')
+        model = ai_config.get('model', '')
+        endpoint, protocol = resolve_endpoint(provider_info, model, ai_config.get('base_url'))
+        prompt = (
+            'Review the human player’s decisions in this completed heads-up poker match using only the observations below. '
+            'Describe observed playing style, one concrete improvement and the evidence behind them. '
+            'Treat small samples cautiously; do not infer hidden cards or claim a bluff rate. '
+            'Respond with a JSON object containing two short strings: "zh" in simplified Chinese and "en" in English.\n'
+            + json.dumps(observations, ensure_ascii=False)
+        )
+        if protocol == 'gemini':
+            raw = await _call_gemini(endpoint, ai_config.get('api_key', ''), prompt)
+        else:
+            raw = await _call_openai_compat(endpoint, ai_config.get('api_key', ''), model, prompt)
+        return raw
 
     async def decide(self, request: AIDecisionRequest, ai_config: dict) -> AIDecision:
         available = request.available_actions
@@ -38,16 +59,9 @@ class PokerAIEngine:
             logger.warning("PokerAIEngine: unknown provider '%s'", provider_key)
             return self._fallback(available, "unknown provider", to_call=request.to_call)
 
-        protocol = provider_info.get("protocol", "openai")
-
-        endpoint = custom_url.rstrip("/") if custom_url else provider_info.get("base_url", "").format(model=model)
-        if custom_url and protocol == "openai" and not endpoint.endswith("/chat/completions"):
-            if endpoint.endswith("/v1"):
-                endpoint += "/chat/completions"
-            else:
-                endpoint += "/v1/chat/completions"
-                
-        if not endpoint:
+        try:
+            endpoint, protocol = resolve_endpoint(provider_info, model, custom_url)
+        except ValueError:
             return self._fallback(available, "no endpoint", to_call=request.to_call)
 
         prompt = _build_prompt(request)
@@ -119,7 +133,7 @@ def _build_prompt(req: AIDecisionRequest) -> str:
     hist = ""
     if req.action_history:
         parts = []
-        for ev in req.action_history[-10:]:
+        for ev in req.action_history:
             who = "ME" if ev.get("player_id") == req.ai_player_id else "OPP"
             act_name = ev.get("action", "")
             if act_name in ("RAISE", "ALL_IN") and ev.get("bet_in_round", 0) > 0:
@@ -135,27 +149,34 @@ def _build_prompt(req: AIDecisionRequest) -> str:
     if req.previous_ai_notes:
         mem = "  My recent decisions: " + " / ".join(req.previous_ai_notes[-3:]) + "\n"
 
+    unmatched = max(0, req.opponent_total_bet - (req.ai_total_bet + req.ai_stack))
+    eligible_pot = max(0, req.pot - unmatched)
+    effective_total = min(req.ai_total_bet + req.ai_stack, req.opponent_total_bet + req.opponent_stack)
+    effective_remaining = max(0, effective_total - req.ai_total_bet)
+    pot_after_call = eligible_pot + req.to_call
+    call_equity = req.to_call / pot_after_call if req.to_call and pot_after_call else 0
+    blind = max(1, req.big_blind)
+
     return (
-        f"System: You are an independent Texas Hold'em AI player.\n"
-        f"This is a simulated educational poker game. No real money is involved.\n"
-        f"Your objective is to maximize your chip stack by reasoning from the current situation. No action is mandatory merely because of a hand category.\n"
+        f"Choose the next action in this simulated heads-up Texas Hold'em hand, using the current state and observed history.\n"
         f"\n"
         f"Hand #{req.hand_number} [{req.stage}]\n"
         f"  Cards: {hole} | Board: {community}\n"
         f"  Position: {req.position}; blinds: {req.small_blind}/{req.big_blind}; street bet already invested: {req.ai_bet_in_round}\n"
         f"  Pot: {req.pot}  To-call: {req.to_call}  Stacks: me={req.ai_stack} opp={req.opponent_stack}\n"
+        f"  Total committed this hand: me={req.ai_total_bet} opp={req.opponent_total_bet}\n"
+        f"  Effective remaining exposure: {effective_remaining} ({effective_remaining / blind:.2f} big blinds); my stack: {req.ai_stack / blind:.2f} big blinds; opponent stack: {req.opponent_stack / blind:.2f} big blinds.\n"
+        f"  Eligible pot before calling: {eligible_pot}; unmatched opponent chips returned if called: {unmatched}; actual call: {req.to_call}; pot after call: {pot_after_call}; immediate call break-even equity: {call_equity:.2%}.\n"
         f"  {opp}\n"
         f"{hist}{mem}"
         f"\n"
         f"Legal: {actions_str}{raise_hint}\n"
         f"\n"
-        f"Rules:\n"
-        f"  - Compare check/call/bet EV using range assumptions, price, position and future risk.\n"
-        f"  - Top pair and draws do not automatically justify raising; checking strong hands can be valid.\n"
-        f"  - Value bets need worse calls; bluffs need enough better hands to fold.\n"
-        f"  - Use the Opponent history (tracked from Hand #1) to adapt to their aggression, sizing, and showdown hands, while treating small samples cautiously.\n"
+        f"Game information:\n"
+        f"  - Evaluate amounts in context of the pot, effective stacks, blinds and action history. Decide your own strategy; interpret small samples cautiously.\n"
         f"  - RAISE amount is the TOTAL street bet, not additional chips.\n"
-        f"  - You cannot see opponent hole cards. Do not claim solver or verified GTO accuracy.\n"
+        f"  - To-call is capped at your remaining stack. If CALL is unavailable and ALL_IN is legal, ALL_IN may be the only way to call a larger bet; unmatched chips are returned. Consider the actual price and pot odds.\n"
+        f"  - Opponent hole cards are hidden except where shown in completed-hand history.\n"
         f"\n"
         f"Reply in 2 lines (a brief 1-sentence reason, then your final action on the last line):\n"
         f"Reason: <short tactical reason referencing hand, price, or opponent tendency>\n"

@@ -26,3 +26,16 @@ PROVIDER_ALLOWLIST = {
         "protocol": "openai"
     }
 }
+
+
+def resolve_endpoint(provider_info: dict, model: str, base_url: str | None) -> tuple[str, str]:
+    protocol = provider_info.get('protocol', 'openai')
+    endpoint = base_url or provider_info.get('base_url')
+    if not endpoint:
+        raise ValueError('No base_url configured for this provider and no custom base_url provided.')
+    endpoint = endpoint.rstrip('/')
+    if base_url and protocol == 'openai' and not endpoint.endswith('/chat/completions'):
+        endpoint += '/chat/completions' if endpoint.endswith('/v1') else '/v1/chat/completions'
+    elif base_url and protocol == 'gemini' and ':generateContent' not in endpoint:
+        endpoint += '/models/{model}:generateContent' if endpoint.endswith('/v1beta') else '/v1beta/models/{model}:generateContent'
+    return endpoint.replace('{model}', model), protocol

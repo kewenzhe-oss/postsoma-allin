@@ -124,10 +124,15 @@ class PokerTable:
         self.acted_at_bet = {}
         self.log_action(bb_player, Action.BIG_BLIND, bb_amount, "")
 
+        if len(active_players) == 2 and (sb_player.all_in or bb_player.all_in):
+            self.current_bet = max(sb_amount, bb_amount)
+
         # 设置当前行动玩家
         self.current_player_idx = first_actor_pos
         while True:
-            if self.players[self.current_player_idx].is_active:
+            if self.players[self.current_player_idx].is_active and not self.players[self.current_player_idx].all_in:
+                break
+            if all(p.all_in or not p.is_active for p in self.players):
                 break
             self.current_player_idx = (self.current_player_idx + 1) % len(self.players)
 

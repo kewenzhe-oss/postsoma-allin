@@ -408,6 +408,7 @@ export const useOnlineStore = defineStore('online', () => {
 
       } else if (data.type === 'engine_event') {
         const ev = data.event
+        if (rawEventLog.value.some(existing => existing.seq === ev.seq)) return
         rawEventLog.value.push(ev)
         handleEngineEventForHistory(ev)
 
@@ -417,7 +418,9 @@ export const useOnlineStore = defineStore('online', () => {
           latestGameResult.value = {
             winner: p.winner || null,
             final_stacks: p.final_stacks || [],
-            deciding_hand: p.deciding_hand || null
+            deciding_hand: p.deciding_hand || null,
+            player_statistics: p.player_statistics || null,
+            review: { status: p.review_status || 'unavailable' }
           }
 
           // If a hand just concluded, defer the game over modal popup by 3.5 seconds
@@ -431,6 +434,10 @@ export const useOnlineStore = defineStore('online', () => {
           } else {
             isGameOverPending.value = false
           }
+        }
+
+        if (ev.type === 'ai_match_review' && latestGameResult.value) {
+          latestGameResult.value.review = ev.payload || { status: 'error' }
         }
 
         // ── hand_finished ─────────────────────────────────
