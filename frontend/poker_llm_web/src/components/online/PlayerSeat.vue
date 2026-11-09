@@ -368,17 +368,15 @@ const shouldShowCards = computed(() => true)
  .seat-wrapper.is-opponent .bet-chip { top:50%; bottom:auto; right:auto; left:calc(100% + .6rem); transform:translateY(-50%); width:auto; min-width:40px; height:40px; padding:0 .55rem; border-radius:var(--radius-pill); font-size:12px; }
 }
 @media (max-width:720px) {
- .seat-wrapper { flex-direction:column; gap:0; }
+ .seat-wrapper { flex-direction:row; align-items:center; gap:.55rem; }
  .info-card { padding:.25rem .65rem; min-width:125px; }
  .cards-area { gap:5px; }
  .cards-area :deep(.card-view) { width:38px; }
- .seat-wrapper:not(.is-opponent) .cards-area { margin:0 0 .25rem; }
- .seat-wrapper.is-opponent .cards-area { margin:.25rem 0 0; }
+ .seat-wrapper:not(.is-opponent) .cards-area,
+ .seat-wrapper.is-opponent .cards-area { margin:0; }
+ .seat-wrapper:not(.is-opponent) .bet-chip,
+ .seat-wrapper.is-opponent .bet-chip { top:50%; bottom:auto; right:auto; left:calc(100% + .4rem); transform:translateY(-50%); width:auto; min-width:34px; height:32px; padding:0 .45rem; border-radius:var(--radius-pill); font-size:11px; }
  .status-tag.turn-tag { display:none; }
-}
-@media (max-width:720px) and (max-height:740px) {
- .seat-wrapper { flex-direction:row; gap:.6rem; }
- .seat-wrapper:not(.is-opponent) .cards-area, .seat-wrapper.is-opponent .cards-area { margin:0; }
 }
 @media (min-width:721px) and (max-height:500px) {
  .info-card { padding:.25rem .6rem; min-width:120px; }

@@ -252,7 +252,7 @@ const centerStatus = computed(() => {
 
 .center-zone {
   position:relative;
-  padding-bottom:3rem;
+  padding-bottom:1rem;
   flex: 1;
   display: flex;
   align-items: center;
@@ -432,11 +432,11 @@ const centerStatus = computed(() => {
 }
 
 @media (max-width:720px) {
- .table-stage-container { height:100%; padding:.35rem .5rem; align-items:stretch; }
- .table-surface { min-height:0; max-height:none; height:100%; aspect-ratio:auto; border-radius:34px; border-width:6px; padding:.5rem; gap:.25rem; }
+ .table-stage-container { height:100%; padding:.25rem .45rem; align-items:stretch; }
+ .table-surface { min-height:0; max-height:none; height:100%; aspect-ratio:auto; border-radius:30px; border-width:5px; padding:.4rem .5rem; gap:.2rem; }
  .seat-top,.seat-bottom { margin:0; }
  .seat-top { gap:.2rem; }
- .center-zone { gap:.3rem; padding:.25rem 0 3rem; }
+ .center-zone { gap:.25rem; padding:.15rem 0; }
  .center-status { font-size:.75rem; padding:.2rem .6rem; }
  .center-zone :deep(.card-view), .center-zone :deep(.card-placeholder) { width:40px; }
  .center-zone :deep(.cards-row) { gap:4px; }
@@ -445,7 +445,7 @@ const centerStatus = computed(() => {
  .seat-top :deep(.status-content) { font-size:.75rem; }
  .seat-top :deep(.pulse-ring) { display:none; }
 }
-@media (max-width:720px) and (max-height:740px) {
+@media (max-width:720px) {
  .center-zone :deep(.community-area) { flex-direction:row; flex-wrap:wrap; justify-content:center; gap:.35rem; }
  .center-zone :deep(.cards-row) { flex-basis:100%; justify-content:center; }
  .center-zone :deep(.pot-container) { flex-direction:row; gap:.35rem; padding:.25rem .6rem; }

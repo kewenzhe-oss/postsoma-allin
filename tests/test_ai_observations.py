@@ -200,3 +200,68 @@ def test_parser_extracts_reason_from_two_line_response():
     assert "Pot odds are 3:1" in res.reason
 
 
+@pytest.mark.asyncio
+async def test_ai_thoughts_sealed_mid_hand_and_on_fold_revealed_at_showdown_or_game_over(monkeypatch):
+    session = GameSession("seal-room", "human_vs_ai", {"provider_name": "openai", "model": "gpt-4o-mini", "api_key": "k"})
+    session._restart_turn_timer = lambda: None
+    session.add_player("hero", "Alice")
+    session.add_player("ai_seat", "AI")
+    events = session.adapter.start_hand()
+    session._on_hand_started(next(e for e in events if e.type == "hand_started"))
+
+    # Ensure it is AI's turn and choose a legal non-terminal action (CALL or CHECK)
+    if session.adapter.current_turn_player_id() == "hero":
+        session.submit_action("hero", "CALL")
+    legal_act = next(a.action for a in session.adapter.get_available_actions("ai_seat") if a.action in ("CALL", "CHECK"))
+    monkeypatch.setattr(module.asyncio, "sleep", AsyncMock())
+    monkeypatch.setattr(
+        module._ai_engine,
+        "decide",
+        AsyncMock(return_value=AIDecision(action=legal_act, reason="Strong pocket pair, flatting preflop", strategy_tags=["trap"])),
+    )
+
+    await session._ai_turn_routine()
+
+    # 1) Mid-hand: ai_thought MUST NOT be broadcast while hand is still active
+    assert not [e for e in session.adapter.event_log() if e.type == "ai_thought"]
+
+    # 2) Hand ends by fold (mucked): ai_thought stays sealed, ai_thought_locked is emitted
+    session._on_hand_finished(EngineEvent(
+        seq=50,
+        type="hand_finished",
+        payload={"hand_number": 1, "ended_by": "fold", "winners": [{"player_id": "ai_seat"}]},
+    ))
+    assert not [e for e in session.adapter.event_log() if e.type == "ai_thought"]
+    assert any(e.type == "ai_thought_locked" and e.payload["hand_number"] == 1 for e in session.adapter.event_log())
+
+    # 3) Hand #2 reaches showdown: thoughts for Hand #2 unlock immediately with revealed_at='showdown'
+    session._on_hand_started(EngineEvent(seq=51, type="hand_started", payload={"hand_number": 2}))
+    session._current_hand_ai_thoughts.append({
+        "hand_number": 2,
+        "stage": "river",
+        "ai_player_id": "ai_seat",
+        "action": "CALL",
+        "amount": 20,
+        "thought_summary": "Bluff-catching river with second pair",
+        "confidence": 0.7,
+        "strategy_tags": ["bluff-catch"],
+        "parse_status": "json_ok",
+    })
+    session._on_hand_finished(EngineEvent(
+        seq=52,
+        type="hand_finished",
+        payload={"hand_number": 2, "ended_by": "showdown", "winners": [{"player_id": "ai_seat"}]},
+    ))
+    thoughts_after_sd = [e for e in session.adapter.event_log() if e.type == "ai_thought"]
+    assert len(thoughts_after_sd) == 1
+    assert thoughts_after_sd[0].payload["hand_number"] == 2
+    assert thoughts_after_sd[0].payload["revealed_at"] == "showdown"
+
+    # 4) Game over unlocks previously mucked Hand #1 thoughts with revealed_at='game_over'
+    session._end_game()
+    all_thoughts = [e for e in session.adapter.event_log() if e.type == "ai_thought"]
+    assert len(all_thoughts) == 2
+    mucked_revealed = next(e for e in all_thoughts if e.payload["hand_number"] == 1)
+    assert mucked_revealed.payload["revealed_at"] == "game_over"
+
+

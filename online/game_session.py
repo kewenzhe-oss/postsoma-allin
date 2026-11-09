@@ -59,6 +59,8 @@ class GameSession:
         # Per-hand action history (public actions only)
         self._hand_action_history: List[Dict[str, Any]] = []
         self._current_hand_number: int = 0
+        self._current_hand_ai_thoughts: List[Dict[str, Any]] = []
+        self._mucked_ai_thoughts: List[Dict[str, Any]] = []
 
         # Event listeners (for broadcasting to websockets)
         self.on_event_generated: Optional[Callable[[EngineEvent], None]] = None
@@ -167,6 +169,7 @@ class GameSession:
     def _on_hand_started(self, ev: EngineEvent):
         self._current_hand_number = ev.payload.get("hand_number", self._current_hand_number + 1)
         self._hand_action_history = []
+        self._current_hand_ai_thoughts = []
         self._ai_hand_start_stack = next((p.chips + p.bet_in_round for p in self.adapter.table.players if p.name == AI_SEAT_ID), 0)
         if self._opponent_model:
             self._opponent_model.new_hand(self._current_hand_number)
@@ -242,6 +245,21 @@ class GameSession:
         # Add a note to opponent model
         if self._opponent_model and reflection_note:
             self._opponent_model.add_note(reflection_note)
+        if self._current_hand_ai_thoughts:
+            if ended_by == "showdown":
+                for thought_payload in self._current_hand_ai_thoughts:
+                    thought_payload["revealed_at"] = "showdown"
+                    self._broadcast_ai_thought_payload(thought_payload)
+            else:
+                for thought_payload in self._current_hand_ai_thoughts:
+                    thought_payload["revealed_at"] = "game_over"
+                    self._mucked_ai_thoughts.append(thought_payload)
+                ev_locked = self.adapter._add_event("ai_thought_locked", {
+                    "hand_number": hand_number,
+                    "ended_by": ended_by or "fold",
+                })
+                self._dispatch_events([ev_locked])
+            self._current_hand_ai_thoughts = []
 
     # ── AI turn ───────────────────────────────────────────────────────────────
 
@@ -331,20 +349,24 @@ class GameSession:
                         action=decision.action, amount=decision.amount, reason=reason_text,
                         strategy_tags=tags_list, opponent_profile_labels=profile.tendency_labels if profile else [],
                         confidence=decision.confidence)
+                    thought_payload = {
+                        "hand_number": request.hand_number,
+                        "stage": request.stage,
+                        "ai_player_id": AI_SEAT_ID,
+                        "action": decision.action,
+                        "amount": decision.amount,
+                        "thought_summary": reason_text[:300],
+                        "confidence": decision.confidence,
+                        "strategy_tags": tags_list,
+                        "parse_status": decision.parse_status,
+                    }
+                    self._current_hand_ai_thoughts.append(thought_payload)
                     # Apply and confirm first. submit_action processes hand results synchronously.
                     if not self.submit_action(AI_SEAT_ID, decision.action, decision.amount):
+                        if self._current_hand_ai_thoughts and self._current_hand_ai_thoughts[-1] is thought_payload:
+                            self._current_hand_ai_thoughts.pop()
                         continue
                     self._decision_memory.record(entry)
-                    self._broadcast_ai_thought(AIThoughtEvent(
-                        room_id=self.room_id,
-                        hand_number=request.hand_number,
-                        stage=request.stage,
-                        ai_player_id=AI_SEAT_ID,
-                        thought_summary=reason_text,
-                        confidence=decision.confidence,
-                        strategy_tags=tags_list,
-                        parse_status=decision.parse_status,
-                    ))
                     outcome = getattr(self, '_last_ai_outcome', None)
                     if outcome and outcome[0] == request.hand_number:
                         self._decision_memory.update_outcome(outcome[0], outcome[1], outcome[2], outcome[3])
@@ -418,7 +440,7 @@ class GameSession:
     def _broadcast_ai_thought(self, thought: AIThoughtEvent):
         """Dispatch ai_thought as an EngineEvent so connection_manager forwards it."""
         # Only send thought_summary, confidence, tags — not raw prompt or API key
-        ev = self.adapter._add_event("ai_thought", {
+        self._broadcast_ai_thought_payload({
             "hand_number": thought.hand_number,
             "stage": thought.stage,
             "ai_player_id": thought.ai_player_id,
@@ -427,6 +449,10 @@ class GameSession:
             "strategy_tags": thought.strategy_tags,
             "parse_status": thought.parse_status,
         })
+
+    def _broadcast_ai_thought_payload(self, payload: Dict[str, Any]):
+        """Dispatch a sanitized ai_thought payload event."""
+        ev = self.adapter._add_event("ai_thought", dict(payload))
         self._dispatch_events([ev])
 
     # ── Game end ──────────────────────────────────────────────────────────────
@@ -452,6 +478,10 @@ class GameSession:
 
     def _end_game(self, deciding_hand_data: Optional[Dict[str, Any]] = None):
         self.adapter._game_over = True
+        if self._mucked_ai_thoughts:
+            for thought_payload in self._mucked_ai_thoughts:
+                self._broadcast_ai_thought_payload(thought_payload)
+            self._mucked_ai_thoughts = []
 
         final_stacks = []
         for p in self.adapter.table.players:

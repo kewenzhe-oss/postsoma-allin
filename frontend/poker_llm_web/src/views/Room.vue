@@ -217,17 +217,17 @@ function cleanupRoomState() {
   flex:1;
   min-height:0;
   display:grid;
-  grid-template-rows:minmax(0,1fr) var(--action-height);
-  --action-height:310px;
+  grid-template-rows:minmax(0,1fr) auto;
   position:relative;
-  overflow:auto;
+  overflow-y:auto;
+  overflow-x:hidden;
   overflow-anchor:none;
 }
-.table-container { min-height:340px; display:flex; flex-direction:column; }
+.table-container { min-height:240px; display:flex; flex-direction:column; }
 .action-panel-zone {
-  height:100%; min-height:0; overflow-y:auto; overflow-x:hidden;
-  padding:.35rem 1rem max(.5rem,env(safe-area-inset-bottom));
-  display:flex; flex-direction:column; align-items:center;
+  height:auto; min-height:0; overflow:visible;
+  padding:.25rem 1rem max(.5rem,env(safe-area-inset-bottom));
+  display:flex; flex-direction:column; align-items:center; justify-content:flex-end;
   position:relative; z-index:50;
 }
 .action-panel-zone > * { flex-shrink:0; margin-top:auto; }
@@ -246,18 +246,15 @@ function cleanupRoomState() {
 }
 
 @media (min-width:721px) {
- .main-viewport { --action-height:300px; }
- .table-container { min-height:360px; }
+ .table-container { min-height:320px; }
 }
 @media (max-width:720px) {
- .main-viewport { --action-height:clamp(280px,36dvh,310px); }
- .table-container { min-height:300px; }
- .action-panel-zone { padding:.3rem .5rem max(.5rem,env(safe-area-inset-bottom)); }
+ .table-container { min-height:210px; }
+ .action-panel-zone { padding:.2rem .45rem max(.45rem,env(safe-area-inset-bottom)); }
  .action-panel-zone :deep(.action-panel-container) { padding:0; }
- .action-panel-zone :deep(.action-card) { padding:.6rem; }
- .action-panel-zone :deep(.secondary-actions) { margin-top:.4rem; padding-top:.4rem; }
- .action-panel-zone :deep(.act-btn) { height:44px; }
- .action-panel-zone :deep(.raise-control) { gap:.45rem; padding:.55rem; }
+ .action-panel-zone :deep(.action-card) { padding:.5rem .55rem; }
+ .action-panel-zone :deep(.act-btn) { height:46px; }
+ .action-panel-zone :deep(.raise-control) { gap:.38rem; padding:.5rem .55rem; }
 }
 @media (min-width:721px) and (max-height:500px) {
  .main-viewport { grid-template-columns:minmax(0,1fr) minmax(300px,42%); grid-template-rows:minmax(0,1fr); }

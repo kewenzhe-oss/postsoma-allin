@@ -5,7 +5,18 @@
       <!-- Stage 1: Primary Actions -->
       <transition name="fade-slide" mode="out-in">
         <div v-if="!isRaising" class="primary-actions" key="primary">
-          <div class="turn-prompt" v-if="!disabled">{{ isZh ? '选择行动' : 'Choose your move' }}</div>
+          <div class="turn-header" v-if="!disabled || allInAction">
+            <div class="turn-prompt" v-if="!disabled">{{ isZh ? '轮到你行动' : 'Your move' }}</div>
+            <el-button
+              v-if="allInAction"
+              size="small"
+              class="allin-btn"
+              :disabled="disabled"
+              @click="submit('ALL_IN')"
+            >
+              {{ isZh ? '全押' : 'All-in' }} {{ allInAmount }}
+            </el-button>
+          </div>
           
           <div class="action-buttons">
             <el-button
@@ -31,18 +42,6 @@
             >
               <span>{{ currentBet ? (isZh ? '加注' : 'Raise') : (isZh ? '下注' : 'Bet') }}</span>
               <kbd class="hotkey-hint" aria-hidden="true">R</kbd>
-            </el-button>
-          </div>
-
-          <!-- Secondary All-In -->
-          <div class="secondary-actions" v-if="allInAction">
-            <el-button
-              size="small"
-              class="allin-btn"
-              :disabled="disabled"
-              @click="submit('ALL_IN')"
-            >
-              {{ isZh ? '全押' : 'All-in' }} {{ allInAmount }}
             </el-button>
           </div>
         </div>
@@ -216,15 +215,22 @@ onUnmounted(() => window.removeEventListener('keydown', handleHotkeys))
 .primary-actions {
   display: flex;
   flex-direction: column;
+  gap: 0.5rem;
+}
+
+.turn-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-height: 28px;
 }
 
 .turn-prompt {
-  text-align: center;
   color: var(--accent-turn);
   font-weight: 850;
   letter-spacing: 0.02em;
-  margin-bottom: 0.75rem;
-  font-size: 0.9rem;
+  font-size: 0.84rem;
   text-shadow: 0 0 10px rgba(241, 199, 106, 0.22);
   animation: pulse-text 2s infinite alternate;
 }
@@ -294,25 +300,18 @@ onUnmounted(() => window.removeEventListener('keydown', handleHotkeys))
   border-color: rgba(255, 255, 255, 0.18);
 }
 
-.secondary-actions {
-  display: flex;
-  justify-content: center;
-  margin-top: 0.75rem;
-  padding-top: 0.75rem;
-  border-top: 1px dashed var(--border-subtle);
-}
-
 .allin-btn {
-  font-size: 0.86rem !important;
+  font-size: 0.78rem !important;
   font-weight: 850;
   letter-spacing: 0;
-  opacity: 0.9;
-  height: 38px;
+  opacity: 0.95;
+  height: 30px;
+  padding: 0 0.75rem !important;
   border-radius: var(--radius-pill);
   color: #ffe7dd;
   background: rgba(180, 69, 63, 0.2);
   border: 1px solid rgba(180, 69, 63, 0.48);
-  margin: 0;
+  margin: 0 0 0 auto !important;
 }
 .allin-btn:hover {
   opacity: 1;
@@ -383,14 +382,13 @@ onUnmounted(() => window.removeEventListener('keydown', handleHotkeys))
 @media (min-width:721px) {
  .action-panel-container { padding:0; }
  .action-card { padding:.75rem .85rem; }
- .turn-prompt { margin-bottom:.5rem; }
  .act-btn { height:50px; }
- .secondary-actions { margin-top:.5rem; padding-top:.5rem; }
 }
 @media (max-width:720px) {
- .action-card { padding:.7rem; }
+ .action-card { padding:.55rem .65rem; }
+ .primary-actions { gap:.4rem; }
  .act-btn { height:48px; font-size:.92rem; }
  .action-buttons { gap:.4rem; }
- .turn-prompt { margin-bottom:.45rem; }
+ .hotkey-hint { display:none; }
 }
 </style>

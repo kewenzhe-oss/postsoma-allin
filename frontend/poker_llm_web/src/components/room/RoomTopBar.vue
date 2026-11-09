@@ -317,6 +317,7 @@ function stageLabel(value) {
 
 @media (max-width: 680px) {
   .room-top-bar {
+    min-height: 48px;
     padding: 0 0.85rem;
   }
 

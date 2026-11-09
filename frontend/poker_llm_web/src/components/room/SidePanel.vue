@@ -16,12 +16,32 @@
         <el-tab-pane v-if="showAiTab" :label="isZh ? 'AI 观察' : 'AI Notes'" name="insights">
           <div class="insights-scroll-area">
             <p class="insights-boundary">
-              {{ isZh ? '以下为 AI 对手在已行动街口的思考摘要，仅供观察对手推理逻辑，不作为训练裁判或标准答案。' : 'AI opponent thought summaries for completed actions. Use for observing opponent logic only—not as a training verdict.' }}
+              {{ isZh ? '暗牌博弈保护：当前手牌进行中或弃牌盖牌（Muck）时，AI 底牌牌力与意图严格保密；仅在进入摊牌（Showdown）或整局对战结束后公开复盘。' : 'Hidden-information protection: AI hand strength and intentions stay sealed during active play and mucked hands, unlocking only at Showdown or Match End.' }}
             </p>
-            <div v-if="aiReasonings.length === 0" class="empty-state">
-              {{ isZh ? '等待 AI 完成首次行动后显示思考摘要…' : 'AI thought summaries will appear after the AI acts…' }}
+            <div v-if="isHandInProgress" class="insight-card is-locked-card">
+              <div class="insight-header">
+                <span class="action-badge locked-badge">
+                  {{ isZh ? `第 #${currentHandNumber} 手 · 暗牌保护中` : `Hand #${currentHandNumber} · Sealed in Play` }}
+                </span>
+              </div>
+              <div class="insight-body">
+                {{ isZh ? '当前手牌尚未结束，为避免泄露 AI 手牌牌力与诈唬意图，本手思考将在摊牌或整局结束后解锁。' : 'Current hand is still in progress. AI reasoning is sealed to prevent leaking hand strength or bluff intent.' }}
+              </div>
             </div>
-            <div v-else class="reasoning-list">
+            <div v-if="aiReasonings.length === 0 && lockedHandNumbers.length === 0 && !isHandInProgress" class="empty-state">
+              {{ isZh ? '进入摊牌（Showdown）或整局结束后，将在此解锁 AI 决策复盘…' : 'AI decision reviews unlock after a hand reaches Showdown or the match concludes…' }}
+            </div>
+            <div v-if="aiReasonings.length > 0 || lockedHandNumbers.length > 0" class="reasoning-list">
+              <div v-for="handNum in lockedHandNumbers" :key="`locked-${handNum}`" class="insight-card is-mucked-card">
+                <div class="insight-header">
+                  <span class="action-badge mucked-badge">
+                    {{ isZh ? `#${handNum} · 已盖牌保密` : `#${handNum} · Mucked (Sealed)` }}
+                  </span>
+                </div>
+                <div class="insight-body">
+                  {{ isZh ? '本手以弃牌结束（未亮牌），AI 底牌思考将在整局比赛结束后公开。' : 'Ended by fold without showdown. Sealed until match end.' }}
+                </div>
+              </div>
               <div v-for="(item, idx) in aiReasonings" :key="idx" class="insight-card">
                 <div class="insight-header">
                   <span class="action-badge">
@@ -29,7 +49,9 @@
                     <template v-if="item.stage">{{ item.stage }} · </template>
                     {{ item.action }}
                   </span>
-                  <span v-if="item.amount" class="action-amount">{{ item.amount }}</span>
+                  <span class="reveal-source-tag">
+                    {{ item.revealedAt === 'game_over' ? (isZh ? '赛后复盘' : 'Post-Match') : (isZh ? '摊牌公开' : 'Showdown') }}
+                  </span>
                 </div>
                 <div class="insight-body">{{ cleanReasoningText(item.reasoning) }}</div>
                 <div v-if="item.tags && item.tags.length" class="insight-tags">
@@ -67,11 +89,44 @@ const showAiTab = computed(() => {
     aiReasonings.value.length > 0
 })
 
+const currentHandNumber = computed(() => onlineStore.activeHand?.hand_number || onlineStore.publicState?.hand_number || 1)
+const isHandInProgress = computed(() =>
+  onlineStore.publicState?.game_status === 'in_hand' &&
+  !onlineStore.latestHandResult &&
+  !props.isGameOver
+)
+
+const unlockedHandNumbers = computed(() => {
+  const set = new Set()
+  for (const e of props.rawEventLog) {
+    if (e.type === 'ai_thought' && e.payload?.hand_number) {
+      set.add(e.payload.hand_number)
+    }
+  }
+  return set
+})
+
+const lockedHandNumbers = computed(() => {
+  if (props.isGameOver) return []
+  const nums = []
+  for (const e of props.rawEventLog) {
+    if (e.type === 'ai_thought_locked' && e.payload?.hand_number) {
+      const hn = e.payload.hand_number
+      if (!unlockedHandNumbers.value.has(hn) && !nums.includes(hn)) {
+        nums.push(hn)
+      }
+    }
+  }
+  return nums.reverse()
+})
+
 const aiReasonings = computed(() => {
+  const activeHn = isHandInProgress.value ? currentHandNumber.value : null
   return props.rawEventLog
     .filter(e => (
-      (e.type === 'ai_thought' && e.payload?.thought_summary) ||
-      (e.event_type === 'player_action' && e.player_id?.startsWith('ai') && e.reasoning)
+      ((e.type === 'ai_thought' && e.payload?.thought_summary) ||
+       (e.event_type === 'player_action' && e.player_id?.startsWith('ai') && e.reasoning)) &&
+      (props.isGameOver || !activeHn || e.payload?.hand_number !== activeHn)
     ))
     .map(e => ({
       handNumber: e.payload?.hand_number || null,
@@ -79,7 +134,8 @@ const aiReasonings = computed(() => {
       action: actionLabel(e.payload?.action || e.action_type),
       amount: e.payload?.amount || e.amount,
       reasoning: e.payload?.thought_summary || e.reasoning,
-      tags: Array.isArray(e.payload?.strategy_tags) ? e.payload.strategy_tags : []
+      tags: Array.isArray(e.payload?.strategy_tags) ? e.payload.strategy_tags : [],
+      revealedAt: e.payload?.revealed_at || 'showdown'
     }))
     .reverse() // Newest first
 })
@@ -254,6 +310,36 @@ const stageLabel = (stage) => {
   color: var(--accent-turn);
   font-size: 0.85rem;
   font-weight: 600;
+}
+
+.reveal-source-tag {
+  font-size: 0.68rem;
+  font-weight: 750;
+  color: var(--text-tertiary);
+  padding: 0.14rem 0.42rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-subtle);
+}
+
+.is-locked-card {
+  margin-bottom: 0.85rem;
+  border-color: rgba(241, 199, 106, 0.32);
+  background: rgba(241, 199, 106, 0.06);
+}
+
+.is-mucked-card {
+  opacity: 0.82;
+  border-style: dashed;
+}
+
+.locked-badge {
+  background: rgba(241, 199, 106, 0.18);
+  color: var(--accent-turn);
+}
+
+.mucked-badge {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-secondary);
 }
 
 .insight-body {
