@@ -31,16 +31,25 @@ class PokerAIEngine:
         model = ai_config.get('model', '')
         endpoint, protocol = resolve_endpoint(provider_info, model, ai_config.get('base_url'))
         prompt = (
-            'Review the human player’s decisions in this completed heads-up poker match using only the observations below. '
-            'Describe observed playing style, one concrete improvement and the evidence behind them. '
-            'Treat small samples cautiously; do not infer hidden cards or claim a bluff rate. '
-            'Respond with a JSON object containing two short strings: "zh" in simplified Chinese and "en" in English.\n'
+            'Analyze the human player\'s performance in this completed heads-up Texas Hold\'em match using only the public match data below.\n'
+            'Return ONLY a valid JSON object with two keys: "zh" (Simplified Chinese) and "en" (English).\n'
+            'Each of "zh" and "en" MUST be an object with these exact 5 keys:\n'
+            '{\n'
+            '  "style_label": "2-6 word player archetype tag (e.g. 松凶激进型 / Loose-Aggressive)",\n'
+            '  "style_verdict": "2-3 sentences diagnosing the player\'s overall playing style, risk profile, and mindset across the match.",\n'
+            '  "play_pattern": "2-3 sentences detailing preflop entry/raise/shove habits, postflop aggression vs passivity, bet sizing, and showdown tendencies.",\n'
+            '  "data_summary": "2-3 sentences interpreting the numerical metrics (VPIP, PFR, fold-to-pressure, showdown win rate, river pressure, all-ins) into concrete takeaways.",\n'
+            '  "improvements": ["3 concrete, actionable adjustments citing real hand numbers or spots from hand_summaries and explaining the better alternative line."]\n'
+            '}\n'
+            'Rules:\n'
+            '- Ground every claim in statistics, match_outcome, and hand_summaries (never fabricate hidden cards).\n'
+            '- Be direct, specific, and insightful like a poker coach. Avoid generic filler or hedging disclaimers such as "sample is small so cannot judge definitively".\n\n'
             + json.dumps(observations, ensure_ascii=False)
         )
         if protocol == 'gemini':
-            raw = await _call_gemini(endpoint, ai_config.get('api_key', ''), prompt)
+            raw = await _call_gemini(endpoint, ai_config.get('api_key', ''), prompt, max_tokens=1800)
         else:
-            raw = await _call_openai_compat(endpoint, ai_config.get('api_key', ''), model, prompt)
+            raw = await _call_openai_compat(endpoint, ai_config.get('api_key', ''), model, prompt, max_tokens=1800)
         return raw
 
     async def decide(self, request: AIDecisionRequest, ai_config: dict) -> AIDecision:
@@ -195,11 +204,11 @@ def _get_http_timeout() -> httpx.Timeout:
     return httpx.Timeout(total_timeout, connect=connect_timeout, read=read_timeout, write=10.0)
 
 
-async def _call_openai_compat(endpoint: str, api_key: str, model: str, prompt: str) -> str:
+async def _call_openai_compat(endpoint: str, api_key: str, model: str, prompt: str, max_tokens: int = 1000) -> str:
     payload = {
         "model": model,
         "messages": [{"role": "user", "content": prompt}],
-        "max_tokens": 1000,
+        "max_tokens": max_tokens,
         "temperature": 0.8,
     }
     timeout = _get_http_timeout()
@@ -224,12 +233,12 @@ async def _call_openai_compat(endpoint: str, api_key: str, model: str, prompt: s
                 raise last_exc
 
 
-async def _call_gemini(endpoint: str, api_key: str, prompt: str) -> str:
+async def _call_gemini(endpoint: str, api_key: str, prompt: str, max_tokens: int = 1000) -> str:
     url = f"{endpoint}?key={api_key}"
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
         "generationConfig": {
-            "maxOutputTokens": 1000,
+            "maxOutputTokens": max_tokens,
             "temperature": 0.8,
         },
         "safetySettings": [

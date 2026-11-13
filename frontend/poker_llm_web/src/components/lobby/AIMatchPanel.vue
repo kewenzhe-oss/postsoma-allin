@@ -129,8 +129,8 @@
                 plain 
                 class="test-btn"
                 @click="handleTestConnection" 
-                :loading="validationState.status === 'testing'"
-                :disabled="!canTest"
+                :loading="activeAction === 'test'"
+                :disabled="!canTest || isBusy"
               >
                 {{ copy.testConnection }}
               </el-button>
@@ -139,8 +139,8 @@
                 type="success" 
                 class="start-btn panel-btn"
                 @click="handleStartMatch" 
-                :loading="startingMatch || validationState.status === 'testing'" 
-                :disabled="!canTest"
+                :loading="activeAction === 'start' || startingMatch" 
+                :disabled="!canTest || isBusy"
               >
                 {{ validationState.status === 'success' ? copy.startMatch : copy.verifyAndStart }}
               </el-button>
@@ -172,10 +172,12 @@ const aiBaseUrl = ref('')
 
 const showAdvanced = ref(false)
 const startingMatch = ref(false)
+const activeAction = ref(null)
 const validationState = ref({
   status: 'idle', // 'idle' | 'testing' | 'success' | 'error'
   errorMessage: null
 })
+const isBusy = computed(() => activeAction.value !== null || startingMatch.value)
 
 const copy = computed(() => isZh.value
   ? {
@@ -355,7 +357,7 @@ const cacheConfig = () => {
   }))
 }
 
-const handleTestConnection = async () => {
+const runConnectionTest = async () => {
   validationState.value = { status: 'testing', errorMessage: null }
   
   // Save locally right away when testing
@@ -387,11 +389,26 @@ const handleTestConnection = async () => {
   }
 }
 
+const handleTestConnection = async () => {
+  if (isBusy.value) return
+  activeAction.value = 'test'
+  try {
+    await runConnectionTest()
+  } finally {
+    activeAction.value = null
+  }
+}
+
 const handleStartMatch = async () => {
   if (!displayName.value) return ElMessage.warning(copy.value.nameRequired)
+  if (isBusy.value) return
+  activeAction.value = 'start'
   if (validationState.value.status !== 'success') {
-    const ok = await handleTestConnection()
-    if (!ok) return
+    const ok = await runConnectionTest()
+    if (!ok) {
+      activeAction.value = null
+      return
+    }
   }
   
   startingMatch.value = true
@@ -415,6 +432,8 @@ const handleStartMatch = async () => {
   } catch (err) {
     ElMessage.error(err.message || copy.value.createFailed)
     startingMatch.value = false
+  } finally {
+    activeAction.value = null
   }
 }
 </script>
@@ -424,11 +443,14 @@ const handleStartMatch = async () => {
   display: flex;
   justify-content: center;
   width: 100%;
+  min-width: 0;
 }
 
 .panel-card {
   width: 100%;
   max-width: 480px;
+  min-width: 0;
+  overflow-x: clip;
   background: var(--bg-panel);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
@@ -469,12 +491,14 @@ const handleStartMatch = async () => {
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
+  min-width: 0;
 }
 
 .form-group {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  min-width: 0;
 }
 
 .form-group label {
@@ -540,6 +564,7 @@ const handleStartMatch = async () => {
   gap: 1.25rem;
   padding-top: 0.5rem;
   border-top: 1px dashed var(--border-subtle);
+  min-width: 0;
 }
 
 .advanced-toggle {
@@ -567,6 +592,9 @@ const handleStartMatch = async () => {
 }
 
 .toggle-text {
+  min-width: 0;
+  text-align: left;
+  overflow-wrap: anywhere;
   font-size: 0.85rem;
   color: var(--accent-primary);
   display: flex;
@@ -591,6 +619,7 @@ const handleStartMatch = async () => {
   background: rgba(0,0,0,0.18);
   border-radius: var(--radius-md);
   border: 1px solid var(--border-subtle);
+  min-width: 0;
 }
 
 .field-hint {
@@ -607,6 +636,21 @@ const handleStartMatch = async () => {
   margin-top: 1rem;
   padding-top: 1.5rem;
   border-top: 1px solid var(--border-subtle);
+  min-width: 0;
+}
+
+.status-indicator {
+  min-width: 0;
+}
+
+.status-indicator :deep(.el-alert__content) {
+  min-width: 0;
+}
+
+.status-indicator :deep(.el-alert__title) {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.45;
 }
 
 .status-indicator :deep(.el-alert) {
@@ -625,7 +669,18 @@ const handleStartMatch = async () => {
 
 .button-group {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.75rem;
+  width: 100%;
+  min-width: 0;
+}
+
+.button-group :deep(.el-button) {
+  margin-left: 0 !important;
+  min-width: 0;
+  min-height: 44px;
+  max-width: 100%;
+  border-radius: var(--radius-md);
 }
 
 .test-btn {
@@ -662,5 +717,25 @@ const handleStartMatch = async () => {
 .slide-fade-leave-to {
   transform: translateY(-10px);
   opacity: 0;
+}
+
+@media (max-width: 560px) {
+  .panel-card {
+    padding: 1.25rem 1rem 1.5rem;
+  }
+
+  .panel-header {
+    margin-bottom: 1.25rem;
+  }
+
+  .button-group {
+    flex-direction: column;
+  }
+
+  .test-btn,
+  .start-btn {
+    width: 100%;
+    flex: none;
+  }
 }
 </style>

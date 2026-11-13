@@ -351,3 +351,65 @@ async def test_match_review_failure_retains_statistics(monkeypatch):
     assert report['status'] == 'error'
 
 
+@pytest.mark.asyncio
+async def test_structured_match_review_includes_hand_summaries_and_fields(monkeypatch):
+    import asyncio
+    import json
+    session = GameSession('review-structured', 'human_vs_ai', {'provider_name': 'openai', 'model': 'gpt-4o-mini', 'api_key': 'secret'})
+    session._restart_turn_timer = lambda: None
+    session.add_player('hero', 'Hero')
+    session.add_player('ai_seat', 'AI')
+    events = session.adapter.start_hand()
+    session._on_hand_started(next(event for event in events if event.type == 'hand_started'))
+    session._opponent_model.observe_action('hero', 'RAISE', 30, 'preflop')
+    finished_payload = {
+        'hand_number': 1,
+        'ended_by': 'showdown',
+        'awarded_pot': 60,
+        'community_cards': ['♠A', '♦K', '♣7', '♥2', '♣9'],
+        'settlements': [{'player_id': 'hero', 'received': 60, 'returned': 0, 'net_change': 30}],
+        'winners': [{'player_id': 'hero', 'display_name': 'Hero', 'amount': 60}],
+        'showdown_info': {
+            'players': [
+                {'player_id': 'hero', 'hole_cards': ['♠Q', '♠J'], 'hand_name': 'High Card'},
+                {'player_id': 'ai_seat', 'hole_cards': ['♥4', '♦4'], 'hand_name': 'One Pair'},
+            ]
+        },
+    }
+    session._on_hand_finished(EngineEvent(seq=50, type='hand_finished', payload=finished_payload))
+    session.adapter._events.append(EngineEvent(seq=51, type='hand_finished', payload=finished_payload))
+    for player in session.adapter.table.players:
+        player.chips = 2000 if player.name == 'hero' else 0
+
+    structured_payload = {
+        'zh': {
+            'style_label': '松凶激进型',
+            'style_verdict': '整体倾向积极施压。',
+            'play_pattern': '翻前高频加注并主动争夺底池。',
+            'data_summary': '入池率与翻前加注率均偏高。',
+            'improvements': ['Hand #1 河牌避免用高牌盲目全下。'],
+        },
+        'en': {
+            'style_label': 'Loose-Aggressive',
+            'style_verdict': 'Applies frequent pressure across streets.',
+            'play_pattern': 'High preflop raise rate and active postflop lines.',
+            'data_summary': 'Elevated VPIP and PFR across the sample.',
+            'improvements': ['In Hand #1, size down thin river bluffs.'],
+        },
+    }
+    review_mock = AsyncMock(return_value=json.dumps(structured_payload, ensure_ascii=False))
+    monkeypatch.setattr(module._ai_engine, 'review_match', review_mock)
+    session._end_game()
+    await asyncio.sleep(0)
+
+    report = next(event.payload for event in session.adapter.event_log() if event.type == 'ai_match_review')
+    assert report['status'] == 'ready'
+    assert report['zh']['style_label'] == '松凶激进型'
+    assert report['en']['improvements'] == ['In Hand #1, size down thin river bluffs.']
+    passed_obs = review_mock.await_args.args[0]
+    assert 'hand_summaries' in passed_obs
+    assert passed_obs['hand_summaries'][0]['ended_by'] == 'showdown'
+    assert 'secret' not in str(passed_obs)
+    assert 'private_hole_cards' not in str(passed_obs)
+
+

@@ -173,6 +173,7 @@ class OpponentModelTracker:
 
     def match_statistics(self) -> dict:
         hands = self._hands_observed + (1 if self._current_hand >= 0 else 0)
+        profile = self.summarize()
         return {
             'hands': hands,
             'vpip_count': self._vpip_count,
@@ -182,6 +183,16 @@ class OpponentModelTracker:
             'showdowns': self._showdown_count,
             'showdown_wins': self._showdown_win_count,
             'river_aggression_count': self._river_aggression_count,
+            'aggressive_showdown_count': self._aggressive_showdown_count,
+            'bluff_showdown_count': self._bluff_showdown_count,
+            'raise_count': self._raise_count,
+            'call_count': self._call_count,
+            'check_count': self._check_count,
+            'fold_count': self._fold_count,
+            'all_in_count': self._all_in_count,
+            'aggression_score': profile.aggression_score,
+            'looseness_score': profile.looseness_score,
+            'bluff_rate': profile.bluff_rate,
         }
 
     def format_current_hand_line(self) -> str:

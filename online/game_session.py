@@ -492,28 +492,149 @@ class GameSession:
         self._dispatch_events([state_ev])
         if review_enabled:
             try:
-                asyncio.get_running_loop().create_task(self._generate_match_review(stats))
+                asyncio.get_running_loop().create_task(self._generate_match_review(stats, winner_payload, final_stacks))
             except RuntimeError:
                 self._dispatch_events([self.adapter._add_event('ai_match_review', {'status': 'error'})])
 
-    async def _generate_match_review(self, stats: dict):
-        history = []
-        hand_number = 0
+    def _build_review_observations(
+        self,
+        stats: dict,
+        winner_payload: Optional[Dict[str, Any]] = None,
+        final_stacks: Optional[List[Dict[str, Any]]] = None,
+    ) -> Dict[str, Any]:
+        human_id = self._opponent_model.player_id
+        hands_by_number: Dict[int, Dict[str, Any]] = {}
+        hand_order: List[int] = []
+        current_hand = 0
         for event in self.adapter.event_log():
             if event.type == 'hand_started':
-                hand_number = event.payload.get('hand_number', hand_number)
-            elif event.type == 'player_action_applied':
-                history.append({'hand': hand_number, 'player': 'human' if event.payload.get('player_id') == self._opponent_model.player_id else 'ai',
-                                'stage': event.payload.get('stage'), 'action': event.payload.get('action'),
-                                'amount': event.payload.get('amount')})
-        observations = {'statistics': stats, 'recent_actions': history[-100:], 'recent_hand_notes': self._opponent_model.summarize().recent_notes}
+                current_hand = int(event.payload.get('hand_number', current_hand + 1))
+                if current_hand not in hands_by_number:
+                    hand_order.append(current_hand)
+                    hands_by_number[current_hand] = {
+                        'hand': current_hand,
+                        'human_position': 'SB/BTN' if event.payload.get('dealer_player_id') == human_id else 'BB',
+                        'actions': [],
+                        'board': [],
+                        'ended_by': '',
+                        'pot': 0,
+                        'human_net': None,
+                        'showdown': [],
+                    }
+            elif event.type == 'player_action_applied' and current_hand in hands_by_number:
+                actor = 'human' if event.payload.get('player_id') == human_id else 'ai'
+                stage = event.payload.get('stage') or ''
+                action = (event.payload.get('action') or '').upper()
+                bet_in_round = event.payload.get('bet_in_round') or 0
+                amount = event.payload.get('amount') or 0
+                pot_after = event.payload.get('pot_after')
+                if action in ('RAISE', 'ALL_IN') and bet_in_round > 0:
+                    amt_desc = f'(to {bet_in_round})'
+                elif amount > 0:
+                    amt_desc = f'({amount})'
+                else:
+                    amt_desc = ''
+                pot_desc = f' pot={pot_after}' if pot_after is not None else ''
+                hands_by_number[current_hand]['actions'].append(f'{stage}:{actor}:{action}{amt_desc}{pot_desc}')
+            elif event.type == 'hand_finished':
+                finished_hand = int(event.payload.get('hand_number', current_hand))
+                entry = hands_by_number.get(finished_hand)
+                if not entry:
+                    continue
+                entry['ended_by'] = event.payload.get('ended_by') or ''
+                entry['pot'] = event.payload.get('awarded_pot') or 0
+                entry['board'] = list(event.payload.get('community_cards') or [])
+                settlements = event.payload.get('settlements') or []
+                human_settlement = next((item for item in settlements if item.get('player_id') == human_id), None)
+                if human_settlement is not None:
+                    entry['human_net'] = human_settlement.get('net_change')
+                showdown_info = event.payload.get('showdown_info') or {}
+                if entry['ended_by'] == 'showdown' and isinstance(showdown_info.get('players'), list):
+                    entry['showdown'] = [
+                        {
+                            'player': 'human' if sd_player.get('player_id') == human_id else 'ai',
+                            'cards': list(sd_player.get('hole_cards') or []),
+                            'hand': sd_player.get('hand_name') or sd_player.get('hand_description') or '',
+                        }
+                        for sd_player in showdown_info['players']
+                    ]
+
+        ordered_hands = [hands_by_number[num] for num in hand_order]
+        if len(ordered_hands) > 24:
+            selected_nums = {item['hand'] for item in ordered_hands[:3]} | {item['hand'] for item in ordered_hands[-16:]}
+            notable = sorted(
+                (item for item in ordered_hands if item['hand'] not in selected_nums),
+                key=lambda item: (1 if item['ended_by'] == 'showdown' else 0, item['pot']),
+                reverse=True,
+            )[:5]
+            selected_nums |= {item['hand'] for item in notable}
+            ordered_hands = [item for item in ordered_hands if item['hand'] in selected_nums]
+
+        match_outcome = {
+            'winner': ('human' if winner_payload.get('player_id') == human_id else 'ai') if winner_payload else None,
+            'final_stacks': [
+                {'player': 'human' if item.get('player_id') == human_id else 'ai', 'chips': item.get('chips', 0)}
+                for item in (final_stacks or [])
+            ],
+            'total_hands': stats.get('hands', len(hand_order)),
+        }
+        return {
+            'match_outcome': match_outcome,
+            'statistics': stats,
+            'hand_summaries': ordered_hands,
+            'recent_hand_notes': self._opponent_model.summarize().recent_notes,
+        }
+
+    @staticmethod
+    def _normalize_review_section(section: Any):
+        if isinstance(section, str):
+            cleaned = section.strip()
+            return cleaned[:3000] if cleaned else None
+        if not isinstance(section, dict):
+            return None
+        style_label = str(section.get('style_label') or '').strip()[:120]
+        style_verdict = str(section.get('style_verdict') or '').strip()[:1200]
+        play_pattern = str(section.get('play_pattern') or '').strip()[:1200]
+        data_summary = str(section.get('data_summary') or '').strip()[:1200]
+        raw_improvements = section.get('improvements')
+        improvements: List[str] = []
+        if isinstance(raw_improvements, list):
+            for item in raw_improvements:
+                text = str(item or '').strip()
+                if text:
+                    improvements.append(text[:500])
+                if len(improvements) >= 5:
+                    break
+        elif isinstance(raw_improvements, str) and raw_improvements.strip():
+            improvements.append(raw_improvements.strip()[:500])
+        if not (style_verdict or play_pattern or data_summary or improvements):
+            return None
+        return {
+            'style_label': style_label,
+            'style_verdict': style_verdict,
+            'play_pattern': play_pattern,
+            'data_summary': data_summary,
+            'improvements': improvements,
+        }
+
+    async def _generate_match_review(
+        self,
+        stats: dict,
+        winner_payload: Optional[Dict[str, Any]] = None,
+        final_stacks: Optional[List[Dict[str, Any]]] = None,
+    ):
+        observations = self._build_review_observations(stats, winner_payload, final_stacks)
         try:
             raw = await _ai_engine.review_match(observations, self.ai_config)
             match = re.search(r'\{[\s\S]*\}', raw)
             review = json.loads(match.group()) if match else {}
-            if not isinstance(review, dict) or not all(isinstance(review.get(lang), str) and review[lang].strip() for lang in ('zh', 'en')):
+            if not isinstance(review, dict):
                 raise ValueError('Invalid match review')
-            payload = {'status': 'ready', 'zh': review['zh'][:3000], 'en': review['en'][:3000]}
+            zh_section = self._normalize_review_section(review.get('zh'))
+            en_section = self._normalize_review_section(review.get('en'))
+            if not zh_section or not en_section:
+                raise ValueError('Invalid match review')
+            payload = {'status': 'ready', 'zh': zh_section, 'en': en_section}
         except Exception:
             logger.warning('AI match review failed for room %s', self.room_id, exc_info=True)
             payload = {'status': 'error'}

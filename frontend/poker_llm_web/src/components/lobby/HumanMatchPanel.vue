@@ -166,11 +166,14 @@ const handleJoin = async () => {
   display: flex;
   justify-content: center;
   width: 100%;
+  min-width: 0;
 }
 
 .panel-card {
   width: 100%;
   max-width: 440px;
+  min-width: 0;
+  overflow-x: clip;
   background: var(--bg-panel);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
@@ -285,5 +288,11 @@ const handleJoin = async () => {
 }
 :deep(.el-tabs__nav-wrap::after) {
   background-color: var(--border-subtle);
+}
+
+@media (max-width: 560px) {
+  .panel-card {
+    padding: 1.25rem 1rem 1.5rem;
+  }
 }
 </style>

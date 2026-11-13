@@ -21,17 +21,83 @@
       </div>
 
       <section v-if="result.player_statistics" class="match-review" aria-live="polite">
-        <h3>{{ isZh ? '你的对局复盘' : 'Your match review' }}</h3>
-        <p class="review-sample">{{ isZh ? `样本：${result.player_statistics.hands} 手` : `Sample: ${result.player_statistics.hands} hands` }}</p>
-        <div class="review-stats">
-          <div><span>{{ isZh ? '入池率' : 'VPIP' }}</span><strong>{{ rate(result.player_statistics.vpip_count, result.player_statistics.hands) }}</strong><small>{{ result.player_statistics.vpip_count }}/{{ result.player_statistics.hands }}</small></div>
-          <div><span>{{ isZh ? '翻前加注率' : 'Preflop raise' }}</span><strong>{{ rate(result.player_statistics.pfr_count, result.player_statistics.hands) }}</strong><small>{{ result.player_statistics.pfr_count }}/{{ result.player_statistics.hands }}</small></div>
-          <div><span>{{ isZh ? '面对加注弃牌' : 'Fold facing raise' }}</span><strong>{{ rate(result.player_statistics.fold_to_pressure_count, result.player_statistics.pressure_opportunities) }}</strong><small>{{ result.player_statistics.fold_to_pressure_count }}/{{ result.player_statistics.pressure_opportunities }}</small></div>
+        <div class="review-header">
+          <div>
+            <h3>{{ isZh ? 'AI 对局复盘' : 'AI Match Review' }}</h3>
+            <p class="review-sample">{{ isZh ? `样本：${result.player_statistics.hands} 手` : `Sample: ${result.player_statistics.hands} hands` }}</p>
+          </div>
+          <span v-if="structuredReview?.style_label" class="style-badge">{{ structuredReview.style_label }}</span>
         </div>
-        <h4>{{ isZh ? 'AI 的观察' : 'AI observations' }}</h4>
-        <p v-if="result.review?.status === 'ready'" class="review-text">{{ isZh ? result.review.zh : result.review.en }}</p>
-        <p v-else-if="result.review?.status === 'pending'" class="review-text">{{ isZh ? 'AI 正在整理本场表现…' : 'AI is reviewing your match…' }}</p>
-        <p v-else class="review-text">{{ isZh ? 'AI 复盘暂时无法生成，你仍可查看本场统计。' : 'AI review is unavailable. Your match statistics are shown above.' }}</p>
+
+        <div class="review-stats">
+          <div class="stat-tile">
+            <span>{{ isZh ? '入池率' : 'VPIP' }}</span>
+            <strong class="num">{{ rate(result.player_statistics.vpip_count, result.player_statistics.hands) }}</strong>
+            <small class="num">{{ result.player_statistics.vpip_count }}/{{ result.player_statistics.hands }}</small>
+          </div>
+          <div class="stat-tile">
+            <span>{{ isZh ? '翻前加注' : 'PFR' }}</span>
+            <strong class="num">{{ rate(result.player_statistics.pfr_count, result.player_statistics.hands) }}</strong>
+            <small class="num">{{ result.player_statistics.pfr_count }}/{{ result.player_statistics.hands }}</small>
+          </div>
+          <div class="stat-tile">
+            <span>{{ isZh ? '受压弃牌' : 'Fold vs Raise' }}</span>
+            <strong class="num">{{ rate(result.player_statistics.fold_to_pressure_count, result.player_statistics.pressure_opportunities) }}</strong>
+            <small class="num">{{ result.player_statistics.fold_to_pressure_count }}/{{ result.player_statistics.pressure_opportunities }}</small>
+          </div>
+          <div class="stat-tile">
+            <span>{{ isZh ? '摊牌胜率' : 'Showdown Win' }}</span>
+            <strong class="num">{{ rate(result.player_statistics.showdown_wins, result.player_statistics.showdowns) }}</strong>
+            <small class="num">{{ result.player_statistics.showdown_wins }}/{{ result.player_statistics.showdowns }}</small>
+          </div>
+          <div class="stat-tile">
+            <span>{{ isZh ? '河牌施压' : 'River Pressure' }}</span>
+            <strong class="num">{{ result.player_statistics.river_aggression_count ?? 0 }}</strong>
+            <small>{{ isZh ? '次激进行动' : 'aggressive' }}</small>
+          </div>
+          <div class="stat-tile">
+            <span>{{ isZh ? '全下次数' : 'All-ins' }}</span>
+            <strong class="num">{{ result.player_statistics.all_in_count ?? 0 }}</strong>
+            <small>{{ isZh ? '总加注' : 'raises' }}: {{ result.player_statistics.raise_count ?? 0 }}</small>
+          </div>
+        </div>
+
+        <div v-if="structuredReview" class="review-sections">
+          <div v-if="structuredReview.style_verdict" class="review-block review-block-accent">
+            <div class="review-block-label">{{ isZh ? '01 · 整体风格判断' : '01 · Overall Style' }}</div>
+            <p class="review-text">{{ structuredReview.style_verdict }}</p>
+          </div>
+
+          <div v-if="structuredReview.play_pattern" class="review-block">
+            <div class="review-block-label">{{ isZh ? '02 · 牌路与打法特征' : '02 · Play Pattern' }}</div>
+            <p class="review-text">{{ structuredReview.play_pattern }}</p>
+          </div>
+
+          <div v-if="structuredReview.data_summary" class="review-block">
+            <div class="review-block-label">{{ isZh ? '03 · 数据解读' : '03 · Data Summary' }}</div>
+            <p class="review-text">{{ structuredReview.data_summary }}</p>
+          </div>
+
+          <div v-if="structuredReview.improvements?.length" class="review-block">
+            <div class="review-block-label">{{ isZh ? '04 · 改进建议' : '04 · How to Improve' }}</div>
+            <ol class="improvement-list">
+              <li v-for="(tip, tipIndex) in structuredReview.improvements" :key="tipIndex" class="improvement-item">
+                <span class="improvement-num num">{{ String(tipIndex + 1).padStart(2, '0') }}</span>
+                <span class="improvement-copy">{{ tip }}</span>
+              </li>
+            </ol>
+          </div>
+        </div>
+        <div v-else-if="plainReviewText" class="review-block">
+          <div class="review-block-label">{{ isZh ? 'AI 的观察' : 'AI Observations' }}</div>
+          <p class="review-text">{{ plainReviewText }}</p>
+        </div>
+        <p v-else-if="result.review?.status === 'pending'" class="review-status-note">
+          {{ isZh ? 'AI 正在结合全场牌局整理深度复盘…' : 'AI is analyzing your hands for a full match review…' }}
+        </p>
+        <p v-else class="review-status-note">
+          {{ isZh ? 'AI 复盘暂时无法生成，你仍可查看上方本场统计。' : 'AI review is unavailable. Your match statistics are shown above.' }}
+        </p>
       </section>
 
       <!-- Deciding Hand Recap -->
@@ -88,8 +154,9 @@
       </div>
 
       <div v-if="result.deciding_hand?.settlements?.length" class="final-stacks">
-        <div v-for="p in result.deciding_hand.settlements" :key="p.player_id" class="stack-row">
-          <span>{{ p.display_name }}</span><span>获得 {{ p.received }} · 退回 {{ p.returned }} · 净变化 {{ p.net_change > 0 ? '+' : '' }}{{ p.net_change }}</span>
+        <div v-for="settlement in result.deciding_hand.settlements" :key="settlement.player_id" class="stack-row settlement-row">
+          <span class="stack-name">{{ settlement.display_name }}</span>
+          <span class="settlement-detail num">{{ formatSettlement(settlement) }}</span>
         </div>
       </div>
       <!-- Final stacks -->
@@ -120,6 +187,7 @@
 </template>
 
 <script setup>
+import { computed } from 'vue'
 import { isZh } from '@/i18n/locale.js'
 import CardView from './CardView.vue'
 import { normalizeCard } from '@/utils/cardFormat'
@@ -143,6 +211,29 @@ const emit = defineEmits(['rematch', 'back-to-lobby'])
 
 const rate = (count, total) => total > 0 ? `${Math.round(count / total * 100)}%` : '—'
 
+const activeReviewLocale = computed(() => {
+  if (props.result?.review?.status !== 'ready') return null
+  return isZh.value ? props.result.review.zh : props.result.review.en
+})
+
+const structuredReview = computed(() => {
+  const val = activeReviewLocale.value
+  return val && typeof val === 'object' ? val : null
+})
+
+const plainReviewText = computed(() => {
+  const val = activeReviewLocale.value
+  return typeof val === 'string' ? val : ''
+})
+
+const formatSettlement = (settlement) => {
+  const net = `${settlement.net_change > 0 ? '+' : ''}${settlement.net_change}`
+  if (isZh.value) {
+    return `获得 ${settlement.received} · 退回 ${settlement.returned} · 净变化 ${net}`
+  }
+  return `Won ${settlement.received} · Returned ${settlement.returned} · Net ${net}`
+}
+
 const isDecidingWinningCard = (cardStr) => {
   const winningCards = props.result.deciding_hand?.winning_cards
   if (!winningCards || winningCards.length === 0 || !cardStr) return false
@@ -161,15 +252,136 @@ const isDecidingPlayerWinner = (playerId) => {
 </script>
 
 <style scoped>
-.match-review { text-align:left; display:flex; flex-direction:column; gap:.65rem; padding:1rem; border:1px solid var(--border-subtle); border-radius:var(--radius-md); }
-.match-review h3, .match-review h4, .match-review p { margin:0; }
-.match-review h3 { color:var(--text-primary); font-size:1rem; }
-.match-review h4 { color:var(--text-primary); font-size:.9rem; }
-.review-sample, .review-text { color:var(--text-secondary); font-size:.85rem; line-height:1.5; white-space:pre-wrap; }
-.review-stats { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.5rem; }
-.review-stats div { display:flex; flex-direction:column; gap:.2rem; }
-.review-stats span, .review-stats small { color:var(--text-secondary); font-size:.7rem; }
-.review-stats strong { color:var(--accent-turn); font-size:1.05rem; }
+.match-review {
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+.match-review h3, .match-review p { margin: 0; }
+.review-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.review-header h3 {
+  color: var(--text-primary);
+  font-size: 1rem;
+  font-weight: 800;
+}
+.review-sample {
+  color: var(--text-tertiary);
+  font-size: 0.75rem;
+  margin-top: 0.15rem;
+}
+.style-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.65rem;
+  border-radius: var(--radius-pill);
+  background: rgba(217, 173, 88, 0.14);
+  border: 1px solid rgba(217, 173, 88, 0.35);
+  color: var(--accent-primary-strong);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+.review-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+.stat-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: var(--radius-sm);
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid var(--border-subtle);
+  min-width: 0;
+}
+.stat-tile span, .stat-tile small {
+  color: var(--text-tertiary);
+  font-size: 0.68rem;
+  line-height: 1.3;
+}
+.stat-tile strong {
+  color: var(--accent-turn);
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+.review-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+.review-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: var(--radius-sm);
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--border-subtle);
+}
+.review-block-accent {
+  background: rgba(217, 173, 88, 0.06);
+  border-color: rgba(217, 173, 88, 0.25);
+}
+.review-block-label {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--accent-primary-strong);
+  text-transform: uppercase;
+}
+.review-text {
+  color: var(--text-secondary);
+  font-size: 0.84rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.review-status-note {
+  color: var(--text-tertiary);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+.improvement-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.improvement-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+}
+.improvement-num {
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: var(--text-inverse);
+  background: var(--accent-primary);
+  border-radius: 6px;
+  padding: 0.12rem 0.4rem;
+  margin-top: 0.15rem;
+}
+.improvement-copy {
+  color: var(--text-secondary);
+  font-size: 0.84rem;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
 /* ── Overlay: covers table area, not header ──────── */
 .game-over-overlay {
   position: absolute;
@@ -194,8 +406,8 @@ const isDecidingPlayerWinner = (playerId) => {
   max-height:calc(100dvh - 2rem);
   overflow-y:auto;
   margin:1rem;
-  max-width: 420px;
-  width: 100%;
+  max-width: 520px;
+  width: calc(100% - 1.5rem);
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
@@ -278,10 +490,17 @@ const isDecidingPlayerWinner = (playerId) => {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 0.65rem;
+  flex-wrap: wrap;
   padding: 8px 14px;
   border-radius: var(--radius-sm);
   background-color: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--border-subtle);
+}
+
+.settlement-detail {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
 }
 
 .stack-row.is-winner {
@@ -474,4 +693,14 @@ const isDecidingPlayerWinner = (playerId) => {
 }
 .go-actions button { min-height:44px; }
 .go-actions { position:sticky; bottom:-1rem; background:var(--bg-panel-solid); padding:.5rem 0; }
+
+@media (max-width: 480px) {
+  .game-over-card {
+    margin: 0.75rem;
+    gap: 1.15rem;
+  }
+  .review-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
 </style>
