@@ -18,7 +18,8 @@ const groups = Object.freeze({
     'Claude-User',
     'Applebot',
     'Googlebot',
-    'Amzn-SearchBot'
+    'Amzn-SearchBot',
+    'DuckAssistBot'
   ]),
   userRetrieval: Object.freeze(['ChatGPT-User', 'Perplexity-User']),
   extendedUse: Object.freeze([
@@ -30,7 +31,8 @@ const groups = Object.freeze({
     'Amazonbot',
     'Bytespider',
     'CCBot',
-    'Diffbot'
+    'Diffbot',
+    'meta-externalagent'
   ])
 })
 

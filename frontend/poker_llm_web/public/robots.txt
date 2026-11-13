@@ -14,6 +14,7 @@ User-agent: Claude-User
 User-agent: Applebot
 User-agent: Googlebot
 User-agent: Amzn-SearchBot
+User-agent: DuckAssistBot
 Allow: /
 Disallow: /room/
 Disallow: /api/
@@ -37,6 +38,7 @@ User-agent: Amazonbot
 User-agent: Bytespider
 User-agent: CCBot
 User-agent: Diffbot
+User-agent: meta-externalagent
 Allow: /
 Disallow: /room/
 Disallow: /api/

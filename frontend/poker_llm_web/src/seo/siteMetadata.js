@@ -6,8 +6,8 @@ export const BRAND_NAME = 'POSTSOMA · ALLIN'
 export const BRAND_SIGNATURE = 'POSTSOMA-2050'
 
 export const PUBLIC_ROUTES = Object.freeze([
-  Object.freeze({ path: '/', url: SITE_URL, lastModified: '2026-08-24', changeFrequency: 'weekly', priority: 1 }),
-  Object.freeze({ path: '/about/', url: ABOUT_URL, lastModified: '2026-08-24', changeFrequency: 'monthly', priority: 0.7 })
+  Object.freeze({ path: '/', url: SITE_URL, lastModified: '2026-11-12', changeFrequency: 'weekly', priority: 1 }),
+  Object.freeze({ path: '/about/', url: ABOUT_URL, lastModified: '2026-11-12', changeFrequency: 'monthly', priority: 0.7 })
 ])
 
 export const PRIVATE_INDEX_PATHS = Object.freeze(['/room/', '/api/', '/ws/'])
@@ -29,7 +29,9 @@ export const AI_CRAWLER_TOKENS = Object.freeze([
   'Amzn-SearchBot',
   'Bytespider',
   'CCBot',
-  'Diffbot'
+  'Diffbot',
+  'meta-externalagent',
+  'DuckAssistBot'
 ])
 
 const ORGANIZATION_ID = `${SITE_ORIGIN}/#organization`
