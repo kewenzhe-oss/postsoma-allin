@@ -51,6 +51,8 @@ class GameSession:
         self.absent_players = {}
         self.turn_timer_task: Optional[asyncio.Task] = None
         self._delayed_start_task: Optional[asyncio.Task] = None
+        self._review_task: Optional[asyncio.Task] = None
+        self._last_match_review_args: Optional[tuple] = None
         self.turn_timeout_seconds = 60
         self.tokens: Dict[str, str] = {}  # token -> player_id
 
@@ -491,10 +493,26 @@ class GameSession:
         state_ev = self.adapter._add_event("state_updated", {"trigger": "game_over"})
         self._dispatch_events([state_ev])
         if review_enabled:
+            self._last_match_review_args = (stats, winner_payload, final_stacks)
             try:
-                asyncio.get_running_loop().create_task(self._generate_match_review(stats, winner_payload, final_stacks))
+                self._review_task = asyncio.get_running_loop().create_task(
+                    self._generate_match_review(stats, winner_payload, final_stacks)
+                )
             except RuntimeError:
                 self._dispatch_events([self.adapter._add_event('ai_match_review', {'status': 'error'})])
+
+    def retry_match_review(self):
+        if not self.adapter._game_over or not self._last_match_review_args:
+            return
+        if self._review_task and not self._review_task.done():
+            return
+        stats, winner_payload, final_stacks = self._last_match_review_args
+        try:
+            self._review_task = asyncio.get_running_loop().create_task(
+                self._generate_match_review(stats, winner_payload, final_stacks)
+            )
+        except RuntimeError:
+            self._dispatch_events([self.adapter._add_event('ai_match_review', {'status': 'error'})])
 
     def _build_review_observations(
         self,
@@ -527,15 +545,13 @@ class GameSession:
                 action = (event.payload.get('action') or '').upper()
                 bet_in_round = event.payload.get('bet_in_round') or 0
                 amount = event.payload.get('amount') or 0
-                pot_after = event.payload.get('pot_after')
                 if action in ('RAISE', 'ALL_IN') and bet_in_round > 0:
                     amt_desc = f'(to {bet_in_round})'
                 elif amount > 0:
                     amt_desc = f'({amount})'
                 else:
                     amt_desc = ''
-                pot_desc = f' pot={pot_after}' if pot_after is not None else ''
-                hands_by_number[current_hand]['actions'].append(f'{stage}:{actor}:{action}{amt_desc}{pot_desc}')
+                hands_by_number[current_hand]['actions'].append(f'{stage}:{actor}:{action}{amt_desc}')
             elif event.type == 'hand_finished':
                 finished_hand = int(event.payload.get('hand_number', current_hand))
                 entry = hands_by_number.get(finished_hand)
@@ -560,13 +576,13 @@ class GameSession:
                     ]
 
         ordered_hands = [hands_by_number[num] for num in hand_order]
-        if len(ordered_hands) > 24:
-            selected_nums = {item['hand'] for item in ordered_hands[:3]} | {item['hand'] for item in ordered_hands[-16:]}
+        if len(ordered_hands) > 20:
+            selected_nums = {item['hand'] for item in ordered_hands[:2]} | {item['hand'] for item in ordered_hands[-14:]}
             notable = sorted(
                 (item for item in ordered_hands if item['hand'] not in selected_nums),
                 key=lambda item: (1 if item['ended_by'] == 'showdown' else 0, item['pot']),
                 reverse=True,
-            )[:5]
+            )[:4]
             selected_nums |= {item['hand'] for item in notable}
             ordered_hands = [item for item in ordered_hands if item['hand'] in selected_nums]
 
@@ -592,11 +608,11 @@ class GameSession:
             return cleaned[:3000] if cleaned else None
         if not isinstance(section, dict):
             return None
-        style_label = str(section.get('style_label') or '').strip()[:120]
-        style_verdict = str(section.get('style_verdict') or '').strip()[:1200]
-        play_pattern = str(section.get('play_pattern') or '').strip()[:1200]
-        data_summary = str(section.get('data_summary') or '').strip()[:1200]
-        raw_improvements = section.get('improvements')
+        style_label = str(section.get('style_label') or section.get('style') or section.get('archetype') or '').strip()[:120]
+        style_verdict = str(section.get('style_verdict') or section.get('overall_style') or section.get('verdict') or '').strip()[:1200]
+        play_pattern = str(section.get('play_pattern') or section.get('pattern') or section.get('tendencies') or '').strip()[:1200]
+        data_summary = str(section.get('data_summary') or section.get('summary') or section.get('metrics_summary') or '').strip()[:1200]
+        raw_improvements = section.get('improvements') or section.get('suggestions') or section.get('recommendations') or section.get('advice')
         improvements: List[str] = []
         if isinstance(raw_improvements, list):
             for item in raw_improvements:
@@ -617,6 +633,24 @@ class GameSession:
             'improvements': improvements,
         }
 
+    @staticmethod
+    def _extract_json_object(raw: str) -> Optional[dict]:
+        if not isinstance(raw, str) or not raw.strip():
+            return None
+        decoder = json.JSONDecoder()
+        idx = 0
+        while True:
+            brace_pos = raw.find('{', idx)
+            if brace_pos == -1:
+                return None
+            try:
+                parsed, _ = decoder.raw_decode(raw[brace_pos:])
+                if isinstance(parsed, dict):
+                    return parsed
+            except json.JSONDecodeError:
+                pass
+            idx = brace_pos + 1
+
     async def _generate_match_review(
         self,
         stats: dict,
@@ -626,12 +660,24 @@ class GameSession:
         observations = self._build_review_observations(stats, winner_payload, final_stacks)
         try:
             raw = await _ai_engine.review_match(observations, self.ai_config)
-            match = re.search(r'\{[\s\S]*\}', raw)
-            review = json.loads(match.group()) if match else {}
-            if not isinstance(review, dict):
-                raise ValueError('Invalid match review')
-            zh_section = self._normalize_review_section(review.get('zh'))
-            en_section = self._normalize_review_section(review.get('en'))
+            review = self._extract_json_object(raw)
+            if isinstance(review, dict):
+                zh_section = self._normalize_review_section(review.get('zh'))
+                en_section = self._normalize_review_section(review.get('en'))
+                if not zh_section and not en_section:
+                    top_level = self._normalize_review_section(review)
+                    zh_section = top_level
+                    en_section = top_level
+                elif zh_section and not en_section:
+                    en_section = zh_section
+                elif en_section and not zh_section:
+                    zh_section = en_section
+            else:
+                cleaned_raw = (raw or '').strip()
+                if len(cleaned_raw) < 12:
+                    raise ValueError('Invalid match review')
+                zh_section = cleaned_raw[:3000]
+                en_section = cleaned_raw[:3000]
             if not zh_section or not en_section:
                 raise ValueError('Invalid match review')
             payload = {'status': 'ready', 'zh': zh_section, 'en': en_section}

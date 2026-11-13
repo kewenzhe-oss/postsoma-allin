@@ -413,3 +413,51 @@ async def test_structured_match_review_includes_hand_summaries_and_fields(monkey
     assert 'private_hole_cards' not in str(passed_obs)
 
 
+@pytest.mark.asyncio
+async def test_match_review_handles_fenced_single_locale_and_gemini_thoughts(monkeypatch):
+    import asyncio
+    from online.poker_ai_engine import _extract_gemini_text, _extract_openai_text
+
+    gemini_data = {
+        'candidates': [{
+            'content': {
+                'parts': [
+                    {'thought': True, 'text': 'internal reasoning {not json}'},
+                    {'text': '{"zh":{"style":"紧凶型","verdict":"整体稳健。","pattern":"翻前选择严格。","summary":"入池适中。","suggestions":["河牌多做薄价值下注。"]}}'},
+                ]
+            }
+        }]
+    }
+    extracted_gemini = _extract_gemini_text(gemini_data)
+    assert extracted_gemini.startswith('{"zh"')
+
+    openai_data = {
+        'choices': [{
+            'message': {
+                'content': [{'type': 'text', 'text': '  {"zh":"中文","en":"English"}  '}]
+            }
+        }]
+    }
+    assert _extract_openai_text(openai_data) == '{"zh":"中文","en":"English"}'
+
+    session = GameSession('review-resilient', 'human_vs_ai', {'provider_name': 'gemini', 'model': 'gemini-2.5-flash', 'api_key': 'secret'})
+    session._restart_turn_timer = lambda: None
+    session.add_player('hero', 'Hero')
+    session.add_player('ai_seat', 'AI')
+    events = session.adapter.start_hand()
+    session._on_hand_started(next(event for event in events if event.type == 'hand_started'))
+    for player in session.adapter.table.players:
+        player.chips = 2000 if player.name == 'hero' else 0
+
+    fenced_single_locale = f"```json\n{extracted_gemini}\n```\nNote: {{ignore_extra_braces}}"
+    monkeypatch.setattr(module._ai_engine, 'review_match', AsyncMock(return_value=fenced_single_locale))
+    session._end_game()
+    await asyncio.sleep(0)
+
+    report = next(event.payload for event in session.adapter.event_log() if event.type == 'ai_match_review')
+    assert report['status'] == 'ready'
+    assert report['zh']['style_label'] == '紧凶型'
+    assert report['zh']['improvements'] == ['河牌多做薄价值下注。']
+    assert report['en']['style_label'] == '紧凶型'
+
+

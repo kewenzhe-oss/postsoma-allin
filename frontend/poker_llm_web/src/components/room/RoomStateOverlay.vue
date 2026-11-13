@@ -6,6 +6,7 @@
       :result="onlineStore.latestGameResult"
       @rematch="$emit('rematch')"
       @back-to-lobby="$emit('back-to-lobby')"
+      @retry-review="$emit('retry-review')"
     />
 
     <div v-else-if="onlineStore.errorMessage?.includes('AI')" class="blocking-state error" role="alert">
@@ -45,7 +46,7 @@ const props = defineProps({
   perceptualState: { type: String, required: true }
 })
 
-defineEmits(['rematch', 'back-to-lobby'])
+defineEmits(['rematch', 'back-to-lobby', 'retry-review'])
 
 const onlineStore = useOnlineStore()
 

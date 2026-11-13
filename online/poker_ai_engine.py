@@ -10,6 +10,7 @@ and nested arrays broke the simple regex parser.
 import os
 import asyncio
 import logging
+from typing import Optional
 import httpx
 
 from online.ai_schemas import AIDecisionRequest, AIDecision
@@ -36,20 +37,21 @@ class PokerAIEngine:
             'Each of "zh" and "en" MUST be an object with these exact 5 keys:\n'
             '{\n'
             '  "style_label": "2-6 word player archetype tag (e.g. 松凶激进型 / Loose-Aggressive)",\n'
-            '  "style_verdict": "2-3 sentences diagnosing the player\'s overall playing style, risk profile, and mindset across the match.",\n'
-            '  "play_pattern": "2-3 sentences detailing preflop entry/raise/shove habits, postflop aggression vs passivity, bet sizing, and showdown tendencies.",\n'
-            '  "data_summary": "2-3 sentences interpreting the numerical metrics (VPIP, PFR, fold-to-pressure, showdown win rate, river pressure, all-ins) into concrete takeaways.",\n'
-            '  "improvements": ["3 concrete, actionable adjustments citing real hand numbers or spots from hand_summaries and explaining the better alternative line."]\n'
+            '  "style_verdict": "1-2 concise sentences diagnosing the player\'s overall playing style and risk appetite across the match.",\n'
+            '  "play_pattern": "1-2 concise sentences detailing preflop entry/raise/shove habits, postflop aggression vs passivity, bet sizing, and showdown tendencies.",\n'
+            '  "data_summary": "1-2 concise sentences interpreting the numerical metrics (VPIP, PFR, fold-to-pressure, showdown win rate, river pressure, all-ins).",\n'
+            '  "improvements": ["3 concise, actionable adjustments citing real hand numbers or spots from hand_summaries and explaining the better alternative line."]\n'
             '}\n'
             'Rules:\n'
+            '- Output raw JSON only (no markdown fences, no commentary outside JSON).\n'
             '- Ground every claim in statistics, match_outcome, and hand_summaries (never fabricate hidden cards).\n'
             '- Be direct, specific, and insightful like a poker coach. Avoid generic filler or hedging disclaimers such as "sample is small so cannot judge definitively".\n\n'
             + json.dumps(observations, ensure_ascii=False)
         )
         if protocol == 'gemini':
-            raw = await _call_gemini(endpoint, ai_config.get('api_key', ''), prompt, max_tokens=1800)
+            raw = await _call_gemini(endpoint, ai_config.get('api_key', ''), prompt, max_tokens=3600, timeout_seconds=60.0)
         else:
-            raw = await _call_openai_compat(endpoint, ai_config.get('api_key', ''), model, prompt, max_tokens=1800)
+            raw = await _call_openai_compat(endpoint, ai_config.get('api_key', ''), model, prompt, max_tokens=3600, timeout_seconds=60.0)
         return raw
 
     async def decide(self, request: AIDecisionRequest, ai_config: dict) -> AIDecision:
@@ -197,21 +199,43 @@ def _build_prompt(req: AIDecisionRequest) -> str:
 
 # ── LLM callers ───────────────────────────────────────────────────────────────
 
-def _get_http_timeout() -> httpx.Timeout:
+def _get_http_timeout(timeout_seconds: Optional[float] = None) -> httpx.Timeout:
+    if timeout_seconds is not None:
+        return httpx.Timeout(timeout_seconds + 5.0, connect=10.0, read=timeout_seconds, write=10.0)
     total_timeout = float(os.getenv("AI_TIMEOUT", "25.0"))
     connect_timeout = float(os.getenv("AI_CONNECT_TIMEOUT", "10.0"))
     read_timeout = float(os.getenv("AI_READ_TIMEOUT", "25.0"))
     return httpx.Timeout(total_timeout, connect=connect_timeout, read=read_timeout, write=10.0)
 
 
-async def _call_openai_compat(endpoint: str, api_key: str, model: str, prompt: str, max_tokens: int = 1000) -> str:
+def _extract_openai_text(data: dict) -> str:
+    message = data["choices"][0]["message"]
+    content = message.get("content")
+    if isinstance(content, list):
+        chunks = [item.get("text", "") for item in content if isinstance(item, dict) and isinstance(item.get("text"), str)]
+        return "".join(chunks).strip()
+    if isinstance(content, str):
+        return content.strip()
+    return ""
+
+
+def _extract_gemini_text(data: dict) -> str:
+    parts = data["candidates"][0]["content"]["parts"]
+    non_thought = [part["text"] for part in parts if isinstance(part, dict) and isinstance(part.get("text"), str) and not part.get("thought")]
+    selected = non_thought or [part["text"] for part in parts if isinstance(part, dict) and isinstance(part.get("text"), str)]
+    if not selected:
+        raise KeyError("text")
+    return "\n".join(selected).strip()
+
+
+async def _call_openai_compat(endpoint: str, api_key: str, model: str, prompt: str, max_tokens: int = 1000, timeout_seconds: Optional[float] = None) -> str:
     payload = {
         "model": model,
         "messages": [{"role": "user", "content": prompt}],
         "max_tokens": max_tokens,
         "temperature": 0.8,
     }
-    timeout = _get_http_timeout()
+    timeout = _get_http_timeout(timeout_seconds)
     last_exc = None
     for attempt in range(2):
         try:
@@ -222,7 +246,7 @@ async def _call_openai_compat(endpoint: str, api_key: str, model: str, prompt: s
                     json=payload,
                 )
                 resp.raise_for_status()
-                return resp.json()["choices"][0]["message"]["content"].strip()
+                return _extract_openai_text(resp.json())
         except (httpx.TimeoutException, httpx.RequestError) as exc:
             last_exc = exc
             if attempt == 0:
@@ -233,7 +257,7 @@ async def _call_openai_compat(endpoint: str, api_key: str, model: str, prompt: s
                 raise last_exc
 
 
-async def _call_gemini(endpoint: str, api_key: str, prompt: str, max_tokens: int = 1000) -> str:
+async def _call_gemini(endpoint: str, api_key: str, prompt: str, max_tokens: int = 1000, timeout_seconds: Optional[float] = None) -> str:
     url = f"{endpoint}?key={api_key}"
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
@@ -248,7 +272,7 @@ async def _call_gemini(endpoint: str, api_key: str, prompt: str, max_tokens: int
             {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
         ]
     }
-    timeout = _get_http_timeout()
+    timeout = _get_http_timeout(timeout_seconds)
     last_exc = None
     for attempt in range(2):
         try:
@@ -257,7 +281,7 @@ async def _call_gemini(endpoint: str, api_key: str, prompt: str, max_tokens: int
                 resp.raise_for_status()
                 data = resp.json()
                 try:
-                    return data["candidates"][0]["content"]["parts"][0]["text"].strip()
+                    return _extract_gemini_text(data)
                 except (KeyError, IndexError):
                     import json
                     with open("debug_gemini_error.json", "w") as f:

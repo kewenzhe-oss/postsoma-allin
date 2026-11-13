@@ -395,13 +395,18 @@ export const useOnlineStore = defineStore('online', () => {
         if (gs === 'game_over' && !latestGameResult.value) {
           const mw = data.payload.state.public_state?.match_winner
           if (mw) {
+            const cachedReviewEv = [...rawEventLog.value].reverse().find(item => item.type === 'ai_match_review')
+            const cachedGameOverEv = [...rawEventLog.value].reverse().find(item => item.type === 'game_over')
             latestGameResult.value = {
               winner: mw,
               final_stacks: (data.payload.state.public_state?.players || []).map(p => ({
                 player_id: p.player_id,
                 display_name: p.display_name,
                 chips: p.chips
-              }))
+              })),
+              player_statistics: cachedGameOverEv?.payload?.player_statistics || null,
+              deciding_hand: cachedGameOverEv?.payload?.deciding_hand || null,
+              review: cachedReviewEv?.payload || { status: cachedGameOverEv?.payload?.review_status || 'unavailable' }
             }
           }
         }
@@ -437,7 +442,10 @@ export const useOnlineStore = defineStore('online', () => {
         }
 
         if (ev.type === 'ai_match_review' && latestGameResult.value) {
-          latestGameResult.value.review = ev.payload || { status: 'error' }
+          latestGameResult.value = {
+            ...latestGameResult.value,
+            review: ev.payload || { status: 'error' }
+          }
         }
 
         // ── hand_finished ─────────────────────────────────
@@ -504,6 +512,18 @@ export const useOnlineStore = defineStore('online', () => {
   function startNextHand() {
     if (socket && socket.readyState === WebSocket.OPEN) {
       socket.send(JSON.stringify({ type: 'start_next_hand' }))
+    }
+  }
+
+  function retryMatchReview() {
+    if (latestGameResult.value) {
+      latestGameResult.value = {
+        ...latestGameResult.value,
+        review: { status: 'pending' }
+      }
+    }
+    if (socket && socket.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify({ type: 'retry_match_review' }))
     }
   }
 
@@ -650,6 +670,7 @@ export const useOnlineStore = defineStore('online', () => {
     connectWebSocket,
     submitAction,
     startNextHand,
+    retryMatchReview,
     leaveRoom,
     disconnect
   }

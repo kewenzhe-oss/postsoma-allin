@@ -157,6 +157,9 @@ async def websocket_endpoint(websocket: WebSocket, room_id: str, token: str):
             if data.get('type') == 'start_next_hand':
                 session.trigger_next_hand()
                 continue
+            if data.get('type') == 'retry_match_review':
+                session.retry_match_review()
+                continue
             # Expecting WSPlayerAction shape: {"action": "CALL", "amount": 10}
             action_req = WSPlayerAction(**data)
             

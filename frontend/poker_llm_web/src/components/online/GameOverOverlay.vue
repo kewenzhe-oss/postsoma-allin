@@ -95,9 +95,19 @@
         <p v-else-if="result.review?.status === 'pending'" class="review-status-note">
           {{ isZh ? 'AI 正在结合全场牌局整理深度复盘…' : 'AI is analyzing your hands for a full match review…' }}
         </p>
-        <p v-else class="review-status-note">
-          {{ isZh ? 'AI 复盘暂时无法生成，你仍可查看上方本场统计。' : 'AI review is unavailable. Your match statistics are shown above.' }}
-        </p>
+        <div v-else class="review-fallback-row">
+          <p class="review-status-note">
+            {{ isZh ? 'AI 复盘暂时无法生成，你仍可查看上方本场统计。' : 'AI review is unavailable. Your match statistics are shown above.' }}
+          </p>
+          <button
+            v-if="result.review?.status === 'error'"
+            type="button"
+            class="btn-retry-review"
+            @click="emit('retry-review')"
+          >
+            {{ isZh ? '重试生成' : 'Retry Review' }}
+          </button>
+        </div>
       </section>
 
       <!-- Deciding Hand Recap -->
@@ -207,7 +217,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['rematch', 'back-to-lobby'])
+const emit = defineEmits(['rematch', 'back-to-lobby', 'retry-review'])
 
 const rate = (count, total) => total > 0 ? `${Math.round(count / total * 100)}%` : '—'
 
@@ -352,6 +362,27 @@ const isDecidingPlayerWinner = (playerId) => {
   color: var(--text-tertiary);
   font-size: 0.82rem;
   line-height: 1.5;
+}
+.review-fallback-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.btn-retry-review {
+  min-height: 36px;
+  padding: 0.35rem 0.85rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(217, 173, 88, 0.38);
+  background: rgba(217, 173, 88, 0.12);
+  color: var(--accent-primary-strong);
+  font-size: 0.78rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+.btn-retry-review:hover {
+  background: rgba(217, 173, 88, 0.22);
 }
 .improvement-list {
   display: flex;

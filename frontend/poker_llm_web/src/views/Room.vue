@@ -43,6 +43,7 @@
       :perceptualState="perceptualState"
       @rematch="handleRematch"
       @back-to-lobby="handleBackToLobby"
+      @retry-review="onlineStore.retryMatchReview()"
     />
 
     <!-- Teleportable Tactical Tool Modal -->
